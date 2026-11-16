@@ -1,0 +1,12 @@
+{
+  "name": "nfl-playoff-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pick-the-games NFL playoff simulator with sportsbook-based win odds and live scores",
+  "scripts": {
+    "start": "node server.js",
+    "build": "python3 scripts/build.py",
+    "test": "node test/run.js"
+  },
+  "engines": { "node": ">=18" }
+}

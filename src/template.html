@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Giants Playoff Odds Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: one narrow column. Scoreboard numbers on top, pick-the-winner rows by week, then standings that rebuild from the picks. */
+:root{
+  --paper:#f3f5f8; --card:#ffffff; --ink:#111a2b; --muted:#5b667a; --line:#d7dce5;
+  --accent:#1746c4; --accent-soft:#dfe7fb; --good:#127a4a; --bad:#b3261e;
+  --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
+  --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0d121c; --card:#161d2b; --ink:#e9edf5; --muted:#97a2b6; --line:#2a3447;
+    --accent:#7ea2ff; --accent-soft:#1d2b4f; --good:#55c995; --bad:#ff8a80; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0d121c; --card:#161d2b; --ink:#e9edf5; --muted:#97a2b6; --line:#2a3447;
+  --accent:#7ea2ff; --accent-soft:#1d2b4f; --good:#55c995; --bad:#ff8a80; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
+main{max-width:680px;margin:0 auto;padding:20px 16px 48px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-weight:700;font-size:34px;line-height:1.05;margin:0;text-wrap:balance;letter-spacing:.01em;text-transform:uppercase}
+h2{font-family:var(--display);font-weight:600;font-size:21px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.03em}
+.sub{color:var(--muted);margin:6px 0 0;font-size:14px}
+.pickteam{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:14px;color:var(--muted)}
+select{font:500 15px var(--body);color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 10px;min-width:0}
+.tile b{display:block;font-family:var(--display);font-weight:700;font-size:36px;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap}
+.tile.lead{border-color:var(--accent);background:var(--accent-soft)}
+.tile.lead b{color:var(--accent)}
+.tile span{display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.25}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.brow{display:grid;grid-template-columns:58px 1fr 40px;align-items:center;gap:8px;padding:3px 0;font-size:13px;font-variant-numeric:tabular-nums}
+.bar{height:11px;background:var(--paper);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .25s}
+.brow .pc{text-align:right;font-weight:600}
+.brow.miss .bar i{background:var(--muted)}
+.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin:0 -2px 10px}
+.tabs button{flex:0 0 auto;font:600 13px var(--body);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.tabs button[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.tabs button .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--good);margin-left:6px;vertical-align:middle}
+.tools{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:8px}
+.tools .grp{display:flex;gap:8px;flex-wrap:wrap}
+.btn{font:500 13px var(--body);color:var(--accent);background:transparent;border:1px solid var(--accent);border-radius:8px;padding:7px 10px;cursor:pointer}
+.btn.quiet{color:var(--muted);border-color:var(--line)}
+.count{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.game{display:flex;align-items:center;gap:10px;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line)}
+.game.mine{background:var(--accent-soft);margin:0 -14px;padding:8px 14px}
+.game .lab{font-size:12px;color:var(--muted);min-width:0;font-variant-numeric:tabular-nums}
+.game .lab .up{color:var(--good)} .game .lab .dn{color:var(--bad)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);flex:0 0 auto}
+.seg button{font:600 13px var(--body);color:var(--ink);background:transparent;border:0;padding:9px 0;width:58px;cursor:pointer;border-left:1px solid var(--line)}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--card)}
+.seg button.mid{width:34px;color:var(--muted);font-weight:500;font-size:12px}
+.seg button small{display:block;font-weight:500;font-size:12px;opacity:.8;font-variant-numeric:tabular-nums;margin-top:1px}
+.seg button{padding:6px 0;line-height:1.2}
+.game .src{font-size:11px}
+.lnk{display:block;font:500 12px var(--body);color:var(--accent);background:none;border:0;padding:3px 0 0;cursor:pointer;text-decoration:underline;text-align:left}
+.livef{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:4px 0 12px}
+.livef label{display:flex;flex-direction:column;font-size:11px;color:var(--muted);gap:3px}
+.livef input,.livef select{width:64px;font:500 15px var(--body);padding:7px 6px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.livef .acts{display:flex;gap:8px;flex-wrap:wrap;width:100%}
+.livef .src{width:100%;font-size:12px;color:var(--bad)}
+button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+th{font-weight:500;color:var(--muted);font-size:11.5px;text-align:right;padding:4px 4px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left;padding-left:0}
+td{padding:6px 4px;text-align:right;border-bottom:1px solid var(--line)}
+tr.dv td{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:0;padding-top:12px}
+tr.me td{font-weight:600;color:var(--accent)}
+td.final{font-weight:600}
+.seeds{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.seeds h3{font:600 13px var(--body);color:var(--muted);margin:0 0 4px}
+.seeds ol{margin:0;padding-left:20px;font-size:14px;font-variant-numeric:tabular-nums}
+.seeds li.me{font-weight:600;color:var(--accent)}
+.hint{color:var(--muted);font-size:13px;margin:0}
+footer{color:var(--muted);font-size:12.5px;max-width:65ch}
+footer p{margin:0 0 8px}
+@media (max-width:400px){.tile b{font-size:29px} h1{font-size:29px} .seg button{width:52px} .two{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.bar i{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Giants Playoff Odds Simulator</h1>
+    <p class="sub">Pick the winner of any remaining game in the league. Each team shows its chance to win, based on sportsbook odds. Records, standings and playoff odds rebuild from your picks, and games you leave alone are simulated thousands of times. Results through Nov. 15, 2026.</p>
+    <p class="sub" id="feed">Scores are not updating on their own right now. While a game is on, tap Enter live score and the odds move with the score and clock.</p>
+    <label class="pickteam" for="team">Follow <select id="team"></select></label>
+  </header>
+
+  <section class="tiles" aria-live="polite">
+    <div class="tile lead"><b id="tPo">–</b><span>Make the playoffs</span></div>
+    <div class="tile"><b id="tDiv">–</b><span>Win the division</span></div>
+    <div class="tile"><b id="tRec">–</b><span id="tRecLab">Projected record</span></div>
+  </section>
+
+  <section class="two">
+    <div class="card"><h2>Playoff seed</h2><div id="seedBars"></div></div>
+    <div class="card"><h2>Final record</h2><div id="hist"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="tools">
+      <h2 style="margin:0">Pick the games</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="tabs" id="weeks" role="group" aria-label="Week"></div>
+    <div class="tools">
+      <div class="grp">
+        <button class="btn" id="fav" type="button">Pick favorites this week</button>
+        <button class="btn quiet" id="clrW" type="button">Clear week</button>
+      </div>
+      <button class="btn quiet" id="clrAll" type="button">Clear all picks</button>
+    </div>
+    <div id="games"></div>
+  </section>
+
+  <section class="card">
+    <div class="tools">
+      <h2 style="margin:0">Standings with your picks</h2>
+      <div class="tabs" id="confs" role="group" aria-label="Conference" style="margin:0;padding:0"></div>
+    </div>
+    <table>
+      <thead><tr><th>Team</th><th>Record</th><th>Proj. wins</th><th>Division</th><th>Playoffs</th></tr></thead>
+      <tbody id="stand"></tbody>
+    </table>
+    <p class="hint" style="margin-top:10px">Record counts finished games plus your picks. Projected wins adds the simulated average for games you have not picked.</p>
+  </section>
+
+  <section class="card">
+    <h2>Playoff seeds</h2>
+    <p class="hint" id="seedHint"></p>
+    <div class="seeds" id="seeds"></div>
+  </section>
+
+  <footer>
+    <p><strong>Where the percentages come from.</strong> Games marked Sportsbook line use the posted moneyline with the bookmaker's margin removed. Games marked Rating estimate have no line yet, so the win chance comes from team ratings fitted to this season's sportsbook point spreads, weighted toward recent weeks, plus home-field advantage. Lines as of Nov. 16, 2026.</p>
+    <p><strong>Live scores.</strong> A game with a score entered uses an in-game win chance built from the current margin, the time left and the pregame line. Mark it final and it counts in the standings as a result.</p>
+    <p>Unpicked games are simulated 4,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
+    <p>Ties in the standings are broken by head-to-head, division record, common games and conference record. Later steps such as strength of victory are replaced by a coin flip, so a close race can differ from the official order. Injuries and quarterback changes are not modeled, and picks cannot be ties.</p>
+    <p>An independent fan project. Not affiliated with the NFL, any team or any publisher.</p>
+  </footer>
+</main>
+
+<script id="engine">
+var D=/*DATA*/;
+var NT=32,TM=D.teams,GAMES=D.games,HFA=D.hfa;
+var BASE_PTS=new Float32Array(NT),BW=new Int16Array(NT),BL=new Int16Array(NT),BT=new Int16Array(NT),RES0=new Float32Array(NT*NT),CNT0=new Uint8Array(NT*NT),PD=new Float32Array(NT);
+D.played.forEach(function(g){var a=g[0],h=g[1],x=g[2],y=g[3],s=x>y?1:x<y?0:.5;
+  BASE_PTS[a]+=s;BASE_PTS[h]+=1-s;RES0[a*NT+h]+=s;RES0[h*NT+a]+=1-s;CNT0[a*NT+h]++;CNT0[h*NT+a]++;PD[a]+=x-y;PD[h]+=y-x;
+  if(s===1){BW[a]++;BL[h]++}else if(s===0){BL[a]++;BW[h]++}else{BT[a]++;BT[h]++}});
+var RATE=Float32Array.from(D.rate);
+// GD: rating gap in favor of the home team. A sportsbook moneyline, where one is posted, replaces the rating estimate.
+var GD=GAMES.map(function(g){var p=g[6];return p!=null?400*Math.log10(p/(1-p)):RATE[g[3]]-RATE[g[2]]+(g[4]?0:HFA)});
+var DIVT=[],CONFT=[[],[]],DM=[],CM=[];
+(function(){var t,o;for(t=0;t<NT;t++){(DIVT[TM[t].d]=DIVT[TM[t].d]||[]).push(t);CONFT[TM[t].c].push(t)}
+  for(t=0;t<NT;t++){DM[t]=DIVT[TM[t].d].filter(function(o){return o!==t});CM[t]=CONFT[TM[t].c].filter(function(o){return o!==t})}})();
+function baseProb(i){return 1/(1+Math.pow(10,-GD[i]/400))}
+function phi(z){var x=Math.abs(z)/Math.SQRT2,k=1/(1+.3275911*x),e=1-(((((1.061405429*k-1.453152027)*k)+1.421413741)*k-.284496736)*k+.254829592)*k*Math.exp(-x*x);return z>=0?.5*(1+e):.5*(1-e)}
+// In-game home win chance: current margin plus the share of the pregame spread still to be played, over the scoring spread left in the game.
+function liveProbFor(i,L){var fr=L.q>=5?.04:((4-L.q)*15+Math.min(15,Math.max(0,L.m)))/60,sp=GD[i]/25,mg=L.h-L.a;
+  if(fr<=0)return mg>0?.999:mg<0?.001:.5;return Math.min(.999,Math.max(.001,1/(1+Math.pow(10,-25*(mg+sp*fr)/Math.sqrt(fr)/400))))}
+function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+// picks[i]: 0 simulate, 1 away wins, 2 home wins
+function simulate(picks,focus,nOverride,liveP){
+  var open=0,i;for(i=0;i<GAMES.length;i++)if(!picks[i])open++;
+  var N=nOverride||(open?4000:200),rnd=rng(20261116);
+  var po=new Float64Array(NT),dv=new Float64Array(NT),sw=new Float64Array(NT),seedC=[],hist={},lev=GAMES.map(function(){return[0,0,0,0]});
+  for(i=0;i<NT;i++)seedC.push([0,0,0,0,0,0,0]);
+  var first=[null,null],pts,res,cnt,adj=new Float32Array(NT),out=new Uint8Array(GAMES.length),inP=new Uint8Array(NT);
+  function gauss(){return Math.sqrt(-2*Math.log(rnd()+1e-12))*Math.cos(6.283185307*rnd())*35}
+  function share(t,os){var s=0,g=0,k,o;for(k=0;k<os.length;k++){o=os[k];if(o!==t){s+=res[t*NT+o];g+=cnt[t*NT+o]}}return g?s/g:-1}
+  function common(ts,min){var os=[],o,k,ok;for(o=0;o<NT;o++){if(ts.indexOf(o)>=0)continue;ok=1;for(k=0;k<ts.length;k++)if(!cnt[ts[k]*NT+o]){ok=0;break}if(ok)os.push(o)}
+    if(min){for(k=0;k<ts.length;k++){var g=0;for(o=0;o<os.length;o++)g+=cnt[ts[k]*NT+os[o]];if(g<min)return null}}return os}
+  function narrow(ts,key){var m=-9,ks=[],k,v;for(k=0;k<ts.length;k++){v=Math.round(key(ts[k])*1e6);ks.push(v);if(v>m)m=v}return ts.filter(function(t,j){return ks[j]===m})}
+  function divBreak(ts){var k=0,nx,os;
+    while(ts.length>1&&k<4){
+      if(k===0)nx=narrow(ts,function(t){return share(t,ts)});
+      else if(k===1)nx=narrow(ts,function(t){return share(t,DM[t])});
+      else if(k===2){os=common(ts,0);nx=os.length?narrow(ts,function(t){return share(t,os)}):ts}
+      else nx=narrow(ts,function(t){return share(t,CM[t])});
+      if(nx.length<ts.length){ts=nx;k=0}else k++}
+    return ts.length>1?ts[Math.floor(rnd()*ts.length)]:ts[0]}
+  function wildBreak(ts){var by={},c=[],k,d,os,nx;
+    for(k=0;k<ts.length;k++){d=TM[ts[k]].d;(by[d]=by[d]||[]).push(ts[k])}
+    for(d in by)c.push(by[d].length>1?divBreak(by[d]):by[d][0]);
+    k=0;
+    while(c.length>1&&k<3){
+      nx=c;
+      if(k===0){
+        if(c.length===2){if(cnt[c[0]*NT+c[1]])nx=narrow(c,function(t){return share(t,c)})}
+        else{for(var j=0;j<c.length;j++){var sweep=1;for(var m=0;m<c.length;m++){if(m===j)continue;var n=cnt[c[j]*NT+c[m]];if(!n||res[c[j]*NT+c[m]]<n){sweep=0;break}}if(sweep){nx=[c[j]];break}}}
+      }else if(k===1)nx=narrow(c,function(t){return share(t,CM[t])});
+      else{os=common(c,4);if(os)nx=narrow(c,function(t){return share(t,os)})}
+      if(nx.length<c.length){c=nx;k=0}else k++}
+    return c.length>1?c[Math.floor(rnd()*c.length)]:c[0]}
+  function order(list,need){var pool=list.slice(),r=[],m,k,tied,p;
+    while(pool.length&&r.length<need){m=-1;for(k=0;k<pool.length;k++)if(pts[pool[k]]>m)m=pts[pool[k]];
+      tied=pool.filter(function(t){return pts[t]===m});p=tied.length>1?wildBreak(tied):tied[0];r.push(p);pool.splice(pool.indexOf(p),1)}
+    return r}
+  for(var n=0;n<N;n++){
+    pts=BASE_PTS.slice();res=RES0.slice();cnt=CNT0.slice();
+    for(i=0;i<NT;i++){adj[i]=gauss();inP[i]=0}
+    for(i=0;i<GAMES.length;i++){var g=GAMES[i],a=g[2],h=g[3],hw=picks[i]===1?0:picks[i]===2?1:(liveP&&liveP[i]!=null)?(rnd()<liveP[i]?1:0):(rnd()<1/(1+Math.pow(10,-(GD[i]+adj[h]-adj[a])/400))?1:0);
+      out[i]=hw;var w=hw?h:a,l=hw?a:h;pts[w]++;res[w*NT+l]++;cnt[w*NT+l]++;cnt[l*NT+w]++}
+    for(var c=0;c<2;c++){var winners=[],rest=[];
+      for(var d=c*4;d<c*4+4;d++){var ts=DIVT[d],m=Math.max(pts[ts[0]],pts[ts[1]],pts[ts[2]],pts[ts[3]]),tied=ts.filter(function(t){return pts[t]===m});
+        var ch=tied.length>1?divBreak(tied):tied[0];winners.push(ch);dv[ch]++}
+      CONFT[c].forEach(function(t){if(winners.indexOf(t)<0)rest.push(t)});
+      var seeds=order(winners,4).concat(order(rest,3));
+      if(n===0)first[c]=seeds;
+      for(i=0;i<7;i++){seedC[seeds[i]][i]++;po[seeds[i]]++;inP[seeds[i]]=1}}
+    for(i=0;i<NT;i++)sw[i]+=pts[i];
+    var k2=Math.round(pts[focus]*2);hist[k2]=(hist[k2]||0)+1;
+    for(i=0;i<GAMES.length;i++){var ga=GAMES[i];if(ga[2]!==focus&&ga[3]!==focus)continue;
+      var won=(ga[3]===focus&&out[i])||(ga[2]===focus&&!out[i]);if(won){lev[i][0]++;lev[i][1]+=inP[focus]}else{lev[i][2]++;lev[i][3]+=inP[focus]}}
+  }
+  return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first};
+}
+</script>
+<script>
+(function(){
+  var KEY="nfl-picks-2026",picks=GAMES.map(function(){return 0}),focus=17,week=0,conf=1,last=null,live={},openLive=null;
+  function dispProb(i){var L=live[GAMES[i][0]];return L&&!L.f?liveProbFor(i,L):baseProb(i)}
+  function liveArr(){return GAMES.map(function(g,i){var L=live[g[0]];return L&&!L.f?liveProbFor(i,L):null})}
+  for(var t=0;t<NT;t++)if(TM[t].a==="NYG")focus=t;
+  try{var s=JSON.parse(localStorage.getItem(KEY)||"null");if(s){GAMES.forEach(function(g,i){if(s.p&&s.p[g[0]])picks[i]=s.p[g[0]]});if(s.f>=0&&s.f<NT)focus=s.f;if(s.l)live=s.l}}catch(e){}
+  conf=TM[focus].c;
+  var WEEKS=[];GAMES.forEach(function(g){if(WEEKS.indexOf(g[1])<0)WEEKS.push(g[1])});
+  week=WEEKS[0];
+  (function(){for(var k=0;k<WEEKS.length;k++){var has=GAMES.some(function(g){return g[1]===WEEKS[k]&&(g[2]===focus||g[3]===focus)});if(has){week=WEEKS[k];break}}})();
+  function $(id){return document.getElementById(id)}
+  function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+  function pct(x){var v=x*100;return v<=0?"0%":v<1?"<1%":v>=100?"100%":v>99?">99%":Math.round(v)+"%"}
+  function save(){try{var p={};GAMES.forEach(function(g,i){if(picks[i])p[g[0]]=picks[i]});localStorage.setItem(KEY,JSON.stringify({p:p,f:focus,l:live}))}catch(e){}}
+  function locked(t){var w=BW[t],l=BL[t],left=0;GAMES.forEach(function(g,i){if(g[2]!==t&&g[3]!==t)return;if(!picks[i]){left++;return}var won=(picks[i]===2)===(g[3]===t);if(won)w++;else l++});return{w:w,l:l,t:BT[t],left:left}}
+  function recStr(r){return r.w+"-"+r.l+(r.t?"-"+r.t:"")}
+
+  var sel=$("team");
+  TM.map(function(t,i){return[t.n,i]}).sort(function(a,b){return a[0]<b[0]?-1:1}).forEach(function(x){var o=el("option","",x[0]);o.value=x[1];sel.appendChild(o)});
+  sel.value=focus;
+  sel.addEventListener("change",function(){focus=+sel.value;conf=TM[focus].c;save();rerun()});
+
+  function tabs(box,items,cur,onPick,dot){box.textContent="";items.forEach(function(it){var b=el("button","",it[1]);b.type="button";b.setAttribute("aria-pressed",it[0]===cur?"true":"false");
+    if(dot&&dot(it[0]))b.appendChild(el("span","dot"));b.addEventListener("click",function(){onPick(it[0])});box.appendChild(b)})}
+
+  function drawGames(){
+    tabs($("weeks"),WEEKS.map(function(w){return[w,"Week "+w]}),week,function(w){week=w;drawGames()},function(w){return GAMES.every(function(g,i){return g[1]!==w||picks[i]})});
+    var box=$("games");box.textContent="";
+    var idx=[];GAMES.forEach(function(g,i){if(g[1]===week)idx.push(i)});
+    idx.sort(function(a,b){var ma=GAMES[a][2]===focus||GAMES[a][3]===focus,mb=GAMES[b][2]===focus||GAMES[b][3]===focus;return(mb?1:0)-(ma?1:0)||a-b});
+    idx.forEach(function(i){var g=GAMES[i],mine=g[2]===focus||g[3]===focus,row=el("div","game"+(mine?" mine":"")),lab=el("div","lab",g[5]+(g[4]?" · neutral":"")),ph=dispProb(i),L=live[g[0]];
+      lab.appendChild(el("div","src",L?(L.f?"Final: ":"Live: ")+TM[g[2]].a+" "+L.a+", "+TM[g[3]].a+" "+L.h+(L.f?"":" · "+(L.q>=5?"OT":"Q"+L.q)+" "+(L.c||L.m+":00")):(g[6]!=null?"Sportsbook line":"Rating estimate")));
+      var lk=el("button","lnk",L?"Edit score":"Enter live score");lk.type="button";lk.addEventListener("click",function(){openLive=openLive===g[0]?null:g[0];drawGames()});lab.appendChild(lk);
+      if(mine&&last){var L=last.lev[i],d=el("div");
+        if(picks[i])d.textContent="Locked in";
+        else{d.appendChild(el("span","up","Win "+pct(L[0]?L[1]/L[0]:0)));d.appendChild(document.createTextNode(" · "));d.appendChild(el("span","dn","Loss "+pct(L[2]?L[3]/L[2]:0)))}
+        lab.appendChild(d)}
+      var seg=el("div","seg");seg.setAttribute("role","group");seg.setAttribute("aria-label",TM[g[2]].n+" at "+TM[g[3]].n+" winner");
+      [[1,TM[g[2]].a,""],[0,"at","mid"],[2,TM[g[3]].a,""]].forEach(function(o){var b=el("button",o[2],o[1]);b.type="button";
+        if(o[0])b.appendChild(el("small","",Math.round((o[0]===2?ph:1-ph)*100)+"%"));
+        if(o[0]===0){b.setAttribute("aria-label","Simulate this game");b.setAttribute("aria-pressed","false")}
+        else b.setAttribute("aria-pressed",picks[i]===o[0]?"true":"false");
+        b.addEventListener("click",function(){picks[i]=(o[0]===0||picks[i]===o[0])?0:o[0];save();rerun()});seg.appendChild(b)});
+      row.appendChild(lab);row.appendChild(seg);box.appendChild(row);
+      if(openLive===g[0]){var v0=L||{a:0,h:0,q:1,m:15},f=el("div","livef"),msg=el("div","src");
+        var numIn=function(id,text,val,max){var w=el("label","",text),n=el("input");n.type="number";n.inputMode="numeric";n.min=0;n.max=max;n.value=val;n.id=id;w.htmlFor=id;w.appendChild(n);return w};
+        f.appendChild(numIn("lv-a",TM[g[2]].a,v0.a,99));f.appendChild(numIn("lv-h",TM[g[3]].a,v0.h,99));
+        var qw=el("label","","Quarter"),qs=el("select");qs.id="lv-q";["1","2","3","4","OT"].forEach(function(x,k){var o=el("option","",x);o.value=k+1;qs.appendChild(o)});qs.value=v0.q;qw.htmlFor="lv-q";qw.appendChild(qs);f.appendChild(qw);
+        f.appendChild(numIn("lv-m","Min. left",v0.m,15));
+        var read=function(){return{a:Math.max(0,Math.round(+$("lv-a").value||0)),h:Math.max(0,Math.round(+$("lv-h").value||0)),q:+$("lv-q").value,m:Math.min(15,Math.max(0,Math.round(+$("lv-m").value||0)))}};
+        var acts=el("div","acts"),bu=el("button","btn","Update odds"),bf=el("button","btn","Mark final"),br=el("button","btn quiet","Remove score");
+        bu.type=bf.type=br.type="button";
+        bu.addEventListener("click",function(){live[g[0]]=read();picks[i]=0;save();rerun()});
+        bf.addEventListener("click",function(){var v=read();if(v.a===v.h){msg.textContent="A tied score cannot be marked final. Enter the overtime result.";return}v.f=1;live[g[0]]=v;picks[i]=v.h>v.a?2:1;openLive=null;save();rerun()});
+        br.addEventListener("click",function(){if(live[g[0]]&&live[g[0]].f)picks[i]=0;delete live[g[0]];openLive=null;save();rerun()});
+        acts.appendChild(bu);acts.appendChild(bf);acts.appendChild(br);f.appendChild(acts);f.appendChild(msg);box.appendChild(f)}
+    });
+    var done=picks.filter(function(p){return p}).length;$("count").textContent=done+" of "+GAMES.length+" picked";
+  }
+
+  function bars(box,rows,cls){box.textContent="";var mx=0;rows.forEach(function(r){mx=Math.max(mx,r[1])});
+    rows.forEach(function(r){var row=el("div","brow"+(r[2]?" "+r[2]:"")),bar=el("div","bar"),f=el("i");f.style.width=(mx?r[1]/mx*100:0).toFixed(1)+"%";bar.appendChild(f);
+      row.appendChild(el("div","",r[0]));row.appendChild(bar);row.appendChild(el("div","pc",pct(r[1])));box.appendChild(row)})}
+
+  function render(r){
+    var T=TM[focus],lk=locked(focus);
+    $("title").textContent=T.n+" Playoff Odds Simulator";
+    $("tPo").textContent=pct(r.po[focus]/r.n);$("tDiv").textContent=pct(r.dv[focus]/r.n);
+    if(lk.left===0){$("tRec").textContent=recStr(lk);$("tRecLab").textContent="Final record with your picks"}
+    else{var w=r.sw[focus]/r.n-.5*BT[focus];$("tRec").textContent=w.toFixed(1)+"-"+(17-BT[focus]-w).toFixed(1)+(BT[focus]?"-"+BT[focus]:"");$("tRecLab").textContent="Projected record, "+lk.left+" games unpicked"}
+    var sc=r.seedC[focus],rows=[];for(var i=0;i<7;i++)rows.push(["No. "+(i+1),sc[i]/r.n]);rows.push(["Miss",1-r.po[focus]/r.n,"miss"]);bars($("seedBars"),rows);
+    var ks=Object.keys(r.hist).map(Number).sort(function(a,b){return b-a}),hr=[];
+    ks.slice(0,9).forEach(function(k){var wins=k/2-.5*BT[focus];hr.push([wins+"-"+(17-BT[focus]-wins)+(BT[focus]?"-"+BT[focus]:""),r.hist[k]/r.n])});
+    if(ks.length>9){hr=[];var top=ks.slice().sort(function(a,b){return r.hist[b]-r.hist[a]}).slice(0,9).sort(function(a,b){return b-a});top.forEach(function(k){var wins=k/2-.5*BT[focus];hr.push([wins+"-"+(17-BT[focus]-wins)+(BT[focus]?"-"+BT[focus]:""),r.hist[k]/r.n])})}
+    bars($("hist"),hr);
+    tabs($("confs"),[[1,"NFC"],[0,"AFC"]],conf,function(c){conf=c;render(last)});
+    var tb=$("stand");tb.textContent="";
+    for(var d=conf*4;d<conf*4+4;d++){var hd=el("tr","dv"),td=el("td","",TM[DIVT[d][0]].dn);td.colSpan=5;hd.appendChild(td);tb.appendChild(hd);
+      DIVT[d].slice().sort(function(a,b){return r.sw[b]-r.sw[a]||r.dv[b]-r.dv[a]}).forEach(function(t){var k=locked(t),tr=el("tr",t===focus?"me":"");
+        tr.appendChild(el("td","",TM[t].n));tr.appendChild(el("td",k.left?"":"final",recStr(k)));
+        tr.appendChild(el("td","",(r.sw[t]/r.n-.5*BT[t]).toFixed(1)));tr.appendChild(el("td","",pct(r.dv[t]/r.n)));tr.appendChild(el("td","",pct(r.po[t]/r.n)));tb.appendChild(tr)})}
+    var sb=$("seeds");sb.textContent="";
+    if(r.open){$("seedHint").textContent="Most likely playoff field right now. Pick all "+GAMES.length+" games to lock the exact seeds. "+r.open+" still open."}
+    else $("seedHint").textContent="Final seeds with every game picked.";
+    [1,0].forEach(function(c){var box=el("div"),ol=el("ol");box.appendChild(el("h3","",c?"NFC":"AFC"));
+      var list;
+      if(r.open)list=CONFT[c].slice().sort(function(a,b){return r.po[b]-r.po[a]}).slice(0,7).map(function(t){return[t,pct(r.po[t]/r.n)]});
+      else list=r.first[c].map(function(t){return[t,recStr(locked(t))]});
+      list.forEach(function(x){ol.appendChild(el("li",x[0]===focus?"me":"",TM[x[0]].n+"  "+x[1]))});
+      if(r.open)ol.style.listStyle="none",ol.style.paddingLeft="0";
+      box.appendChild(ol);sb.appendChild(box)});
+    drawGames();
+  }
+  var timer=0;
+  function rerun(){drawGames();clearTimeout(timer);timer=setTimeout(function(){last=simulate(picks,focus,0,liveArr());render(last)},20)}
+  $("fav").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week&&!picks[i])picks[i]=dispProb(i)>=.5?2:1});save();rerun()});
+  $("clrW").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week){picks[i]=0;delete live[g[0]]}});save();rerun()});
+  $("clrAll").addEventListener("click",function(){picks=GAMES.map(function(){return 0});live={};save();rerun()});
+  last=simulate(picks,focus,0,liveArr());render(last);
+
+  // Live feed: only present when the page is served by server.js, which exposes /api/live.
+  function applyFeed(list){var changed=false;
+    list.forEach(function(e){var i=-1;GAMES.forEach(function(g,k){if(i<0&&TM[g[2]].a===e.away&&TM[g[3]].a===e.home)i=k});if(i<0)return;
+      var id=GAMES[i][0],cur=live[id];
+      if(e.state==="in"){var nv={a:e.awayScore,h:e.homeScore,q:Math.min(5,Math.max(1,e.period)),m:Math.round(e.minutes*100)/100,c:e.clock,auto:1};
+        if(JSON.stringify(cur)!==JSON.stringify(nv)){live[id]=nv;picks[i]=0;changed=true}}
+      else if(e.state==="post"&&e.awayScore!==e.homeScore&&!(cur&&cur.f&&cur.auto)){live[id]={a:e.awayScore,h:e.homeScore,q:4,m:0,f:1,auto:1};picks[i]=e.homeScore>e.awayScore?2:1;changed=true}});
+    if(changed){save();rerun()}}
+  function poll(){
+    if(openLive!==null)return;
+    fetch("api/live",{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()}).then(function(d){
+      applyFeed(d.games||[]);var n=(d.games||[]).filter(function(e){return e.state==="in"}).length;
+      $("feed").textContent="Live scores on. "+(n?n+" game"+(n>1?"s":"")+" in progress. ":"No games in progress. ")+"Checked "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+"."+(d.stale?" The score feed did not answer; showing the last scores received.":"");
+    }).catch(function(){})}
+  if(location.protocol!=="file:"){poll();setInterval(poll,20000)}
+})();
+</script>
+</body>
+</html>
