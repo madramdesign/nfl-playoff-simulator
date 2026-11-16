@@ -18,7 +18,7 @@ Then open http://localhost:3000.
 
 - A game in progress gets an in-game win chance from the margin, the time left and the pregame line.
 - A finished game is locked into the standings.
-- If the feed does not answer, the page keeps the last scores and you can still enter scores by hand.
+- If the feed does not answer, the page keeps the last scores it received. There is no manual score entry.
 
 The ESPN feed is unofficial and undocumented. It can change or stop without notice. To use another source, set `LIVE_URL` to a feed with the same shape, or rewrite `normalize()` in `server.js`.
 
