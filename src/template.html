@@ -10,19 +10,19 @@
 /* Layout idea: one narrow column. Scoreboard numbers on top, pick-the-winner rows by week, then standings that rebuild from the picks. */
 :root{
   --paper:#f3f5f8; --card:#ffffff; --ink:#111a2b; --muted:#5b667a; --line:#d7dce5;
-  --accent:#1746c4; --accent-soft:#dfe7fb; --good:#127a4a; --bad:#b3261e;
+  --accent:#1746c4; --accent-soft:#dfe7fb; --good:#127a4a; --bad:#b3261e; --good-soft:#d6f0e2; --bad-soft:#f9dedb;
   --display:"Barlow Condensed","Arial Narrow",Arial,sans-serif;
   --body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --paper:#0d121c; --card:#161d2b; --ink:#e9edf5; --muted:#97a2b6; --line:#2a3447;
-    --accent:#7ea2ff; --accent-soft:#1d2b4f; --good:#55c995; --bad:#ff8a80; color-scheme:dark;
+    --accent:#7ea2ff; --accent-soft:#1d2b4f; --good:#55c995; --bad:#ff8a80; --good-soft:#173a2b; --bad-soft:#47201d; color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --paper:#0d121c; --card:#161d2b; --ink:#e9edf5; --muted:#97a2b6; --line:#2a3447;
-  --accent:#7ea2ff; --accent-soft:#1d2b4f; --good:#55c995; --bad:#ff8a80; color-scheme:dark;
+  --accent:#7ea2ff; --accent-soft:#1d2b4f; --good:#55c995; --bad:#ff8a80; --good-soft:#173a2b; --bad-soft:#47201d; color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -62,7 +62,13 @@ select{font:500 15px var(--body);color:var(--ink);background:var(--card);border:
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);flex:0 0 auto}
 .seg button{font:600 13px var(--body);color:var(--ink);background:transparent;border:0;padding:9px 0;width:58px;cursor:pointer;border-left:1px solid var(--line)}
 .seg button:first-child{border-left:0}
-.seg button[aria-pressed="true"]{background:var(--accent);color:var(--card)}
+.seg button.good{background:var(--good-soft);box-shadow:inset 0 -3px 0 var(--good)}
+.seg button.bad{background:var(--bad-soft);box-shadow:inset 0 -3px 0 var(--bad)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--card);box-shadow:none}
+.key{margin:0 0 8px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px}
+.sw.good{background:var(--good-soft);box-shadow:inset 0 -3px 0 var(--good)}
+.sw.bad{background:var(--bad-soft);box-shadow:inset 0 -3px 0 var(--bad)}
 .seg button.mid{width:34px;color:var(--muted);font-weight:500;font-size:12px}
 .seg button small{display:block;font-weight:500;font-size:12px;opacity:.8;font-variant-numeric:tabular-nums;margin-top:1px}
 .seg button{padding:6px 0;line-height:1.2}
@@ -90,7 +96,7 @@ footer p{margin:0 0 8px}
 <main>
   <header>
     <h1 id="title">Giants Playoff Odds Simulator</h1>
-    <p class="sub">Pick the winner of any remaining game in the league. Each team shows its chance to win, based on sportsbook odds. Records, standings and playoff odds rebuild from your picks, and games you leave alone are simulated thousands of times. Results through Nov. 15, 2026.</p>
+    <p class="sub">Pick the winner of any remaining game in the league. Each team shows its chance to win, based on sportsbook odds. Records, standings and playoff odds rebuild from your picks, and games you leave alone are simulated thousands of times. Data updated <span class="asof"></span>.</p>
     <p class="sub" id="feed" hidden></p>
     <label class="pickteam" for="team">Follow <select id="team"></select></label>
   </header>
@@ -119,6 +125,7 @@ footer p{margin:0 0 8px}
       </div>
       <button class="btn quiet" id="clrAll" type="button">Clear all picks</button>
     </div>
+    <p class="hint key" id="key"></p>
     <div id="games"></div>
   </section>
 
@@ -141,9 +148,9 @@ footer p{margin:0 0 8px}
   </section>
 
   <footer>
-    <p><strong>Where the percentages come from.</strong> Games marked Sportsbook line use the posted moneyline with the bookmaker's margin removed. Games marked Rating estimate have no line yet, so the win chance comes from team ratings fitted to this season's sportsbook point spreads, weighted toward recent weeks, plus home-field advantage. Lines as of Nov. 16, 2026.</p>
+    <p><strong>Where the percentages come from.</strong> Games marked Sportsbook line use the posted moneyline with the bookmaker's margin removed. Games marked Rating estimate have no line yet, so the win chance comes from team ratings fitted to this season's sportsbook point spreads, weighted toward recent weeks, plus home-field advantage. Lines as of <span class="asof"></span>.</p>
     <p><strong>Live scores.</strong> When the live score feed is connected, a game in progress uses an in-game win chance built from the current margin, the time left and the pregame line, and a finished game counts in the standings.</p>
-    <p>Unpicked games are simulated 4,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
+    <p>Unpicked games are simulated 8,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
     <p>Ties in the standings are broken by head-to-head, division record, common games and conference record. Later steps such as strength of victory are replaced by a coin flip, so a close race can differ from the official order. Injuries and quarterback changes are not modeled, and picks cannot be ties.</p>
     <p>An independent fan project. Not affiliated with the NFL, any team or any publisher.</p>
   </footer>
@@ -171,7 +178,7 @@ function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15
 // picks[i]: 0 simulate, 1 away wins, 2 home wins
 function simulate(picks,focus,nOverride,liveP){
   var open=0,i;for(i=0;i<GAMES.length;i++)if(!picks[i])open++;
-  var N=nOverride||(open?4000:200),rnd=rng(20261116);
+  var N=nOverride||(open?8000:200),rnd=rng(20261116);
   var po=new Float64Array(NT),dv=new Float64Array(NT),sw=new Float64Array(NT),seedC=[],hist={},lev=GAMES.map(function(){return[0,0,0,0]});
   for(i=0;i<NT;i++)seedC.push([0,0,0,0,0,0,0]);
   var first=[null,null],pts,res,cnt,adj=new Float32Array(NT),out=new Uint8Array(GAMES.length),inP=new Uint8Array(NT);
@@ -219,8 +226,8 @@ function simulate(picks,focus,nOverride,liveP){
       for(i=0;i<7;i++){seedC[seeds[i]][i]++;po[seeds[i]]++;inP[seeds[i]]=1}}
     for(i=0;i<NT;i++)sw[i]+=pts[i];
     var k2=Math.round(pts[focus]*2);hist[k2]=(hist[k2]||0)+1;
-    for(i=0;i<GAMES.length;i++){var ga=GAMES[i];if(ga[2]!==focus&&ga[3]!==focus)continue;
-      var won=(ga[3]===focus&&out[i])||(ga[2]===focus&&!out[i]);if(won){lev[i][0]++;lev[i][1]+=inP[focus]}else{lev[i][2]++;lev[i][3]+=inP[focus]}}
+    // lev[i] = [home wins, home wins and focus team in playoffs, away wins, away wins and focus team in playoffs]
+    var fin=inP[focus];for(i=0;i<GAMES.length;i++){if(out[i]){lev[i][0]++;lev[i][1]+=fin}else{lev[i][2]++;lev[i][3]+=fin}}
   }
   return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first};
 }
@@ -243,6 +250,7 @@ function simulate(picks,focus,nOverride,liveP){
   function locked(t){var w=BW[t],l=BL[t],left=0;GAMES.forEach(function(g,i){if(g[2]!==t&&g[3]!==t)return;if(!picks[i]){left++;return}var won=(picks[i]===2)===(g[3]===t);if(won)w++;else l++});return{w:w,l:l,t:BT[t],left:left}}
   function recStr(r){return r.w+"-"+r.l+(r.t?"-"+r.t:"")}
 
+  Array.prototype.forEach.call(document.querySelectorAll(".asof"),function(n){n.textContent=D.built||"recently"});
   var sel=$("team");
   TM.map(function(t,i){return[t.n,i]}).sort(function(a,b){return a[0]<b[0]?-1:1}).forEach(function(x){var o=el("option","",x[0]);o.value=x[1];sel.appendChild(o)});
   sel.value=focus;
@@ -258,18 +266,25 @@ function simulate(picks,focus,nOverride,liveP){
     idx.sort(function(a,b){var ma=GAMES[a][2]===focus||GAMES[a][3]===focus,mb=GAMES[b][2]===focus||GAMES[b][3]===focus;return(mb?1:0)-(ma?1:0)||a-b});
     idx.forEach(function(i){var g=GAMES[i],mine=g[2]===focus||g[3]===focus,row=el("div","game"+(mine?" mine":"")),lab=el("div","lab",g[5]+(g[4]?" · neutral":"")),ph=dispProb(i),L=live[g[0]];
       lab.appendChild(el("div","src",L?(L.f?"Final: ":"Live: ")+TM[g[2]].a+" "+L.a+", "+TM[g[3]].a+" "+L.h+(L.f?"":" · "+(L.q>=5?"OT":"Q"+L.q)+" "+(L.c||L.m+":00")):(g[6]!=null?"Sportsbook line":"Rating estimate")));
-      if(mine&&last){var L=last.lev[i],d=el("div");
-        if(picks[i])d.textContent="Locked in";
-        else{d.appendChild(el("span","up","Win "+pct(L[0]?L[1]/L[0]:0)));d.appendChild(document.createTextNode(" · "));d.appendChild(el("span","dn","Loss "+pct(L[2]?L[3]/L[2]:0)))}
-        lab.appendChild(d)}
+      var root=0,V=last&&last.lev[i],d=el("div");
+      if(picks[i])d.textContent=mine?"Locked in":"";
+      else if(V&&V[0]&&V[2]){var pH=V[1]/V[0],pA=V[3]/V[2],gap=Math.round((pH-pA)*100);
+        if(Math.abs(gap)>=3)root=gap>0?2:1;
+        if(mine){var w=g[3]===focus?pH:pA,l=g[3]===focus?pA:pH;d.appendChild(el("span","up","Win "+pct(w)));d.appendChild(document.createTextNode(" · "));d.appendChild(el("span","dn","Loss "+pct(l)))}
+        else if(root)d.appendChild(el("span","up","\u25B2 "+TM[g[root===2?3:2]].a+" win helps, +"+Math.abs(gap)));
+        else d.textContent="Little effect"}
+      lab.appendChild(d);
       var seg=el("div","seg");seg.setAttribute("role","group");seg.setAttribute("aria-label",TM[g[2]].n+" at "+TM[g[3]].n+" winner");
       [[1,TM[g[2]].a,""],[0,"at","mid"],[2,TM[g[3]].a,""]].forEach(function(o){var b=el("button",o[2],o[1]);b.type="button";
         if(o[0])b.appendChild(el("small","",Math.round((o[0]===2?ph:1-ph)*100)+"%"));
+        if(o[0]&&root){b.className=o[0]===root?"good":"bad";b.title=o[0]===root?"Helps the "+TM[focus].n:"Hurts the "+TM[focus].n}
         if(o[0]===0){b.setAttribute("aria-label","Simulate this game");b.setAttribute("aria-pressed","false")}
         else b.setAttribute("aria-pressed",picks[i]===o[0]?"true":"false");
         b.addEventListener("click",function(){picks[i]=(o[0]===0||picks[i]===o[0])?0:o[0];save();rerun()});seg.appendChild(b)});
       row.appendChild(lab);row.appendChild(seg);box.appendChild(row);
     });
+    $("key").textContent="";var k1=el("span","sw good"),k2=el("span","sw bad");
+    $("key").appendChild(k1);$("key").appendChild(document.createTextNode(" a win by that team helps the "+TM[focus].n+"' playoff odds "));$("key").appendChild(k2);$("key").appendChild(document.createTextNode(" it hurts. The number is the swing in percentage points."));
     var done=picks.filter(function(p){return p}).length;$("count").textContent=done+" of "+GAMES.length+" picked";
   }
 

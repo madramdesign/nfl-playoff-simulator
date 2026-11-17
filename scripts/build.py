@@ -62,7 +62,8 @@ def build(text, season):
     for i in range(32): XtX[i][i] += RIDGE
     XtX[32][32] += 1e-9
     sol = solve(XtX, Xty); mean = sum(sol[:32]) / 32
-    return {"teams": teams, "played": played, "games": games,
+    today = datetime.date.today()
+    return {"teams": teams, "played": played, "games": games, "built": today.strftime("%b. ") + str(today.day) + today.strftime(", %Y"),
             "rate": [round((v - mean) * ELO_PER_POINT, 1) for v in sol[:32]], "hfa": round(sol[32] * ELO_PER_POINT, 1)}
 
 def main():
