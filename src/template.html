@@ -74,6 +74,20 @@ select{font:500 15px var(--body);color:var(--ink);background:var(--card);border:
 .seg button small{display:block;font-weight:500;font-size:12px;opacity:.8;font-variant-numeric:tabular-nums;margin-top:1px}
 .seg button{padding:6px 0;line-height:1.2}
 .game .src{font-size:11px}
+.lnk{display:block;font:500 12px var(--body);color:var(--accent);background:none;border:0;padding:3px 0 0;cursor:pointer;text-decoration:underline;text-align:left}
+.why{padding:6px 0 14px;font-size:13px}
+.why h4{font:600 13px var(--body);margin:10px 0 4px}
+.why ul{margin:0;padding-left:18px}
+.why li{margin:3px 0}
+.why table{margin-top:2px}
+.chip{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--muted);margin-right:4px;white-space:nowrap}
+.chip.ok{color:var(--good);border-color:var(--good)}
+.chip.warn{color:var(--bad);border-color:var(--bad)}
+.claim{padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
+.claim:first-child{border-top:0}
+.claim p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
+input[type=range]{width:100%;accent-color:var(--accent);margin:8px 0 2px}
+.wif{font-variant-numeric:tabular-nums}
 button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 th{font-weight:500;color:var(--muted);font-size:11.5px;line-height:1.2;vertical-align:bottom;text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
@@ -195,6 +209,16 @@ footer p{margin:0 0 8px}
   </section>
 
   <section class="card">
+    <h2>What if they are better or worse than we think?</h2>
+    <label class="hint" for="whatif" id="whatifLab"></label>
+    <input type="range" id="whatif" min="-7" max="7" step="0.5" value="0">
+    <p class="wif" id="whatifOut"></p>
+    <button class="btn" id="sens" type="button">Run a sensitivity check</button>
+    <table style="margin-top:8px"><tbody id="sensOut"></tbody></table>
+    <p class="hint" style="margin-top:8px">The slider moves this team's strength in every model, in points per game. As a rough guide, losing a starting quarterback is usually worth several points. The check reruns the season under different assumptions to show which ones the forecast depends on.</p>
+  </section>
+
+  <section class="card">
     <div class="tools">
       <h2 style="margin:0">Chance at each seed</h2>
       <div class="tabs" id="confs2" role="group" aria-label="Conference" style="margin:0;padding:0"></div>
@@ -219,6 +243,24 @@ footer p{margin:0 0 8px}
     <h3 class="pp">Who holds the top of the draft</h3>
     <table><thead><tr><th>Team</th><th>First-round picks</th><th>Holds No. 1</th><th>Holds a top-5 pick</th></tr></thead><tbody id="holders"></tbody></table>
     <p class="hint" style="margin-top:10px" id="ownNote"></p>
+  </section>
+
+  <section class="card" id="perfCard">
+    <h2>How good is this model?</h2>
+    <p class="hint" id="perfIntro"></p>
+    <table style="margin-top:8px"><thead><tr><th>Method</th><th>Picked the winner</th><th>Log loss</th></tr></thead><tbody id="perf"></tbody></table>
+    <p class="hint" style="margin-top:8px" id="perfNote"></p>
+    <h3 class="pp">When it said X%, how often did it happen?</h3>
+    <table><thead><tr><th>Favorite rated</th><th>Favorite won</th><th>Games</th></tr></thead><tbody id="calib"></tbody></table>
+    <p class="hint" style="margin-top:8px">Log loss scores the percentages themselves, not just the pick: lower is better, and a coin flip scores 0.693. Each past forecast used only results and betting lines available at the time. The few constants in the model were tuned on these same seasons, so real-world performance will be a little worse than shown.</p>
+  </section>
+
+  <section class="card" id="claimCard">
+    <h2>Popular claims, tested</h2>
+    <p class="hint">Each claim is checked against the closing betting spread since 2015. If the odds already account for it, the claim gives no extra edge, and it is not used in the model.</p>
+    <div id="claims" style="margin-top:6px"></div>
+    <h3 class="pp">Tried in the model and left out</h3>
+    <ul class="hint" id="rejected" style="padding-left:18px;margin-top:4px"></ul>
   </section>
 
   <footer>
@@ -252,9 +294,16 @@ var GDR=GAMES.map(function(g){return gap(RATE2,g)});
 // MODE: 0 sportsbooks only, 1 results only, 2 blend. In the blend a posted line is used as it stands, because nothing in
 // the backtest beats the line for the game itself; games without a line average the two ratings.
 // MR: the team rating used for playoff games and schedule strength under the current mode.
-var MODE=2,GD=GDM.slice(),MR=new Float32Array(NT);
-function setMode(m){MODE=m;var i;for(i=0;i<GD.length;i++)GD[i]=m===0?GDM[i]:m===1?GDR[i]:LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2;
-  for(i=0;i<NT;i++)MR[i]=m===0?RATE[i]:m===1?RATE2[i]:(RATE[i]+RATE2[i])/2}
+// TWEAK: a what-if change to a team's strength (rating points), added on top of every model.
+var MODE=2,GD=GDM.slice(),MR=new Float32Array(NT),TWEAK=new Float32Array(NT);
+function setMode(m){MODE=m;var i;for(i=0;i<GD.length;i++)GD[i]=(m===0?GDM[i]:m===1?GDR[i]:LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2)+TWEAK[GAMES[i][3]]-TWEAK[GAMES[i][2]];
+  for(i=0;i<NT;i++)MR[i]=(m===0?RATE[i]:m===1?RATE2[i]:(RATE[i]+RATE2[i])/2)+TWEAK[i]}
+function setTweak(points){for(var i=0;i<NT;i++)TWEAK[i]=(points[i]||0)*25;setMode(MODE)}
+// Each independent model's chance for the home team in game i, for showing where they disagree. No what-if tweak applied.
+var RATEP=D.rateP?Float32Array.from(D.rateP):null,RATEE=D.rateE?Float32Array.from(D.rateE):null,RATEL=D.rateL?Float32Array.from(D.rateL):null;
+function modelView(i){var g=GAMES[i],f=function(R){return 1/(1+Math.pow(10,-gap(R,g)/400))},o=[];
+  if(LINE[i]!=null)o.push(["Sportsbook line",g[6]]);o.push(["Spread-based rating",f(RATE)]);
+  if(RATEP)o.push(["Scoring margin",f(RATEP)]);if(RATEE)o.push(["Efficiency (EPA)",f(RATEE)]);if(RATEL)o.push(["Elo",f(RATEL)]);return o}
 setMode(2);
 // OWNER[t]: the team that holds t's first-round pick (itself unless the pick was traded).
 var OWNER=TM.map(function(x,i){return D.owners&&D.owners[i]!=null?D.owners[i]:i});
@@ -391,12 +440,51 @@ function simulate(picks,focus,nOverride,liveP,now){
   function recStr(r){return r.w+"-"+r.l+(r.t?"-"+r.t:"")}
 
   Array.prototype.forEach.call(document.querySelectorAll(".asof"),function(n){n.textContent=D.built||"recently"});
-  var TODAY=seedsToday();
+  var TODAY=seedsToday(),openWhy=null,tweakPts=0,baseRun=null;
+  // one-score records from finished games, for the "what could be wrong" notes
+  var OS=TM.map(function(){return[0,0,0]});D.played.forEach(function(g){var m=g[3]-g[2];if(Math.abs(m)>8)return;if(m===0){OS[g[0]][2]++;OS[g[1]][2]++}else{OS[m>0?g[1]:g[0]][0]++;OS[m>0?g[0]:g[1]][1]++}});
+  var GP=BW[0]+BL[0]+BT[0];
+  function p100(x){return Math.round(x*100)+"%"}
+  // Everything in this panel is computed from the model's own inputs; nothing is written after the fact.
+  function whyPanel(i){var g=GAMES[i],H=TM[g[3]],A=TM[g[2]],box=el("div","why"),ph=dispProb(i),mv=modelView(i),R=D.report;
+    var ps=mv.map(function(x){return x[1]}),range=Math.max.apply(null,ps)-Math.min.apply(null,ps),rb=1/(1+Math.pow(10,-(SHRINK*((RATE[g[3]]+RATE2[g[3]])/2-(RATE[g[2]]+RATE2[g[2]])/2)+(g[4]?0:HFA))/400));
+    var chips=el("div");chips.appendChild(el("span","chip "+(range<.07?"ok":range<.15?"":"warn"),range<.07?"Models agree":range<.15?"Some disagreement":"Models disagree"));
+    if(g[6]!=null&&Math.abs(rb-g[6])>=.08)chips.appendChild(el("span","chip warn","Model and market conflict"));
+    if(g[6]==null)chips.appendChild(el("span","chip","No betting line yet"));
+    box.appendChild(chips);
+    box.appendChild(el("h4","","Chance the "+H.n+" win, by method"));
+    var tb=el("table"),tbb=el("tbody");mv.concat([["This page ("+["Sportsbooks","Results","Blend"][MODE]+")",ph]]).forEach(function(x,k,arr){var tr=el("tr",k===arr.length-1?"me":"");tr.appendChild(el("td","",x[0]));tr.appendChild(el("td","",p100(x[1])));tbb.appendChild(tr)});
+    tb.appendChild(tbb);box.appendChild(tb);
+    box.appendChild(el("h4","","How the number is built"));
+    var how=el("ul"),pt=function(v){return(v>=0?"+":"−")+Math.abs(v/25).toFixed(1)},tw=TWEAK[g[3]]-TWEAK[g[2]];
+    if(g[6]!=null&&MODE!==1)how.appendChild(el("li","","A betting line is posted, so the page uses it as it stands: the moneyline with the bookmaker's margin removed gives the "+H.n+" "+p100(g[6])+"."));
+    else{var m1=RATE[g[3]]-RATE[g[2]],m2=RATE2[g[3]]-RATE2[g[2]],use=MODE===0?m1:MODE===1?m2:(m1+m2)/2;
+      how.appendChild(el("li","","Sportsbook-spread ratings: "+H.a+" "+pt(m1)+" points against "+A.a+"."));
+      how.appendChild(el("li","","Results ratings (scoring margin and efficiency, adjusted for opponents): "+H.a+" "+pt(m2)+"."));
+      how.appendChild(el("li","",(MODE===2?"Averaged: ":"Used: ")+pt(use)+", then cut by "+Math.round((1-SHRINK)*100)+"% because rating gaps overstate edges weeks ahead: "+pt(use*SHRINK)+"."));
+      how.appendChild(el("li","",g[4]?"Neutral site, so no home-field points.":"Home field adds "+pt(HFA)+" for the "+H.n+"."));
+      if(tw)how.appendChild(el("li","","Your what-if setting adds "+pt(tw)+" for the "+H.n+"."));
+      how.appendChild(el("li","","Total "+pt(use*SHRINK+(g[4]?0:HFA)+tw)+" points, which converts to "+p100(baseProb(i))+"."))}
+    if(tw&&g[6]!=null&&MODE!==1)how.appendChild(el("li","","Your what-if setting then moves it by "+pt(tw)+" points, to "+p100(baseProb(i))+"."));
+    box.appendChild(how);
+    box.appendChild(el("h4","","What could make this wrong"));
+    var ul=el("ul"),fav=ph>=.5?H:A,dog=ph>=.5?A:H,pf=Math.max(ph,1-ph),far=mv.slice().sort(function(a,b){return Math.abs(b[1]-ph)-Math.abs(a[1]-ph)})[0];
+    if(far&&Math.abs(far[1]-ph)>=.05)ul.appendChild(el("li","",far[0]+" disagrees most: it gives the "+H.n+" "+p100(far[1])+", "+Math.round(Math.abs(far[1]-ph)*100)+" points "+(far[1]>ph?"higher":"lower")+" than this page."));
+    if(R){var sp=Math.abs(GD[i]/25),side=GD[i]>=0?"home":"away",an=R.analogs.filter(function(a){return a.fav===side&&sp>=a.lo-.25&&sp<=a.hi+.25})[0];
+      if(an)ul.appendChild(el("li","","History: since 2010, "+(side==="home"?"home":"road")+" favorites of "+(an.hi>90?an.lo+" points or more":an.lo+" to "+an.hi+" points")+" won "+p100(an.favWin)+" of "+an.n+" games. The underdog won the other "+p100(1-an.favWin)+"."));
+      var cb=R.calibration.filter(function(c){return pf>=c.lo&&pf<c.hi})[0];
+      if(cb&&cb.n>=30&&g[6]==null)ul.appendChild(el("li","","Track record: when this model rated a favorite "+Math.round(cb.lo*100)+" to "+Math.round(cb.hi*100)+"%, that team won "+p100(cb.act)+" of "+cb.n+" past games"+(Math.abs(cb.act-cb.pred)>=.04?", so it has been "+(cb.act<cb.pred?"overconfident":"underconfident")+" in this range.":".")))}
+    [g[3],g[2]].forEach(function(t){var q=D.qb&&D.qb[t];if(q&&g[1]===D.qbWeek)ul.appendChild(el("li","",q.name+", the "+TM[t].n+" quarterback, is on this week's injury report ("+(q.status||q.practice)+")."+(g[6]!=null?" The line should already reflect it.":"")));
+      if(D.luck&&Math.abs(D.luck[t])>=8)ul.appendChild(el("li","","The "+TM[t].n+" have "+(D.luck[t]>0?"gained":"lost")+" about "+Math.abs(Math.round(D.luck[t]))+" points this season from fumble bounces, which tends not to last. The results rating already removes this; their record does not."));
+      var o=OS[t],n=o[0]+o[1]+o[2];if(n>=4&&(o[0]/n>=.75||o[1]/n>=.75))ul.appendChild(el("li","","The "+TM[t].n+" are "+o[0]+"-"+o[1]+(o[2]?"-"+o[2]:"")+" in games decided by 8 points or fewer. Records that lopsided in close games usually drift back toward even."))});
+    if(g[6]==null)ul.appendChild(el("li","","No betting line is posted for this game yet, so injuries and other news are not in this number at all."));
+    ul.appendChild(el("li","","Team ratings rest on "+GP+" or so games each. Samples that small are noisy, and the model cannot see lineup changes."));
+    box.appendChild(ul);return box}
   function drawModes(){tabs($("modes"),[[2,"Blend"],[0,"Sportsbooks"],[1,"Results"]],MODE,function(m){setMode(m);save();drawModes();rerun()})}
   var sel=$("team");
   TM.map(function(t,i){return[t.n,i]}).sort(function(a,b){return a[0]<b[0]?-1:1}).forEach(function(x){var o=el("option","",x[0]);o.value=x[1];sel.appendChild(o)});
   sel.value=focus;
-  sel.addEventListener("change",function(){focus=+sel.value;conf=TM[focus].c;save();rerun()});
+  sel.addEventListener("change",function(){focus=+sel.value;conf=TM[focus].c;resetTweak();save();rerun()});
 
   function tabs(box,items,cur,onPick,dot){box.textContent="";items.forEach(function(it){var b=el("button","",it[1]);b.type="button";b.setAttribute("aria-pressed",it[0]===cur?"true":"false");
     if(dot&&dot(it[0]))b.appendChild(el("span","dot"));b.addEventListener("click",function(){onPick(it[0])});box.appendChild(b)})}
@@ -408,6 +496,7 @@ function simulate(picks,focus,nOverride,liveP,now){
     idx.sort(function(a,b){var ma=GAMES[a][2]===focus||GAMES[a][3]===focus,mb=GAMES[b][2]===focus||GAMES[b][3]===focus;return(mb?1:0)-(ma?1:0)||a-b});
     idx.forEach(function(i){var g=GAMES[i],mine=g[2]===focus||g[3]===focus,row=el("div","game"+(mine?" mine":"")),lab=el("div","lab",g[5]+(g[4]?" · neutral":"")),ph=dispProb(i),L=live[g[0]];
       lab.appendChild(el("div","src",L?(L.f?"Final: ":"Live: ")+TM[g[2]].a+" "+L.a+", "+TM[g[3]].a+" "+L.h+(L.f?"":" · "+(L.q>=5?"OT":"Q"+L.q)+" "+(L.c||L.m+":00")):(MODE===1?"From results":MODE===0?(g[6]!=null?"Sportsbook line":"Spread-based rating"):(g[6]!=null?"Sportsbook line":"Ratings blend"))));
+      var wl=el("button","lnk",openWhy===g[0]?"Hide the reasoning":"Why? What could be wrong?");wl.type="button";wl.addEventListener("click",function(){openWhy=openWhy===g[0]?null:g[0];drawGames()});
       var root=0,V=last&&last.lev[i],d=el("div");
       if(picks[i])d.textContent=mine?"Locked in":"";
       else if(V&&V[0]&&V[2]){var pH=V[1]/V[0],pA=V[3]/V[2],gap=Math.round((pH-pA)*100);
@@ -415,7 +504,7 @@ function simulate(picks,focus,nOverride,liveP,now){
         if(mine){var w=g[3]===focus?pH:pA,l=g[3]===focus?pA:pH;d.appendChild(el("span","up","Win "+pct(w)));d.appendChild(document.createTextNode(" · "));d.appendChild(el("span","dn","Loss "+pct(l)))}
         else if(root)d.appendChild(el("span","up","\u25B2 "+TM[g[root===2?3:2]].a+" win helps, +"+Math.abs(gap)));
         else d.textContent="Little effect"}
-      lab.appendChild(d);
+      lab.appendChild(d);lab.appendChild(wl);
       var seg=el("div","seg");seg.setAttribute("role","group");seg.setAttribute("aria-label",TM[g[2]].n+" at "+TM[g[3]].n+" winner");
       [[1,TM[g[2]].a,""],[0,"at","mid"],[2,TM[g[3]].a,""]].forEach(function(o){var b=el("button",o[2],o[1]);b.type="button";
         if(o[0])b.appendChild(el("small","",Math.round((o[0]===2?ph:1-ph)*100)+"%"));
@@ -424,6 +513,7 @@ function simulate(picks,focus,nOverride,liveP,now){
         else b.setAttribute("aria-pressed",picks[i]===o[0]?"true":"false");
         b.addEventListener("click",function(){picks[i]=(o[0]===0||picks[i]===o[0])?0:o[0];save();rerun()});seg.appendChild(b)});
       row.appendChild(lab);row.appendChild(seg);box.appendChild(row);
+      if(openWhy===g[0])box.appendChild(whyPanel(i));
     });
     $("key").textContent="";var k1=el("span","sw good"),k2=el("span","sw bad");
     $("key").appendChild(k1);$("key").appendChild(document.createTextNode(" a win by that team helps the "+TM[focus].n+"' playoff odds "));$("key").appendChild(k2);$("key").appendChild(document.createTextNode(" it hurts. The number is the swing in percentage points."));
@@ -468,6 +558,9 @@ function simulate(picks,focus,nOverride,liveP,now){
       return win.concat(rest)});
     $("seedHint").textContent=r.open?"Your picks plus simulated results for the "+r.open+" games still open. Division favorites are seeded by projected wins, then the three likeliest wild cards. Shown: projected record and playoff chance.":"Final seeds with every game picked.";
     field($("seeds"),proj,function(t){return r.open?projW(t)+" \u00b7 "+pct(r.po[t]/r.n)+" in":recStr(locked(t))},r.open?"projected to miss":"miss the playoffs");
+    // --- what if ---
+    $("whatifLab").textContent="Make the "+TM[focus].n+" "+(tweakPts===0?"stronger or weaker":Math.abs(tweakPts).toFixed(1)+" points "+(tweakPts>0?"stronger":"weaker")+" than the model thinks");
+    $("whatifOut").textContent=tweakPts===0||!baseRun?"At 0 the forecast is the model's own.":"Playoffs "+pct(baseRun.po)+" → "+pct(r.po[focus]/r.n)+". Division "+pct(baseRun.dv)+" → "+pct(r.dv[focus]/r.n)+". Super Bowl win "+pct(baseRun.sb)+" → "+pct(r.wSB[focus]/r.n)+".";
     // --- playoff chance by week ---
     var H=D.history,ptsT=[];if(H)H.weeks.forEach(function(w,k){ptsT.push([String(w),H.po[k][focus]])});
     ptsT.push(["Now",r.po[focus]/r.n]);
@@ -523,6 +616,32 @@ function simulate(picks,focus,nOverride,liveP,now){
   $("fav").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week&&!picks[i])picks[i]=dispProb(i)>=.5?2:1});save();rerun()});
   $("clrW").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week){picks[i]=0;delete live[g[0]]}});save();rerun()});
   $("clrAll").addEventListener("click",function(){picks=GAMES.map(function(){return 0});live={};save();rerun()});
+  function applyTweak(v){var arr=[];arr[focus]=v;setTweak(arr)}
+  function quick(n){var x=simulate(picks,focus,n||3000,liveArr());return{po:x.po[focus]/x.n,dv:x.dv[focus]/x.n,sb:x.wSB[focus]/x.n}}
+  var wTimer=0;
+  $("whatif").addEventListener("input",function(){tweakPts=+this.value;clearTimeout(wTimer);wTimer=setTimeout(function(){
+    if(tweakPts!==0){applyTweak(0);baseRun=quick()}applyTweak(tweakPts);last=simulate(picks,focus,0,liveArr());render(last)},120)});
+  function resetTweak(){tweakPts=0;baseRun=null;$("whatif").value=0;setTweak([]);$("sensOut").textContent=""}
+  $("sens").addEventListener("click",function(){var out=$("sensOut"),btn=this;out.textContent="";btn.disabled=true;btn.textContent="Running…";
+    setTimeout(function(){var keepMode=MODE,keepT=tweakPts,rows=[];
+      applyTweak(0);var b0=simulate(picks,focus,4000,liveArr()),base=b0.po[focus]/b0.n;rows.push(["The model as it stands",base]);
+      applyTweak(3);rows.push([TM[focus].n+" 3 points stronger",quick().po]);applyTweak(-3);rows.push([TM[focus].n+" 3 points weaker",quick().po]);applyTweak(0);
+      setMode(0);rows.push(["Trust sportsbooks only",quick().po]);setMode(1);rows.push(["Trust results only",quick().po]);setMode(keepMode);
+      var best=null;GAMES.forEach(function(g,i){if(picks[i]||(g[2]!==focus&&g[3]!==focus))return;var V=b0.lev[i];if(!V[0]||!V[2])return;var w=g[3]===focus?V[1]/V[0]:V[3]/V[2],l=g[3]===focus?V[3]/V[2]:V[1]/V[0];if(!best||w-l>best[2]-best[3])best=[g,i,w,l]});
+      if(best){var opp=TM[best[0][2]===focus?best[0][3]:best[0][2]].n;rows.push(["Beat the "+opp+" (Week "+best[0][1]+")",best[2]]);rows.push(["Lose to the "+opp,best[3]])}
+      applyTweak(keepT);
+      var hd=el("tr");hd.appendChild(el("th","","Assumption"));hd.appendChild(el("th","","Playoffs"));hd.appendChild(el("th","","Change"));out.appendChild(hd);
+      rows.forEach(function(x,k){var tr=el("tr",k===0?"me":""),dlt=Math.round((x[1]-base)*100);tr.appendChild(el("td","",x[0]));tr.appendChild(el("td","",pct(x[1])));tr.appendChild(el("td","",k===0?"":(dlt>0?"+":dlt<0?"−":"")+Math.abs(dlt)));out.appendChild(tr)});
+      btn.disabled=false;btn.textContent="Run a sensitivity check"},30)});
+  // --- model performance and tested claims: fixed content from the backtest report ---
+  (function(){var R=D.report;if(!R){$("perfCard").hidden=true;$("claimCard").hidden=true;return}
+    $("perfIntro").textContent="Replayed on the "+R.seasons[0]+" to "+R.seasons[1]+" seasons: "+R.models[0].n.toLocaleString()+" forecasts of "+R.horizon+", the games that have no betting line yet.";
+    R.models.forEach(function(m,k){var tr=el("tr",k===0?"me":"");tr.appendChild(el("td","",m.name));tr.appendChild(el("td","",(m.acc*100).toFixed(1)+"%"));tr.appendChild(el("td","",m.logloss.toFixed(3)));$("perf").appendChild(tr)});
+    var nl=R.nextweek[0],nb=R.nextweek[1];$("perfNote").textContent="For next week's games the closing betting line is better than every model here: it picked "+(nl.acc*100).toFixed(1)+"% of winners (log loss "+nl.logloss.toFixed(3)+") against "+(nb.acc*100).toFixed(1)+"% ("+nb.logloss.toFixed(3)+") for the blend. That is why a posted line is used as it stands. Elo is shown for comparison only; adding it to the blend did not improve it.";
+    R.calibration.forEach(function(c){if(c.n<30)return;var tr=el("tr");tr.appendChild(el("td","",Math.round(c.lo*100)+" to "+Math.round(c.hi*100)+"%"));tr.appendChild(el("td","",(c.act*100).toFixed(0)+"%"));tr.appendChild(el("td","",c.n.toLocaleString()));$("calib").appendChild(tr)});
+    R.narratives.forEach(function(x){var d=el("div","claim"),good=x.verdict==="Supported";d.appendChild(el("span","chip "+(good?"ok":x.verdict==="Not supported"||x.verdict==="Opposite of the claim"?"warn":""),x.verdict));d.appendChild(document.createTextNode(" “"+x.claim+"”"));
+      d.appendChild(el("p","",x.effect==null?x.n+" games.":"Measured: "+x.measure+". Result: "+(x.effect>0?"+":x.effect<0?"−":"")+Math.abs(x.effect).toFixed(1)+" points, give or take "+(2*x.se).toFixed(1)+", over "+x.n.toLocaleString()+" games."+(x.note?" "+x.note:"")));$("claims").appendChild(d)});
+    R.rejected.forEach(function(x){$("rejected").appendChild(el("li","",x.what+": "+x.why+"."))})})();
   drawModes();last=simulate(picks,focus,0,liveArr());render(last);
 
   // Live feed: only present when the page is served by server.js, which exposes /api/live.

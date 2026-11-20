@@ -14,6 +14,8 @@ import argparse, csv, datetime, io, json, math, os, subprocess, tempfile, urllib
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 TEAM_STATS = "https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_week_{season}.csv"
+INJURIES = "https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_{season}.csv"
+ELO_K, ELO_HFA, ELO_REGRESS = 20.0, 48.0, 1 / 3   # Elo is shown as a second opinion only; adding it to the blend did not help in the backtest
 RESULTS_RIDGE = 4.0     # pulls results ratings toward average; worth about four phantom games against an average team
 EPA_WEIGHT, EPA_SCALE = 0.2, 1.2
 FUMBLE_POINTS, FUMBLE_LOST_SHARE = 4.0, 0.441   # a fumble lost above the league-average share is treated as about 4 points of luck
@@ -58,6 +60,40 @@ class Fit:
         s = solve(A, self.b); mean = sum(s[:32]) / 32
         return [v - mean for v in s[:32]], s[32]
 
+def elo_ratings(text, season, asof=None):
+    """Margin-aware Elo carried over from earlier seasons, as points above or below this season's average team."""
+    elo = {}; cur = None
+    rows = [r for r in csv.DictReader(io.StringIO(text)) if r["game_type"] == "REG" and num(r["home_score"]) is not None and int(r["season"]) <= season]
+    for r in sorted(rows, key=lambda r: (int(r["season"]), int(r["week"]))):
+        y, wk = int(r["season"]), int(r["week"])
+        if y == season and asof is not None and wk > asof: continue
+        if y != cur:
+            cur = y
+            for t in elo: elo[t] = 1500 + (elo[t] - 1500) * (1 - ELO_REGRESS)
+        h, a = r["home_team"], r["away_team"]; m = float(r["home_score"]) - float(r["away_score"])
+        d = elo.get(h, 1500.0) - elo.get(a, 1500.0) + (0 if r["location"] == "Neutral" else ELO_HFA); e = 1 / (1 + 10 ** (-d / 400))
+        mult = math.log(abs(m) + 1) * 2.2 / ((d if m > 0 else -d) * .001 + 2.2)
+        ch = ELO_K * mult * ((1 if m > 0 else 0 if m < 0 else .5) - e); elo[h] = elo.get(h, 1500.0) + ch; elo[a] = elo.get(a, 1500.0) - ch
+    order = [t for ts in DIV.values() for t in ts]; vals = [elo.get(t, 1500.0) for t in order]; mean = sum(vals) / len(vals)
+    return [round(v - mean, 1) for v in vals]
+
+def qb_flags(text, season, inj_text):
+    """Starting quarterbacks who show up on this week's injury report. A flag, not an adjustment: the lines already react to it."""
+    if not inj_text: return None, None
+    rows = [r for r in csv.DictReader(io.StringIO(text)) if r["season"] == str(season) and r["game_type"] == "REG"]
+    starter = {}
+    for r in sorted((r for r in rows if num(r["home_score"]) is not None), key=lambda r: int(r["week"])):
+        starter[r["home_team"]] = r["home_qb_name"]; starter[r["away_team"]] = r["away_qb_name"]
+    inj = [r for r in csv.DictReader(io.StringIO(inj_text)) if r["position"] == "QB"]
+    if not inj: return None, None
+    week = max(int(r["week"]) for r in inj); order = [t for ts in DIV.values() for t in ts]; out = {}
+    for r in inj:
+        if int(r["week"]) != week or starter.get(r["team"]) != r["full_name"]: continue
+        status, practice = r["report_status"], r["practice_status"]
+        if status in ("Out", "Doubtful", "Questionable") or practice.startswith("Did Not") or practice.startswith("Limited"):
+            out[str(order.index(r["team"]))] = {"name": r["full_name"], "status": status or None, "practice": practice or None}
+    return out, week
+
 def build(text, season, stats_text=None, asof=None):
     """asof=W rebuilds the picture as it stood after week W: later results are hidden and only lines through week W+1 are used."""
     teams, idx = [], {}
@@ -98,14 +134,24 @@ def build(text, season, stats_text=None, asof=None):
             games.append([r["game_id"], wk, a, h, 1 if neutral else 0, d.strftime("%a %b ") + str(d.day), p, num(r["total_line"]) if known else None])
     mk, hfa = market.solve(RIDGE)
     pt, _ = points.solve(RESULTS_RIDGE)
+    ep = None
     if epa_fit.n >= points.n * 0.9:      # use EPA only when it covers the season so far
         ep, _ = epa_fit.solve(RESULTS_RIDGE)
         results = [(1 - EPA_WEIGHT) * p + EPA_WEIGHT * EPA_SCALE * e for p, e in zip(pt, ep)]
     else:
         results = pt
+    # points each team has gained (+) or lost (-) so far from fumble bounces, for the "what could be wrong" notes
+    luck = [0.0] * 32
+    for r in rows:
+        wk = int(r["week"])
+        if num(r["home_score"]) is None or (asof is not None and wk > asof): continue
+        d = FUMBLE_POINTS * (fum.get((r["game_id"], r["away_team"]), 0) - fum.get((r["game_id"], r["home_team"]), 0))
+        luck[idx[r["home_team"]]] += d; luck[idx[r["away_team"]]] -= d
     today = datetime.date.today()
     return {"teams": teams, "played": played, "games": games, "built": today.strftime("%b. ") + str(today.day) + today.strftime(", %Y"),
             "rate": [round(v * ELO_PER_POINT, 1) for v in mk], "rate2": [round(v * ELO_PER_POINT, 1) for v in results],
+            "rateP": [round(v * ELO_PER_POINT, 1) for v in pt], "rateE": [round(v * EPA_SCALE * ELO_PER_POINT, 1) for v in ep] if ep else None,
+            "rateL": elo_ratings(text, season, asof), "luck": [round(v, 1) for v in luck],
             "hfa": round(hfa * ELO_PER_POINT, 1), "shrink": SHRINK, "epaGames": epa_fit.n}
 
 def history(text, season, stats, page):
@@ -128,13 +174,20 @@ def history(text, season, stats, page):
     return {"weeks": weeks, "po": res["po"], "dv": res["dv"]}
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--csv"); ap.add_argument("--team-stats"); ap.add_argument("--season", type=int, default=2026); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--csv"); ap.add_argument("--team-stats"); ap.add_argument("--injuries"); ap.add_argument("--season", type=int, default=2026); a = ap.parse_args()
     text = open(a.csv, newline="").read() if a.csv else urllib.request.urlopen(SOURCE, timeout=60).read().decode()
     if a.team_stats: stats = open(a.team_stats, newline="").read()
     else:
         try: stats = urllib.request.urlopen(TEAM_STATS.format(season=a.season), timeout=120).read().decode()
         except Exception as err: print("team stats unavailable, results rating will use scoring margin only:", err); stats = None
     data = build(text, a.season, stats)
+    if a.injuries: inj = open(a.injuries, newline="").read()
+    else:
+        try: inj = urllib.request.urlopen(INJURIES.format(season=a.season), timeout=120).read().decode()
+        except Exception as err: print("injury report unavailable, quarterback flags skipped:", err); inj = None
+    data["qb"], data["qbWeek"] = qb_flags(text, a.season, inj)
+    report_path = os.path.join(ROOT, "data", "model_report.json")
+    if os.path.exists(report_path): data["report"] = json.load(open(report_path))
     page = open(os.path.join(ROOT, "src", "template.html")).read()
     assert page.count("/*DATA*/") == 1
     data["history"] = history(text, a.season, stats, page)

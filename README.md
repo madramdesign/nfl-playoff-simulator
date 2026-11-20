@@ -41,6 +41,15 @@ This downloads the nflverse games file (schedule, final scores, spreads and mone
 - **Luck:** fumbles lost above the league-average share are taken out of scoring margin before rating teams. A quarterback-change discount and a return-touchdown discount were tested in `scripts/backtest_adjustments.py` and left out because they did not improve predictions.
 - Injuries are only reflected as far as the betting lines reflect them. Picks cannot be ties.
 
+## Challenging the forecast
+
+- Every game has a "Why? What could be wrong?" panel: each method's number side by side, how the page's number is built, and the strongest evidence against it, all computed from the model's inputs.
+- A strength slider and sensitivity check show how much a team's forecast depends on its rating, on the choice of method and on single games.
+- "How good is this model?" shows the backtest and calibration; "Popular claims, tested" shows narratives checked against the closing spread.
+- `python3 scripts/evaluate.py <games.csv> <folder of team_week_YYYY.csv>` regenerates `data/model_report.json` (needs numpy).
+
+Start with `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` for what exists and what is next.
+
 ## Layout
 
 | Path | What it is |
@@ -51,6 +60,8 @@ This downloads the nflverse games file (schedule, final scores, spreads and mone
 | `server.js` | Static server plus the `/api/live` score endpoint. |
 | `scripts/history.js` | Runs the engine on past weeks for the odds-by-week chart. |
 | `scripts/backtest.py`, `scripts/backtest_adjustments.py` | Replays 2021-2025 to choose rating weights (need numpy). |
+| `scripts/evaluate.py` | Backtest, calibration, analogs and narrative tests; writes `data/model_report.json`. |
+| `docs/` | Audit, research, models, backtesting, red team, roadmap, changelog. |
 | `test/run.js` | Checks for the engine and the feed parser (`npm test`). |
 
 An independent fan project. Not affiliated with the NFL, any team, ESPN or any publisher. The odds are estimates, not betting advice.

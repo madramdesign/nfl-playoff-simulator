@@ -10,3 +10,5 @@
 - Ratings are built in `scripts/build.py` (`rate` market, `rate2` results). Change weights only after rerunning `scripts/backtest.py`; rest-day effects were tested there and were too noisy to add.
 - Clinched/eliminated flags (`status()` in the page script) are deliberately conservative sufficient conditions, not a full clinching solver; there are no 'needs X to clinch' scenarios.
 - Sportsbook futures are not used: no dependable current source for all eight divisions was found.
+- Read `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` before adding features. House rule from the brief: no factor goes into the model without a backtest showing an out-of-sample gain; record rejections in `scripts/evaluate.py`'s `rejected` list.
+- The reasoning panel (`whyPanel`) must only state things computed from `D` or a `simulate` result.

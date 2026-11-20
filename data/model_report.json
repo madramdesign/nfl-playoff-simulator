@@ -1,0 +1,408 @@
+{
+ "seasons": [
+  2021,
+  2025
+ ],
+ "horizon": "games two or more weeks ahead",
+ "models": [
+  {
+   "key": "ensemble",
+   "name": "Blend (what the page uses)",
+   "n": 5922,
+   "brier": 0.2241,
+   "logloss": 0.6391,
+   "acc": 0.639
+  },
+  {
+   "key": "market",
+   "name": "Sportsbook-spread rating",
+   "n": 5922,
+   "brier": 0.2269,
+   "logloss": 0.6449,
+   "acc": 0.626
+  },
+  {
+   "key": "results",
+   "name": "Results rating",
+   "n": 5922,
+   "brier": 0.2257,
+   "logloss": 0.6427,
+   "acc": 0.632
+  },
+  {
+   "key": "margin",
+   "name": "Scoring margin, opponent-adjusted",
+   "n": 5922,
+   "brier": 0.2259,
+   "logloss": 0.6428,
+   "acc": 0.625
+  },
+  {
+   "key": "epa",
+   "name": "EPA margin, opponent-adjusted",
+   "n": 5922,
+   "brier": 0.2296,
+   "logloss": 0.6551,
+   "acc": 0.629
+  },
+  {
+   "key": "elo",
+   "name": "Elo",
+   "n": 5922,
+   "brier": 0.2285,
+   "logloss": 0.649,
+   "acc": 0.63
+  }
+ ],
+ "tested": {
+  "ens_elo": {
+   "n": 5922,
+   "brier": 0.2242,
+   "logloss": 0.6393,
+   "acc": 0.641
+  },
+  "ens_elo2": {
+   "n": 5922,
+   "brier": 0.2243,
+   "logloss": 0.6396,
+   "acc": 0.642
+  }
+ },
+ "nextweek": [
+  {
+   "key": "pline",
+   "name": "Closing moneyline",
+   "n": 963,
+   "brier": 0.2055,
+   "logloss": 0.5974,
+   "acc": 0.684
+  },
+  {
+   "key": "ensemble",
+   "name": "Blend (what the page uses)",
+   "n": 963,
+   "brier": 0.2147,
+   "logloss": 0.6183,
+   "acc": 0.67
+  },
+  {
+   "key": "market",
+   "name": "Sportsbook-spread rating",
+   "n": 963,
+   "brier": 0.2124,
+   "logloss": 0.6135,
+   "acc": 0.681
+  },
+  {
+   "key": "results",
+   "name": "Results rating",
+   "n": 963,
+   "brier": 0.2201,
+   "logloss": 0.6301,
+   "acc": 0.647
+  }
+ ],
+ "bySeason": [
+  {
+   "season": 2021,
+   "n": 1184,
+   "brier": 0.2298,
+   "logloss": 0.6496,
+   "acc": 0.622
+  },
+  {
+   "season": 2022,
+   "n": 1168,
+   "brier": 0.2125,
+   "logloss": 0.6143,
+   "acc": 0.672
+  },
+  {
+   "season": 2023,
+   "n": 1192,
+   "brier": 0.2306,
+   "logloss": 0.6548,
+   "acc": 0.621
+  },
+  {
+   "season": 2024,
+   "n": 1184,
+   "brier": 0.206,
+   "logloss": 0.6008,
+   "acc": 0.721
+  },
+  {
+   "season": 2025,
+   "n": 1194,
+   "brier": 0.2415,
+   "logloss": 0.6753,
+   "acc": 0.559
+  }
+ ],
+ "calibration": [
+  {
+   "lo": 0.5,
+   "hi": 0.55,
+   "n": 1422,
+   "pred": 0.524,
+   "act": 0.532
+  },
+  {
+   "lo": 0.55,
+   "hi": 0.6,
+   "n": 1237,
+   "pred": 0.575,
+   "act": 0.595
+  },
+  {
+   "lo": 0.6,
+   "hi": 0.65,
+   "n": 1052,
+   "pred": 0.624,
+   "act": 0.651
+  },
+  {
+   "lo": 0.65,
+   "hi": 0.7,
+   "n": 907,
+   "pred": 0.674,
+   "act": 0.685
+  },
+  {
+   "lo": 0.7,
+   "hi": 0.75,
+   "n": 648,
+   "pred": 0.724,
+   "act": 0.739
+  },
+  {
+   "lo": 0.75,
+   "hi": 0.8,
+   "n": 444,
+   "pred": 0.772,
+   "act": 0.716
+  },
+  {
+   "lo": 0.8,
+   "hi": 0.9,
+   "n": 211,
+   "pred": 0.829,
+   "act": 0.877
+  },
+  {
+   "lo": 0.9,
+   "hi": 1.0,
+   "n": 1,
+   "pred": 0.903,
+   "act": 1.0
+  }
+ ],
+ "disagreement": [
+  {
+   "lo": 0,
+   "hi": 0.05,
+   "n": 333,
+   "pred": 0.618,
+   "act": 0.676,
+   "brier": 0.214
+  },
+  {
+   "lo": 0.05,
+   "hi": 0.1,
+   "n": 1436,
+   "pred": 0.628,
+   "act": 0.627,
+   "brier": 0.2233
+  },
+  {
+   "lo": 0.1,
+   "hi": 0.15,
+   "n": 1972,
+   "pred": 0.633,
+   "act": 0.637,
+   "brier": 0.2239
+  },
+  {
+   "lo": 0.15,
+   "hi": 1,
+   "n": 2181,
+   "pred": 0.622,
+   "act": 0.642,
+   "brier": 0.2265
+  }
+ ],
+ "analogs": [
+  {
+   "lo": 0,
+   "hi": 1,
+   "fav": "home",
+   "n": 177,
+   "favWin": 0.469
+  },
+  {
+   "lo": 0,
+   "hi": 1,
+   "fav": "away",
+   "n": 177,
+   "favWin": 0.52
+  },
+  {
+   "lo": 1.5,
+   "hi": 3,
+   "fav": "home",
+   "n": 695,
+   "favWin": 0.558
+  },
+  {
+   "lo": 1.5,
+   "hi": 3,
+   "fav": "away",
+   "n": 566,
+   "favWin": 0.588
+  },
+  {
+   "lo": 3.5,
+   "hi": 6,
+   "fav": "home",
+   "n": 780,
+   "favWin": 0.646
+  },
+  {
+   "lo": 3.5,
+   "hi": 6,
+   "fav": "away",
+   "n": 476,
+   "favWin": 0.676
+  },
+  {
+   "lo": 6.5,
+   "hi": 9.5,
+   "fav": "home",
+   "n": 638,
+   "favWin": 0.755
+  },
+  {
+   "lo": 6.5,
+   "hi": 9.5,
+   "fav": "away",
+   "n": 281,
+   "favWin": 0.776
+  },
+  {
+   "lo": 10,
+   "hi": 13.5,
+   "fav": "home",
+   "n": 306,
+   "favWin": 0.859
+  },
+  {
+   "lo": 10,
+   "hi": 13.5,
+   "fav": "away",
+   "n": 85,
+   "favWin": 0.788
+  },
+  {
+   "lo": 14,
+   "hi": 99,
+   "fav": "home",
+   "n": 111,
+   "favWin": 0.928
+  },
+  {
+   "lo": 14,
+   "hi": 99,
+   "fav": "away",
+   "n": 20,
+   "favWin": 0.85
+  }
+ ],
+ "narratives": [
+  {
+   "claim": "A team on a three-game winning streak is hot and will keep beating expectations",
+   "measure": "points better than the closing spread in the next game",
+   "n": 809,
+   "effect": 0.74,
+   "se": 0.45,
+   "verdict": "Not supported"
+  },
+  {
+   "claim": "Teams that keep winning close games know how to win",
+   "measure": "points better than the spread after going 75% or better in four or more one-score games",
+   "n": 613,
+   "effect": 0.9,
+   "se": 0.5,
+   "verdict": "Not supported"
+  },
+  {
+   "claim": "A team coming off its bye has an edge the odds miss",
+   "measure": "points better than the spread when only that team had the bye",
+   "n": 310,
+   "effect": 0.15,
+   "se": 0.67,
+   "verdict": "Not supported"
+  },
+  {
+   "claim": "Road teams on a short Thursday week are at a hidden disadvantage",
+   "measure": "road team's points against the spread (negative means worse)",
+   "n": 186,
+   "effect": -0.12,
+   "se": 0.89,
+   "verdict": "Not supported",
+   "note": "A positive effect here means the road team did worse than the spread."
+  },
+  {
+   "claim": "Dome teams cannot play outdoors in the cold",
+   "measure": "dome team's points against the spread on the road, outdoors, 35F or colder (negative means worse)",
+   "n": 42,
+   "effect": -0.98,
+   "se": 2.0,
+   "verdict": "Not supported",
+   "note": "A positive effect here means the dome team did worse than the spread."
+  },
+  {
+   "claim": "Division underdogs play their rivals closer than the odds say",
+   "measure": "underdog's points better than the spread in division games",
+   "n": 1106,
+   "effect": 0.1,
+   "se": 0.38,
+   "verdict": "Not supported"
+  },
+  {
+   "claim": "Wind lowers scoring more than the over/under allows for",
+   "measure": "points under the total in games with 15 mph wind or more",
+   "n": 216,
+   "effect": 1.65,
+   "se": 0.87,
+   "verdict": "Not supported",
+   "note": "Scoring itself does drop: 42.4 points a game in 15 mph or more against 46.0 in calm outdoor games. The question is whether the total already accounts for it."
+  },
+  {
+   "claim": "Home-field advantage is as strong as ever",
+   "measure": "average home margin, 2019-2025 against 2010-2018",
+   "n": 1837,
+   "effect": -1.0,
+   "se": 0.45,
+   "verdict": "Not supported",
+   "note": "Home teams won by 2.51 points on average in 2010-2018 and 1.51 in 2019-2025."
+  }
+ ],
+ "rejected": [
+  {
+   "what": "Quarterback-change discount on earlier results",
+   "why": "no measurable gain (log loss 0.6395 against 0.6396)"
+  },
+  {
+   "what": "Discount for return touchdowns",
+   "why": "made predictions worse (0.6411 against 0.6396)"
+  },
+  {
+   "what": "Weighting recent games more in the results rating",
+   "why": "worse than equal weighting (0.6459 against 0.6438)"
+  },
+  {
+   "what": "Rest-day adjustment",
+   "why": "effect was inconsistent between home and road teams"
+  }
+ ]
+}
