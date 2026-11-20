@@ -78,7 +78,7 @@ button:focus-visible,select:focus-visible{outline:2px solid var(--accent);outlin
 table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
 th{font-weight:500;color:var(--muted);font-size:11.5px;line-height:1.2;vertical-align:bottom;text-align:right;padding:4px 3px;border-bottom:1px solid var(--line)}
 th:first-child,td:first-child{text-align:left;padding-left:0}
-td{padding:6px 3px;text-align:right;border-bottom:1px solid var(--line)}
+td{white-space:nowrap;padding:6px 3px;text-align:right;border-bottom:1px solid var(--line)}
 tr.dv td{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;border-bottom:0;padding-top:12px}
 tr.me td{font-weight:600;color:var(--accent)}
 td.final{font-weight:600}
@@ -90,10 +90,28 @@ h3.pp:first-of-type{margin-top:0}
 .seeds li{padding:2px 0}
 .seeds li.wc1{border-top:1px dashed var(--line);margin-top:4px;padding-top:6px}
 .seeds li span{color:var(--muted);font-weight:400}
+.seeds.stack li span{display:block;font-size:12.5px}
 .seeds .out{font-size:12.5px;color:var(--muted);margin:6px 0 0}
 .seeds ol{margin:0;padding-left:20px;font-size:14px;font-variant-numeric:tabular-nums}
 .seeds li.me{font-weight:600;color:var(--accent)}
 .hint{color:var(--muted);font-size:13px;margin:0}
+.wide .brow{grid-template-columns:118px 1fr 44px}
+.scroll{overflow-x:auto}
+.grid{table-layout:fixed}
+.grid th,.grid td{padding:5px 1px;font-size:12px;text-align:center}
+.grid th:first-child{width:33%}
+.grid th:first-child,.grid td:first-child{text-align:left}
+.grid td:first-child{overflow:hidden;text-overflow:ellipsis}
+.grid td.hi{font-weight:600;background:var(--accent-soft)}
+.tag{font-size:10px;font-weight:600;color:var(--muted);margin-left:4px;text-transform:uppercase;border:1px solid var(--line);border-radius:3px;padding:0 3px}
+#trend svg{display:block;width:100%;height:auto}
+.tr-grid{stroke:var(--line);stroke-width:1}
+.tr-line{stroke:var(--accent);fill:none;stroke-width:2;stroke-linejoin:round}
+.tr-area{fill:var(--accent-soft)}
+.tr-dot{fill:var(--accent)}
+.tr-now{fill:var(--card);stroke:var(--accent);stroke-width:2.5}
+.tr-txt{fill:var(--muted);font:11px var(--body)}
+.tr-val{fill:var(--ink);font:600 12px var(--body)}
 footer{color:var(--muted);font-size:12.5px;max-width:65ch}
 footer p{margin:0 0 8px}
 @media (max-width:400px){.tile b{font-size:29px} h1{font-size:29px} .seg button{width:52px} .two{grid-template-columns:1fr}}
@@ -123,6 +141,20 @@ footer p{margin:0 0 8px}
   </section>
 
   <section class="card">
+    <h2>Playoff chance by week</h2>
+    <div id="trend"></div>
+    <p class="hint" id="trendHint"></p>
+  </section>
+
+  <section class="card">
+    <h2>How far they go</h2>
+    <div class="wide" id="run"></div>
+    <h3 class="pp">Super Bowl favorites</h3>
+    <table><thead><tr><th>Team</th><th>Reach the Super Bowl</th><th>Win it</th></tr></thead><tbody id="sb"></tbody></table>
+    <p class="hint" style="margin-top:10px">Each simulated season is played through the bracket. The better seed hosts, and the Super Bowl is at a neutral site.</p>
+  </section>
+
+  <section class="card">
     <div class="tools">
       <h2 style="margin:0">Pick the games</h2>
       <span class="count" id="count"></span>
@@ -145,10 +177,11 @@ footer p{margin:0 0 8px}
       <div class="tabs" id="confs" role="group" aria-label="Conference" style="margin:0;padding:0"></div>
     </div>
     <table>
-      <thead><tr><th>Team</th><th>Record</th><th>Proj. wins</th><th>Division</th><th>Wild card</th><th>Playoffs</th></tr></thead>
+      <thead><tr><th>Team</th><th>Record</th><th>Proj. wins</th><th>Div.</th><th>Wild card</th><th>Playoffs</th></tr></thead>
       <tbody id="stand"></tbody>
     </table>
-    <p class="hint" style="margin-top:10px">Record counts finished games plus your picks. Projected wins adds the simulated average for games you have not picked.</p>
+    <p class="hint" style="margin-top:10px"><span class="tag">z</span> clinched the division · <span class="tag">x</span> clinched a playoff spot · <span class="tag">e</span> eliminated. These flags are mathematical: they appear only when finished games and your picks make it certain.</p>
+    <p class="hint" style="margin-top:6px">Record counts finished games plus your picks. Projected wins adds the simulated average for games you have not picked.</p>
   </section>
 
   <section class="card">
@@ -158,14 +191,38 @@ footer p{margin:0 0 8px}
     <div class="seeds" id="seedsNow"></div>
     <h3 class="pp">Projected finish</h3>
     <p class="hint" id="seedHint"></p>
-    <div class="seeds" id="seeds"></div>
+    <div class="seeds stack" id="seeds"></div>
+  </section>
+
+  <section class="card">
+    <div class="tools">
+      <h2 style="margin:0">Chance at each seed</h2>
+      <div class="tabs" id="confs2" role="group" aria-label="Conference" style="margin:0;padding:0"></div>
+    </div>
+    <div class="scroll"><table class="grid"><thead><tr><th>Team</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>Miss</th></tr></thead><tbody id="grid"></tbody></table></div>
+    <p class="hint" style="margin-top:10px">Figures are percentages. Seeds 1 to 4 go to division winners and 5 to 7 to wild cards. A blank cell is under half a percent.</p>
+  </section>
+
+  <section class="card">
+    <div class="tools">
+      <h2 style="margin:0">Remaining schedule</h2>
+      <div class="tabs" id="confs3" role="group" aria-label="Conference" style="margin:0;padding:0"></div>
+    </div>
+    <table><thead><tr><th>Team</th><th>Games left</th><th>Avg. opponent</th><th>Rank</th></tr></thead><tbody id="sched"></tbody></table>
+    <p class="hint" style="margin-top:10px">Average opponent is the rating of the teams still to play, in points better or worse than an average team. Rank 1 is the hardest remaining schedule of all 32 teams. Games you have picked are left out.</p>
+  </section>
+
+  <section class="card">
+    <h2>Draft order projection</h2>
+    <table><thead><tr><th>Team</th><th>Avg. pick</th><th>No. 1 pick</th><th>Top 5</th></tr></thead><tbody id="draft"></tbody></table>
+    <p class="hint" style="margin-top:10px">The 18 teams that miss the playoffs pick first, worst record first, with the weaker schedule breaking ties. Average pick counts only seasons where the team misses the playoffs. Traded picks are not accounted for.</p>
   </section>
 
   <footer>
     <p><strong>Where the percentages come from.</strong> Two views of team strength are combined. Sportsbooks: the posted moneyline with the bookmaker's margin removed, or, where no line is posted yet, ratings fitted to this season's point spreads. Results: each team's scoring margin and its efficiency per play (expected points added), both adjusted for the strength of the opponents faced. Blend uses the posted line where there is one and averages the two ratings for later games; in a test on the 2021 to 2025 seasons that mix predicted later games better than either view alone. The buttons under the team menu switch between them. Lines as of <span class="asof"></span>.</p>
     <p><strong>Live scores.</strong> When the live score feed is connected, a game in progress uses an in-game win chance built from the current margin, the time left and the pregame line, and a finished game counts in the standings.</p>
     <p>Unpicked games are simulated 8,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
-    <p>Ties in the standings follow the NFL's procedure through its first six steps: head-to-head, division record, common games, conference record, strength of victory and strength of schedule. The remaining steps rank teams by points scored and allowed, which a win-or-lose simulation does not produce, so anything still tied after that is settled by a coin flip. Injuries and quarterback changes are not modeled, and picks cannot be ties.</p>
+    <p>Ties in the standings follow the NFL's procedure: head-to-head, division record, common games, conference record, strength of victory and strength of schedule. If teams are still level, scores are simulated for the remaining games and the points steps are applied: combined ranking in points scored and allowed within the conference, then league-wide, then net points. Three rarely reached steps are skipped (net points in common games or conference games, and net touchdowns) before the final coin flip. Injuries and quarterback changes are not modeled beyond what the betting lines reflect, and picks cannot be ties.</p>
     <p>An independent fan project. Not affiliated with the NFL, any team or any publisher.</p>
   </footer>
 </main>
@@ -173,11 +230,13 @@ footer p{margin:0 0 8px}
 <script id="engine">
 var D=/*DATA*/;
 var NT=32,TM=D.teams,GAMES=D.games,HFA=D.hfa;
-var BASE_PTS=new Float32Array(NT),BW=new Int16Array(NT),BL=new Int16Array(NT),BT=new Int16Array(NT),RES0=new Float32Array(NT*NT),CNT0=new Uint8Array(NT*NT),PD=new Float32Array(NT);
+var BASE_PTS=new Float32Array(NT),BW=new Int16Array(NT),BL=new Int16Array(NT),BT=new Int16Array(NT),RES0=new Float32Array(NT*NT),CNT0=new Uint8Array(NT*NT),PD=new Float32Array(NT),BPF=new Float32Array(NT),BPA=new Float32Array(NT);
 D.played.forEach(function(g){var a=g[0],h=g[1],x=g[2],y=g[3],s=x>y?1:x<y?0:.5;
-  BASE_PTS[a]+=s;BASE_PTS[h]+=1-s;RES0[a*NT+h]+=s;RES0[h*NT+a]+=1-s;CNT0[a*NT+h]++;CNT0[h*NT+a]++;PD[a]+=x-y;PD[h]+=y-x;
+  BASE_PTS[a]+=s;BASE_PTS[h]+=1-s;RES0[a*NT+h]+=s;RES0[h*NT+a]+=1-s;CNT0[a*NT+h]++;CNT0[h*NT+a]++;PD[a]+=x-y;PD[h]+=y-x;BPF[a]+=x;BPA[a]+=y;BPF[h]+=y;BPA[h]+=x;
   if(s===1){BW[a]++;BL[h]++}else if(s===0){BL[a]++;BW[h]++}else{BT[a]++;BT[h]++}});
 var RATE=Float32Array.from(D.rate);
+// Average combined score in each team's games so far, for simulating scores where no over/under is posted.
+var AVGTOT=new Float32Array(NT);(function(){for(var t=0;t<NT;t++){var n=BW[t]+BL[t]+BT[t];AVGTOT[t]=n?(BPF[t]+BPA[t])/n:44}})();
 // GD: rating gap in favor of the home team. A sportsbook moneyline, where one is posted, replaces the rating estimate.
 // SHRINK: rating gaps overstate the edge in games that are weeks away; the backtest on 2021-2025 found 0.8 fits best.
 var SHRINK=D.shrink||1;
@@ -189,8 +248,10 @@ var GDM=GAMES.map(function(g,i){return LINE[i]!=null?LINE[i]:gap(RATE,g)});
 var GDR=GAMES.map(function(g){return gap(RATE2,g)});
 // MODE: 0 sportsbooks only, 1 results only, 2 blend. In the blend a posted line is used as it stands, because nothing in
 // the backtest beats the line for the game itself; games without a line average the two ratings.
-var MODE=2,GD=GDM.slice();
-function setMode(m){MODE=m;for(var i=0;i<GD.length;i++)GD[i]=m===0?GDM[i]:m===1?GDR[i]:LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2}
+// MR: the team rating used for playoff games and schedule strength under the current mode.
+var MODE=2,GD=GDM.slice(),MR=new Float32Array(NT);
+function setMode(m){MODE=m;var i;for(i=0;i<GD.length;i++)GD[i]=m===0?GDM[i]:m===1?GDR[i]:LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2;
+  for(i=0;i<NT;i++)MR[i]=m===0?RATE[i]:m===1?RATE2[i]:(RATE[i]+RATE2[i])/2}
 setMode(2);
 var DIVT=[],CONFT=[[],[]],DM=[],CM=[];
 (function(){var t,o;for(t=0;t<NT;t++){(DIVT[TM[t].d]=DIVT[TM[t].d]||[]).push(t);CONFT[TM[t].c].push(t)}
@@ -210,6 +271,18 @@ function simulate(picks,focus,nOverride,liveP,now){
   var po=new Float64Array(NT),dv=new Float64Array(NT),sw=new Float64Array(NT),seedC=[],hist={},lev=GAMES.map(function(){return[0,0,0,0]});
   for(i=0;i<NT;i++)seedC.push([0,0,0,0,0,0,0]);
   var first=[null,null],pts,res,cnt,adj=new Float32Array(NT),out=new Uint8Array(GAMES.length),inP=new Uint8Array(NT);
+  var rDiv=new Float64Array(NT),rConf=new Float64Array(NT),rSB=new Float64Array(NT),wSB=new Float64Array(NT),draftSum=new Float64Array(NT),draftN=new Float64Array(NT),pick1=new Float64Array(NT),top5=new Float64Array(NT);
+  var pf,pa,scored=0,ALLT=[];for(i=0;i<NT;i++)ALLT.push(i);
+  // Scores are only needed by the late tiebreaker steps, so they are drawn the first time a tie gets that far in a simulated season.
+  function ensureScores(){if(scored)return;scored=1;pf=BPF.slice();pa=BPA.slice();if(now)return;
+    for(var q=0;q<GAMES.length;q++){var g=GAMES[q],a=g[2],h=g[3],hw=out[q],w=hw?h:a,l=hw?a:h,edge=(hw?GD[q]:-GD[q])/25,
+        mag=Math.max(1,Math.round(1+Math.abs(gauss()/35)*11+Math.max(0,edge)*.3)),tot=Math.round((g[7]!=null?g[7]:(AVGTOT[a]+AVGTOT[h])/2)+9.5*gauss()/35);
+      if(tot<mag+6)tot=mag+6;if((tot+mag)%2)tot++;pf[w]+=(tot+mag)/2;pa[w]+=(tot-mag)/2;pf[l]+=(tot-mag)/2;pa[l]+=(tot+mag)/2}}
+  // Combined ranking in points scored and points allowed within a group of teams; lower is better, so the key is negated.
+  function rankKey(t,group){ensureScores();var a=1,b=1,k,o;for(k=0;k<group.length;k++){o=group[k];if(pf[o]>pf[t])a++;if(pa[o]<pa[t])b++}return-(a+b)}
+  function confRank(t){return rankKey(t,CONFT[TM[t].c])}
+  function leagueRank(t){return rankKey(t,ALLT)}
+  function netPts(t){ensureScores();return pf[t]-pa[t]}
   function gauss(){return Math.sqrt(-2*Math.log(rnd()+1e-12))*Math.cos(6.283185307*rnd())*35}
   function share(t,os){var s=0,g=0,k,o;for(k=0;k<os.length;k++){o=os[k];if(o!==t){s+=res[t*NT+o];g+=cnt[t*NT+o]}}return g?s/g:-1}
   function common(ts,min){var os=[],o,k,ok;for(o=0;o<NT;o++){if(ts.indexOf(o)>=0)continue;ok=1;for(k=0;k<ts.length;k++)if(!cnt[ts[k]*NT+o]){ok=0;break}if(ok)os.push(o)}
@@ -219,20 +292,23 @@ function simulate(picks,focus,nOverride,liveP,now){
   function sos(t){var s=0,g=0,o,w;for(o=0;o<NT;o++){w=cnt[t*NT+o];if(w){s+=w*pts[o];g+=w}}return g?s/g:0}
   function narrow(ts,key){var m=-Infinity,ks=[],k,v;for(k=0;k<ts.length;k++){v=Math.round(key(ts[k])*1e6);ks.push(v);if(v>m)m=v}return ts.filter(function(t,j){return ks[j]===m})}
   function divBreak(ts){var k=0,nx,os;
-    while(ts.length>1&&k<6){
+    while(ts.length>1&&k<9){
       if(k===0)nx=narrow(ts,function(t){return share(t,ts)});
       else if(k===1)nx=narrow(ts,function(t){return share(t,DM[t])});
       else if(k===2){os=common(ts,0);nx=os.length?narrow(ts,function(t){return share(t,os)}):ts}
       else if(k===3)nx=narrow(ts,function(t){return share(t,CM[t])});
       else if(k===4)nx=narrow(ts,sov);
-      else nx=narrow(ts,sos);
+      else if(k===5)nx=narrow(ts,sos);
+      else if(k===6)nx=narrow(ts,confRank);
+      else if(k===7)nx=narrow(ts,leagueRank);
+      else nx=narrow(ts,netPts);
       if(nx.length<ts.length){ts=nx;k=0}else k++}
     return ts.length>1?ts[Math.floor(rnd()*ts.length)]:ts[0]}
   function wildBreak(ts){var by={},c=[],k,d,os,nx;
     for(k=0;k<ts.length;k++){d=TM[ts[k]].d;(by[d]=by[d]||[]).push(ts[k])}
     for(d in by)c.push(by[d].length>1?divBreak(by[d]):by[d][0]);
     k=0;
-    while(c.length>1&&k<5){
+    while(c.length>1&&k<8){
       nx=c;
       if(k===0){
         if(c.length===2){if(cnt[c[0]*NT+c[1]])nx=narrow(c,function(t){return share(t,c)})}
@@ -245,16 +321,20 @@ function simulate(picks,focus,nOverride,liveP,now){
       }else if(k===1)nx=narrow(c,function(t){return share(t,CM[t])});
       else if(k===2){os=common(c,4);if(os)nx=narrow(c,function(t){return share(t,os)})}
       else if(k===3)nx=narrow(c,sov);
-      else nx=narrow(c,sos);
+      else if(k===4)nx=narrow(c,sos);
+      else if(k===5)nx=narrow(c,confRank);
+      else if(k===6)nx=narrow(c,leagueRank);
+      else nx=narrow(c,netPts);
       if(nx.length<c.length){c=nx;k=0}else k++}
     return c.length>1?c[Math.floor(rnd()*c.length)]:c[0]}
+  function pg(hi,lo,neutral){return rnd()<1/(1+Math.pow(10,-(SHRINK*(MR[hi]-MR[lo])+adj[hi]-adj[lo]+(neutral?0:HFA))/400))?hi:lo}
   function order(list,need){var pool=list.slice(),r=[],m,k,tied,p;
     while(pool.length&&r.length<need){m=-1;for(k=0;k<pool.length;k++)if(pts[pool[k]]>m)m=pts[pool[k]];
       tied=pool.filter(function(t){return pts[t]===m});p=tied.length>1?wildBreak(tied):tied[0];r.push(p);pool.splice(pool.indexOf(p),1)}
     return r}
   for(var n=0;n<N;n++){
     pts=BASE_PTS.slice();res=RES0.slice();cnt=CNT0.slice();
-    for(i=0;i<NT;i++){adj[i]=gauss();inP[i]=0}
+    for(i=0;i<NT;i++){adj[i]=gauss();inP[i]=0}scored=0;var champs=[0,0];
     if(now){for(i=0;i<NT;i++){var gp=BW[i]+BL[i]+BT[i];pts[i]=gp?BASE_PTS[i]/gp:0}}
     else for(i=0;i<GAMES.length;i++){var g=GAMES[i],a=g[2],h=g[3],hw=picks[i]===1?0:picks[i]===2?1:(liveP&&liveP[i]!=null)?(rnd()<liveP[i]?1:0):(rnd()<1/(1+Math.pow(10,-(GD[i]+adj[h]-adj[a])/400))?1:0);
       out[i]=hw;var w=hw?h:a,l=hw?a:h;pts[w]++;res[w*NT+l]++;cnt[w*NT+l]++;cnt[l*NT+w]++}
@@ -264,13 +344,25 @@ function simulate(picks,focus,nOverride,liveP,now){
       CONFT[c].forEach(function(t){if(winners.indexOf(t)<0)rest.push(t)});
       var seeds=order(winners,4).concat(order(rest,3));
       if(n===0)first[c]=seeds;
-      for(i=0;i<7;i++){seedC[seeds[i]][i]++;po[seeds[i]]++;inP[seeds[i]]=1}}
+      for(i=0;i<7;i++){seedC[seeds[i]][i]++;po[seeds[i]]++;inP[seeds[i]]=1}
+      if(!now){
+        // Bracket: 2 hosts 7, 3 hosts 6, 4 hosts 5; then the top seed hosts the lowest seed left; the better seed always hosts.
+        var alive=[seeds[0],pg(seeds[1],seeds[6]),pg(seeds[2],seeds[5]),pg(seeds[3],seeds[4])].sort(function(x,y){return seeds.indexOf(x)-seeds.indexOf(y)});
+        for(i=0;i<4;i++)rDiv[alive[i]]++;
+        var f1=pg(alive[0],alive[3]),f2=pg(alive[1],alive[2]);rConf[f1]++;rConf[f2]++;
+        champs[c]=seeds.indexOf(f1)<seeds.indexOf(f2)?pg(f1,f2):pg(f2,f1);rSB[champs[c]]++}}
+    if(!now){
+      wSB[pg(champs[0],champs[1],true)]++;
+      // Draft order for the 18 teams that miss the playoffs: worst record first, weaker schedule first among equal records.
+      var outT=[];for(i=0;i<NT;i++)if(!inP[i])outT.push([pts[i]+sos(i)*1e-3+rnd()*1e-6,i]);
+      outT.sort(function(x,y){return x[0]-y[0]});
+      for(i=0;i<outT.length;i++){var dt=outT[i][1];draftSum[dt]+=i+1;draftN[dt]++;if(i===0)pick1[dt]++;if(i<5)top5[dt]++}}
     for(i=0;i<NT;i++)sw[i]+=pts[i];
     var k2=Math.round(pts[focus]*2);hist[k2]=(hist[k2]||0)+1;
     // lev[i] = [home wins, home wins and focus team in playoffs, away wins, away wins and focus team in playoffs]
     var fin=inP[focus];for(i=0;i<GAMES.length;i++){if(out[i]){lev[i][0]++;lev[i][1]+=fin}else{lev[i][2]++;lev[i][3]+=fin}}
   }
-  return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first};
+  return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first,rDiv:rDiv,rConf:rConf,rSB:rSB,wSB:wSB,draftSum:draftSum,draftN:draftN,pick1:pick1,top5:top5};
 }
 </script>
 <script>
@@ -347,10 +439,12 @@ function simulate(picks,focus,nOverride,liveP,now){
     if(ks.length>9){hr=[];var top=ks.slice().sort(function(a,b){return r.hist[b]-r.hist[a]}).slice(0,9).sort(function(a,b){return b-a});top.forEach(function(k){var wins=k/2-.5*BT[focus];hr.push([wins+"-"+(17-BT[focus]-wins)+(BT[focus]?"-"+BT[focus]:""),r.hist[k]/r.n])})}
     bars($("hist"),hr);
     tabs($("confs"),[[1,"NFC"],[0,"AFC"]],conf,function(c){conf=c;render(last)});
+    var ST=status();
     var tb=$("stand");tb.textContent="";
     for(var d=conf*4;d<conf*4+4;d++){var hd=el("tr","dv"),td=el("td","",TM[DIVT[d][0]].dn);td.colSpan=6;hd.appendChild(td);tb.appendChild(hd);
       DIVT[d].slice().sort(function(a,b){return r.sw[b]-r.sw[a]||r.dv[b]-r.dv[a]}).forEach(function(t){var k=locked(t),tr=el("tr",t===focus?"me":"");
-        tr.appendChild(el("td","",TM[t].n));tr.appendChild(el("td",k.left?"":"final",recStr(k)));
+        var nm=el("td","",TM[t].n),fl=ST[t];if(fl)nm.appendChild(el("span","tag",fl));
+        tr.appendChild(nm);tr.appendChild(el("td",k.left?"":"final",recStr(k)));
         tr.appendChild(el("td","",(r.sw[t]/r.n-.5*BT[t]).toFixed(1)));tr.appendChild(el("td","",pct(r.dv[t]/r.n)));tr.appendChild(el("td","",pct((r.po[t]-r.dv[t])/r.n)));tr.appendChild(el("td","",pct(r.po[t]/r.n)));tb.appendChild(tr)})}
     var projW=function(t){var w=Math.round(r.sw[t]/r.n-.5*BT[t]);return w+"-"+(17-BT[t]-w)+(BT[t]?"-"+BT[t]:"")};
     var field=function(box,lists,info,outNote){box.textContent="";[1,0].forEach(function(c){var wrap=el("div"),ol=el("ol");wrap.appendChild(el("h3","",c?"NFC":"AFC"));
@@ -366,9 +460,51 @@ function simulate(picks,focus,nOverride,liveP,now){
       rest=CONFT[c].filter(function(t){return win.indexOf(t)<0}).sort(function(a,b){return(r.po[b]-r.dv[b])-(r.po[a]-r.dv[a])}).slice(0,3).sort(function(a,b){return r.sw[b]-r.sw[a]});
       return win.concat(rest)});
     $("seedHint").textContent=r.open?"Your picks plus simulated results for the "+r.open+" games still open. Division favorites are seeded by projected wins, then the three likeliest wild cards. Shown: projected record and playoff chance.":"Final seeds with every game picked.";
-    field($("seeds"),proj,function(t){return r.open?projW(t)+", "+pct(r.po[t]/r.n):recStr(locked(t))},r.open?"projected to miss":"miss the playoffs");
+    field($("seeds"),proj,function(t){return r.open?projW(t)+" \u00b7 "+pct(r.po[t]/r.n)+" in":recStr(locked(t))},r.open?"projected to miss":"miss the playoffs");
+    // --- playoff chance by week ---
+    var H=D.history,ptsT=[];if(H)H.weeks.forEach(function(w,k){ptsT.push([String(w),H.po[k][focus]])});
+    ptsT.push(["Now",r.po[focus]/r.n]);
+    var NS="http://www.w3.org/2000/svg",sv=function(tag,at,txt){var e=document.createElementNS(NS,tag);for(var k in at)e.setAttribute(k,at[k]);if(txt!=null)e.textContent=txt;return e};
+    var W=320,Hh=150,ml=38,mr=14,mt=14,mb=24,svg=sv("svg",{viewBox:"0 0 "+W+" "+Hh,role:"img","aria-label":TM[focus].n+" playoff chance by week"});
+    var X=function(k){return ptsT.length>1?ml+(W-ml-mr)*k/(ptsT.length-1):W-mr},Y=function(v){return mt+(Hh-mt-mb)*(1-v)};
+    [0,.5,1].forEach(function(v){svg.appendChild(sv("line",{x1:ml,x2:W-mr,y1:Y(v),y2:Y(v),"class":"tr-grid"}));svg.appendChild(sv("text",{x:ml-5,y:Y(v)+4,"text-anchor":"end","class":"tr-txt"},Math.round(v*100)+"%"))});
+    var path=ptsT.map(function(p,k){return X(k).toFixed(1)+","+Y(p[1]).toFixed(1)}).join(" ");
+    if(ptsT.length>1){svg.appendChild(sv("polygon",{points:X(0)+","+Y(0)+" "+path+" "+X(ptsT.length-1)+","+Y(0),"class":"tr-area"}));svg.appendChild(sv("polyline",{points:path,"class":"tr-line"}))}
+    ptsT.forEach(function(p,k){var lastP=k===ptsT.length-1;svg.appendChild(sv("circle",{cx:X(k),cy:Y(p[1]),r:lastP?4.5:2.5,"class":lastP?"tr-now":"tr-dot"}));
+      svg.appendChild(sv("text",{x:X(k),y:Hh-7,"text-anchor":lastP?"end":"middle","class":"tr-txt"},p[0]));
+      if(lastP)svg.appendChild(sv("text",{x:X(k),y:Math.max(11,Y(p[1])-9),"text-anchor":"end","class":"tr-val"},pct(p[1])))});
+    $("trend").textContent="";$("trend").appendChild(svg);
+    $("trendHint").textContent=(H?"Each dot is the "+TM[focus].n+"' playoff chance after that week's games, rebuilt from the results and betting lines known at the time (Blend view). ":"")+"Now includes your picks.";
+    // --- how far they go ---
+    bars($("run"),[["Divisional round",r.rDiv[focus]/r.n],["Conference title game",r.rConf[focus]/r.n],["Super Bowl",r.rSB[focus]/r.n],["Win the Super Bowl",r.wSB[focus]/r.n]]);
+    var sbT=$("sb");sbT.textContent="";var favs=TM.map(function(x,i){return i}).sort(function(a,b){return r.wSB[b]-r.wSB[a]}).slice(0,6);if(favs.indexOf(focus)<0)favs.push(focus);
+    favs.forEach(function(t){var tr=el("tr",t===focus?"me":"");tr.appendChild(el("td","",TM[t].n));tr.appendChild(el("td","",pct(r.rSB[t]/r.n)));tr.appendChild(el("td","",pct(r.wSB[t]/r.n)));sbT.appendChild(tr)});
+    // --- chance at each seed ---
+    var setConf=function(c){conf=c;render(last)};
+    tabs($("confs2"),[[1,"NFC"],[0,"AFC"]],conf,setConf);tabs($("confs3"),[[1,"NFC"],[0,"AFC"]],conf,setConf);
+    var gb=$("grid");gb.textContent="";
+    CONFT[conf].slice().sort(function(a,b){return r.po[b]-r.po[a]||r.sw[b]-r.sw[a]}).forEach(function(t){var tr=el("tr",t===focus?"me":"");tr.appendChild(el("td","",TM[t].n));
+      for(var s=0;s<7;s++){var v=r.seedC[t][s]/r.n;tr.appendChild(el("td",v>=.25?"hi":"",v<.005?"":pct(v).replace("%","")))}
+      tr.appendChild(el("td","",pct(1-r.po[t]/r.n).replace("%","")));gb.appendChild(tr)});
+    // --- remaining schedule ---
+    var sc=TM.map(function(x,t){var s=0,n=0;GAMES.forEach(function(g,i){if(picks[i])return;if(g[2]===t){s+=MR[g[3]];n++}else if(g[3]===t){s+=MR[g[2]];n++}});return{t:t,n:n,avg:n?s/n/25:null}});
+    var ranked=sc.filter(function(x){return x.n}).sort(function(a,b){return b.avg-a.avg});ranked.forEach(function(x,k){x.rank=k+1});
+    var sb2=$("sched");sb2.textContent="";
+    sc.filter(function(x){return TM[x.t].c===conf}).sort(function(a,b){return(a.rank||99)-(b.rank||99)}).forEach(function(x){var tr=el("tr",x.t===focus?"me":"");
+      tr.appendChild(el("td","",TM[x.t].n));tr.appendChild(el("td","",String(x.n)));tr.appendChild(el("td","",x.n?(Math.abs(x.avg)<.05?"0.0":(x.avg>0?"+":"\u2212")+Math.abs(x.avg).toFixed(1)):"\u2013"));tr.appendChild(el("td","",x.n?String(x.rank):"\u2013"));sb2.appendChild(tr)});
+    // --- draft order ---
+    var db=$("draft");db.textContent="";
+    var dl=TM.map(function(x,i){return i}).filter(function(t){return r.draftN[t]/r.n>=.5}).sort(function(a,b){return r.draftSum[a]/r.draftN[a]-r.draftSum[b]/r.draftN[b]}).slice(0,10);
+    if(TM[focus]&&dl.indexOf(focus)<0&&r.draftN[focus]/r.n>=.5)dl.push(focus);
+    dl.forEach(function(t){var tr=el("tr",t===focus?"me":"");tr.appendChild(el("td","",TM[t].n));tr.appendChild(el("td","",(r.draftSum[t]/r.draftN[t]).toFixed(1)));tr.appendChild(el("td","",pct(r.pick1[t]/r.n)));tr.appendChild(el("td","",pct(r.top5[t]/r.n)));db.appendChild(tr)});
     drawGames();
   }
+  // Clinched and eliminated flags from certain results only: finished games plus picks. Every team ends on 17 games, so wins can be compared directly.
+  function status(){var cur=[],mx=[],t,out=[];for(t=0;t<NT;t++){var k=locked(t);cur[t]=k.w+.5*k.t;mx[t]=cur[t]+k.left}
+    for(t=0;t<NT;t++){var divIn=DM[t].every(function(o){return mx[o]<cur[t]}),divOut=DM[t].some(function(o){return cur[o]>mx[t]});
+      var canCatch=0,surelyAbove=0;CM[t].forEach(function(o){if(mx[o]>=cur[t])canCatch++;if(cur[o]>mx[t])surelyAbove++});
+      out[t]=divIn?"z":canCatch<=2?"x":(divOut&&surelyAbove>=7)?"e":""}
+    return out}
   var timer=0;
   function rerun(){drawGames();clearTimeout(timer);timer=setTimeout(function(){last=simulate(picks,focus,0,liveArr());render(last)},20)}
   $("fav").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week&&!picks[i])picks[i]=dispProb(i)>=.5?2:1});save();rerun()});
@@ -392,7 +528,7 @@ function simulate(picks,focus,nOverride,liveP,now){
       everOk=true;
     }).catch(function(){if(!everOk&&++fails>=3)clearInterval(timerId)})}
   var everOk=false,fails=0,timerId=0;
-  if(location.protocol!=="file:"){poll();timerId=setInterval(poll,20000)}
+  if(typeof fetch==="function"&&location.protocol!=="file:"){poll();timerId=setInterval(poll,20000)}
 })();
 </script>
 </body>

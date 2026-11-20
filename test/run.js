@@ -18,6 +18,10 @@ if (g >= 0) {
   assert.ok(Math.abs(E.liveProbFor(g, { a: 0, h: 0, q: 1, m: 15 }) - pre) < 1e-9, "kickoff equals pregame line");
   assert.ok(E.liveProbFor(g, { a: 0, h: 21, q: 4, m: 2 }) > 0.99, "big late lead is near certain");
 }
+const tot = (arr) => Math.round(Array.from(arr).reduce((x, y) => x + y, 0) / r.n);
+assert.deepStrictEqual([tot(r.rDiv), tot(r.rConf), tot(r.rSB), tot(r.wSB)], [8, 4, 2, 1], "bracket sends 8, 4, 2 and 1 teams through each round");
+assert.deepStrictEqual([tot(r.draftN), tot(r.pick1), tot(r.top5)], [18, 1, 5], "draft order covers the 18 non-playoff teams");
+for (let i = 0; i < 32; i++) assert.ok(r.rDiv[i] <= r.po[i] && r.rConf[i] <= r.rDiv[i] && r.rSB[i] <= r.rConf[i] && r.wSB[i] <= r.rSB[i], "rounds nest");
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
 assert.deepStrictEqual(feed[0], { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 });
