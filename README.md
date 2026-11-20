@@ -33,7 +33,8 @@ This downloads the nflverse games file (schedule, final scores, spreads and mone
 ## How the odds work
 
 - **Games with a posted moneyline:** the line with the bookmaker's margin removed.
-- **Games without a line yet:** team ratings fitted to this season's point spreads, weighted toward recent weeks, plus home-field advantage.
+- **Games without a line yet:** an even blend of two ratings, plus home-field advantage. The market rating is fitted to this season's point spreads, weighted toward recent weeks. The results rating is opponent-adjusted scoring margin (80%) and opponent-adjusted EPA margin (20%), from the nflverse weekly team stats.
+- **Backtest:** `python3 scripts/backtest.py <games.csv> <folder of team_week_YYYY.csv>` (needs numpy) replays 2021-2025 and reports how well each rating predicted games two or more weeks ahead. The blend weights and the 0.8 shrink on rating gaps come from it.
 - **Tiebreakers:** the NFL procedure through strength of schedule (head-to-head, division record, common games, conference record, strength of victory, strength of schedule), then a coin flip. The points-based steps are not implemented because simulated games have no scores.
 - Injuries are only reflected as far as the betting lines reflect them. Picks cannot be ties.
 

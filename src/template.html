@@ -162,7 +162,7 @@ footer p{margin:0 0 8px}
   </section>
 
   <footer>
-    <p><strong>Where the percentages come from.</strong> Two views of team strength are combined. Sportsbooks: the posted moneyline with the bookmaker's margin removed, or, where no line is posted yet, ratings fitted to this season's point spreads. Results: each team's win-loss record and point differential, the way standings-based projections rate teams. Blend averages the two, and the buttons under the team menu switch between them. Lines as of <span class="asof"></span>.</p>
+    <p><strong>Where the percentages come from.</strong> Two views of team strength are combined. Sportsbooks: the posted moneyline with the bookmaker's margin removed, or, where no line is posted yet, ratings fitted to this season's point spreads. Results: each team's scoring margin and its efficiency per play (expected points added), both adjusted for the strength of the opponents faced. Blend uses the posted line where there is one and averages the two ratings for later games; in a test on the 2021 to 2025 seasons that mix predicted later games better than either view alone. The buttons under the team menu switch between them. Lines as of <span class="asof"></span>.</p>
     <p><strong>Live scores.</strong> When the live score feed is connected, a game in progress uses an in-game win chance built from the current margin, the time left and the pregame line, and a finished game counts in the standings.</p>
     <p>Unpicked games are simulated 8,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
     <p>Ties in the standings follow the NFL's procedure through its first six steps: head-to-head, division record, common games, conference record, strength of victory and strength of schedule. The remaining steps rank teams by points scored and allowed, which a win-or-lose simulation does not produce, so anything still tied after that is settled by a coin flip. Injuries and quarterback changes are not modeled, and picks cannot be ties.</p>
@@ -179,14 +179,18 @@ D.played.forEach(function(g){var a=g[0],h=g[1],x=g[2],y=g[3],s=x>y?1:x<y?0:.5;
   if(s===1){BW[a]++;BL[h]++}else if(s===0){BL[a]++;BW[h]++}else{BT[a]++;BT[h]++}});
 var RATE=Float32Array.from(D.rate);
 // GD: rating gap in favor of the home team. A sportsbook moneyline, where one is posted, replaces the rating estimate.
-var GDM=GAMES.map(function(g){var p=g[6];return p!=null?400*Math.log10(p/(1-p)):RATE[g[3]]-RATE[g[2]]+(g[4]?0:HFA)});
-// Second opinion from results alone: win-loss record and point differential, pulled toward average for the small sample.
-var RATE2=new Float32Array(NT);
-(function(){for(var t=0;t<NT;t++){var n=BW[t]+BL[t]+BT[t],p=(BASE_PTS[t]+3)/(n+6),e1=400*Math.log10(p/(1-p))*.9,e2=n?25*(PD[t]/n)*(n/(n+3)):0;RATE2[t]=.5*e1+.5*e2}})();
-var GDR=GAMES.map(function(g){return RATE2[g[3]]-RATE2[g[2]]+(g[4]?0:HFA)});
-// MODE: 0 sportsbooks only, 1 results only, 2 an even blend of the two
+// SHRINK: rating gaps overstate the edge in games that are weeks away; the backtest on 2021-2025 found 0.8 fits best.
+var SHRINK=D.shrink||1;
+// Results rating: opponent-adjusted scoring margin and EPA margin, built in scripts/build.py.
+var RATE2=Float32Array.from(D.rate2||D.rate);
+function gap(R,g){return SHRINK*(R[g[3]]-R[g[2]])+(g[4]?0:HFA)}
+var LINE=GAMES.map(function(g){var p=g[6];return p!=null?400*Math.log10(p/(1-p)):null});
+var GDM=GAMES.map(function(g,i){return LINE[i]!=null?LINE[i]:gap(RATE,g)});
+var GDR=GAMES.map(function(g){return gap(RATE2,g)});
+// MODE: 0 sportsbooks only, 1 results only, 2 blend. In the blend a posted line is used as it stands, because nothing in
+// the backtest beats the line for the game itself; games without a line average the two ratings.
 var MODE=2,GD=GDM.slice();
-function setMode(m){MODE=m;for(var i=0;i<GD.length;i++)GD[i]=m===0?GDM[i]:m===1?GDR[i]:(GDM[i]+GDR[i])/2}
+function setMode(m){MODE=m;for(var i=0;i<GD.length;i++)GD[i]=m===0?GDM[i]:m===1?GDR[i]:LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2}
 setMode(2);
 var DIVT=[],CONFT=[[],[]],DM=[],CM=[];
 (function(){var t,o;for(t=0;t<NT;t++){(DIVT[TM[t].d]=DIVT[TM[t].d]||[]).push(t);CONFT[TM[t].c].push(t)}
@@ -304,7 +308,7 @@ function simulate(picks,focus,nOverride,liveP,now){
     var idx=[];GAMES.forEach(function(g,i){if(g[1]===week)idx.push(i)});
     idx.sort(function(a,b){var ma=GAMES[a][2]===focus||GAMES[a][3]===focus,mb=GAMES[b][2]===focus||GAMES[b][3]===focus;return(mb?1:0)-(ma?1:0)||a-b});
     idx.forEach(function(i){var g=GAMES[i],mine=g[2]===focus||g[3]===focus,row=el("div","game"+(mine?" mine":"")),lab=el("div","lab",g[5]+(g[4]?" · neutral":"")),ph=dispProb(i),L=live[g[0]];
-      lab.appendChild(el("div","src",L?(L.f?"Final: ":"Live: ")+TM[g[2]].a+" "+L.a+", "+TM[g[3]].a+" "+L.h+(L.f?"":" · "+(L.q>=5?"OT":"Q"+L.q)+" "+(L.c||L.m+":00")):(MODE===1?"From results":MODE===0?(g[6]!=null?"Sportsbook line":"Spread-based rating"):(g[6]!=null?"Line and results blend":"Ratings blend"))));
+      lab.appendChild(el("div","src",L?(L.f?"Final: ":"Live: ")+TM[g[2]].a+" "+L.a+", "+TM[g[3]].a+" "+L.h+(L.f?"":" · "+(L.q>=5?"OT":"Q"+L.q)+" "+(L.c||L.m+":00")):(MODE===1?"From results":MODE===0?(g[6]!=null?"Sportsbook line":"Spread-based rating"):(g[6]!=null?"Sportsbook line":"Ratings blend"))));
       var root=0,V=last&&last.lev[i],d=el("div");
       if(picks[i])d.textContent=mine?"Locked in":"";
       else if(V&&V[0]&&V[2]){var pH=V[1]/V[0],pA=V[3]/V[2],gap=Math.round((pH-pA)*100);

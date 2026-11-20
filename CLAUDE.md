@@ -7,3 +7,4 @@
 - The live feed has not been verified against the real ESPN endpoint from the sandbox this was built in. First thing to check on a machine with open internet: `npm start`, then open `/api/live` during a game window.
 - Known gaps: tiebreakers stop at strength of schedule (points-based steps need simulated scores); ties cannot be picked; in-game model ignores possession and timeouts.
 - Win chances have three modes (`setMode`): 0 sportsbooks, 1 results-based ratings, 2 an even blend (default). `GD` is rebuilt from `GDM` and `GDR` when the mode changes.
+- Ratings are built in `scripts/build.py` (`rate` market, `rate2` results). Change weights only after rerunning `scripts/backtest.py`; rest-day effects were tested there and were too noisy to add.
