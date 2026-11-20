@@ -214,8 +214,11 @@ footer p{margin:0 0 8px}
 
   <section class="card">
     <h2>Draft order projection</h2>
-    <table><thead><tr><th>Team</th><th>Avg. pick</th><th>No. 1 pick</th><th>Top 5</th></tr></thead><tbody id="draft"></tbody></table>
-    <p class="hint" style="margin-top:10px">The 18 teams that miss the playoffs pick first, worst record first, with the weaker schedule breaking ties. Average pick counts only seasons where the team misses the playoffs. Traded picks are not accounted for.</p>
+    <table><thead><tr><th>Pick from</th><th>Owned by</th><th>Avg. pick</th><th>No. 1</th><th>Top 5</th></tr></thead><tbody id="draft"></tbody></table>
+    <p class="hint" style="margin-top:10px">The ten earliest projected first-round picks, plus every first-round pick that has been traded. Teams that miss the playoffs pick first, worst record first, with the weaker schedule breaking ties; playoff teams follow in the order they are knocked out.</p>
+    <h3 class="pp">Who holds the top of the draft</h3>
+    <table><thead><tr><th>Team</th><th>First-round picks</th><th>Holds No. 1</th><th>Holds a top-5 pick</th></tr></thead><tbody id="holders"></tbody></table>
+    <p class="hint" style="margin-top:10px" id="ownNote"></p>
   </section>
 
   <footer>
@@ -253,6 +256,8 @@ var MODE=2,GD=GDM.slice(),MR=new Float32Array(NT);
 function setMode(m){MODE=m;var i;for(i=0;i<GD.length;i++)GD[i]=m===0?GDM[i]:m===1?GDR[i]:LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2;
   for(i=0;i<NT;i++)MR[i]=m===0?RATE[i]:m===1?RATE2[i]:(RATE[i]+RATE2[i])/2}
 setMode(2);
+// OWNER[t]: the team that holds t's first-round pick (itself unless the pick was traded).
+var OWNER=TM.map(function(x,i){return D.owners&&D.owners[i]!=null?D.owners[i]:i});
 var DIVT=[],CONFT=[[],[]],DM=[],CM=[];
 (function(){var t,o;for(t=0;t<NT;t++){(DIVT[TM[t].d]=DIVT[TM[t].d]||[]).push(t);CONFT[TM[t].c].push(t)}
   for(t=0;t<NT;t++){DM[t]=DIVT[TM[t].d].filter(function(o){return o!==t});CM[t]=CONFT[TM[t].c].filter(function(o){return o!==t})}})();
@@ -272,7 +277,7 @@ function simulate(picks,focus,nOverride,liveP,now){
   for(i=0;i<NT;i++)seedC.push([0,0,0,0,0,0,0]);
   var first=[null,null],pts,res,cnt,adj=new Float32Array(NT),out=new Uint8Array(GAMES.length),inP=new Uint8Array(NT);
   var rDiv=new Float64Array(NT),rConf=new Float64Array(NT),rSB=new Float64Array(NT),wSB=new Float64Array(NT),draftSum=new Float64Array(NT),draftN=new Float64Array(NT),pick1=new Float64Array(NT),top5=new Float64Array(NT);
-  var pf,pa,scored=0,ALLT=[];for(i=0;i<NT;i++)ALLT.push(i);
+  var elim=new Uint8Array(NT),pf,pa,scored=0,ALLT=[];for(i=0;i<NT;i++)ALLT.push(i);
   // Scores are only needed by the late tiebreaker steps, so they are drawn the first time a tie gets that far in a simulated season.
   function ensureScores(){if(scored)return;scored=1;pf=BPF.slice();pa=BPA.slice();if(now)return;
     for(var q=0;q<GAMES.length;q++){var g=GAMES[q],a=g[2],h=g[3],hw=out[q],w=hw?h:a,l=hw?a:h,edge=(hw?GD[q]:-GD[q])/25,
@@ -328,13 +333,14 @@ function simulate(picks,focus,nOverride,liveP,now){
       if(nx.length<c.length){c=nx;k=0}else k++}
     return c.length>1?c[Math.floor(rnd()*c.length)]:c[0]}
   function pg(hi,lo,neutral){return rnd()<1/(1+Math.pow(10,-(SHRINK*(MR[hi]-MR[lo])+adj[hi]-adj[lo]+(neutral?0:HFA))/400))?hi:lo}
+  function play(hi,lo,neutral,round){var w=pg(hi,lo,neutral);elim[w===hi?lo:hi]=round;return w}
   function order(list,need){var pool=list.slice(),r=[],m,k,tied,p;
     while(pool.length&&r.length<need){m=-1;for(k=0;k<pool.length;k++)if(pts[pool[k]]>m)m=pts[pool[k]];
       tied=pool.filter(function(t){return pts[t]===m});p=tied.length>1?wildBreak(tied):tied[0];r.push(p);pool.splice(pool.indexOf(p),1)}
     return r}
   for(var n=0;n<N;n++){
     pts=BASE_PTS.slice();res=RES0.slice();cnt=CNT0.slice();
-    for(i=0;i<NT;i++){adj[i]=gauss();inP[i]=0}scored=0;var champs=[0,0];
+    for(i=0;i<NT;i++){adj[i]=gauss();inP[i]=0;elim[i]=0}scored=0;var champs=[0,0];
     if(now){for(i=0;i<NT;i++){var gp=BW[i]+BL[i]+BT[i];pts[i]=gp?BASE_PTS[i]/gp:0}}
     else for(i=0;i<GAMES.length;i++){var g=GAMES[i],a=g[2],h=g[3],hw=picks[i]===1?0:picks[i]===2?1:(liveP&&liveP[i]!=null)?(rnd()<liveP[i]?1:0):(rnd()<1/(1+Math.pow(10,-(GD[i]+adj[h]-adj[a])/400))?1:0);
       out[i]=hw;var w=hw?h:a,l=hw?a:h;pts[w]++;res[w*NT+l]++;cnt[w*NT+l]++;cnt[l*NT+w]++}
@@ -347,14 +353,15 @@ function simulate(picks,focus,nOverride,liveP,now){
       for(i=0;i<7;i++){seedC[seeds[i]][i]++;po[seeds[i]]++;inP[seeds[i]]=1}
       if(!now){
         // Bracket: 2 hosts 7, 3 hosts 6, 4 hosts 5; then the top seed hosts the lowest seed left; the better seed always hosts.
-        var alive=[seeds[0],pg(seeds[1],seeds[6]),pg(seeds[2],seeds[5]),pg(seeds[3],seeds[4])].sort(function(x,y){return seeds.indexOf(x)-seeds.indexOf(y)});
+        var alive=[seeds[0],play(seeds[1],seeds[6],0,1),play(seeds[2],seeds[5],0,1),play(seeds[3],seeds[4],0,1)].sort(function(x,y){return seeds.indexOf(x)-seeds.indexOf(y)});
         for(i=0;i<4;i++)rDiv[alive[i]]++;
-        var f1=pg(alive[0],alive[3]),f2=pg(alive[1],alive[2]);rConf[f1]++;rConf[f2]++;
-        champs[c]=seeds.indexOf(f1)<seeds.indexOf(f2)?pg(f1,f2):pg(f2,f1);rSB[champs[c]]++}}
+        var f1=play(alive[0],alive[3],0,2),f2=play(alive[1],alive[2],0,2);rConf[f1]++;rConf[f2]++;
+        champs[c]=seeds.indexOf(f1)<seeds.indexOf(f2)?play(f1,f2,0,3):play(f2,f1,0,3);rSB[champs[c]]++}}
     if(!now){
-      wSB[pg(champs[0],champs[1],true)]++;
-      // Draft order for the 18 teams that miss the playoffs: worst record first, weaker schedule first among equal records.
-      var outT=[];for(i=0;i<NT;i++)if(!inP[i])outT.push([pts[i]+sos(i)*1e-3+rnd()*1e-6,i]);
+      var champ=play(champs[0],champs[1],true,4);wSB[champ]++;elim[champ]=5;
+      // Draft order for all 32 picks: teams that miss the playoffs first, then playoff teams by the round they went out in.
+      // Within a group the worse record picks first, and the weaker schedule breaks ties.
+      var outT=[];for(i=0;i<NT;i++)outT.push([elim[i]*100+pts[i]+sos(i)*1e-3+rnd()*1e-6,i]);
       outT.sort(function(x,y){return x[0]-y[0]});
       for(i=0;i<outT.length;i++){var dt=outT[i][1];draftSum[dt]+=i+1;draftN[dt]++;if(i===0)pick1[dt]++;if(i<5)top5[dt]++}}
     for(i=0;i<NT;i++)sw[i]+=pts[i];
@@ -494,9 +501,15 @@ function simulate(picks,focus,nOverride,liveP,now){
       tr.appendChild(el("td","",TM[x.t].n));tr.appendChild(el("td","",String(x.n)));tr.appendChild(el("td","",x.n?(Math.abs(x.avg)<.05?"0.0":(x.avg>0?"+":"\u2212")+Math.abs(x.avg).toFixed(1)):"\u2013"));tr.appendChild(el("td","",x.n?String(x.rank):"\u2013"));sb2.appendChild(tr)});
     // --- draft order ---
     var db=$("draft");db.textContent="";
-    var dl=TM.map(function(x,i){return i}).filter(function(t){return r.draftN[t]/r.n>=.5}).sort(function(a,b){return r.draftSum[a]/r.draftN[a]-r.draftSum[b]/r.draftN[b]}).slice(0,10);
-    if(TM[focus]&&dl.indexOf(focus)<0&&r.draftN[focus]/r.n>=.5)dl.push(focus);
-    dl.forEach(function(t){var tr=el("tr",t===focus?"me":"");tr.appendChild(el("td","",TM[t].n));tr.appendChild(el("td","",(r.draftSum[t]/r.draftN[t]).toFixed(1)));tr.appendChild(el("td","",pct(r.pick1[t]/r.n)));tr.appendChild(el("td","",pct(r.top5[t]/r.n)));db.appendChild(tr)});
+    var byPick=TM.map(function(x,i){return i}).sort(function(a,b){return r.draftSum[a]-r.draftSum[b]});
+    var dl=byPick.filter(function(t,k){return k<10||OWNER[t]!==t||t===focus});
+    dl.forEach(function(t){var tr=el("tr",t===focus||OWNER[t]===focus?"me":""),traded=OWNER[t]!==t;tr.appendChild(el("td","",TM[t].n));tr.appendChild(el("td",traded?"final":"",traded?TM[OWNER[t]].n:"Own pick"));
+      tr.appendChild(el("td","",(r.draftSum[t]/r.n).toFixed(1)));tr.appendChild(el("td","",pct(r.pick1[t]/r.n)));tr.appendChild(el("td","",pct(r.top5[t]/r.n)));db.appendChild(tr)});
+    var hold=TM.map(function(x,o){var k=0,p1=0,none5=1,t;for(t=0;t<NT;t++)if(OWNER[t]===o){k++;p1+=r.pick1[t]/r.n;none5*=1-r.top5[t]/r.n}return{o:o,k:k,p1:p1,t5:1-none5}});
+    var hb=$("holders");hb.textContent="";
+    hold.filter(function(x){return x.k}).sort(function(a,b){return b.p1-a.p1||b.t5-a.t5}).slice(0,6).forEach(function(x){var tr=el("tr",x.o===focus?"me":"");
+      tr.appendChild(el("td","",TM[x.o].n));tr.appendChild(el("td","",String(x.k)));tr.appendChild(el("td","",pct(x.p1)));tr.appendChild(el("td","",pct(x.t5)));hb.appendChild(tr)});
+    $("ownNote").textContent=D.owners?"Pick ownership as of "+(D.ownersAsOf||"the last update")+". Conditions attached to a trade are not tracked, and the top-5 figure for a team with several picks is approximate.":"No traded-pick list was supplied, so every team is shown with its own pick.";
     drawGames();
   }
   // Clinched and eliminated flags from certain results only: finished games plus picks. Every team ends on 17 games, so wins can be compared directly.

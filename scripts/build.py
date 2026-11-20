@@ -138,6 +138,11 @@ def main():
     page = open(os.path.join(ROOT, "src", "template.html")).read()
     assert page.count("/*DATA*/") == 1
     data["history"] = history(text, a.season, stats, page)
+    owners_path = os.path.join(ROOT, "data", "pick_owners.json")
+    if os.path.exists(owners_path):
+        raw = json.load(open(owners_path)); order = [t for ts in DIV.values() for t in ts]
+        data["owners"] = [order.index(raw[t]) if t in raw else None for t in order]
+        data["ownersAsOf"] = datetime.date.fromtimestamp(os.path.getmtime(owners_path)).strftime("%b. ") + str(datetime.date.fromtimestamp(os.path.getmtime(owners_path)).day)
     blob = json.dumps(data, separators=(",", ":"))
     assert "</script" not in blob
     os.makedirs(os.path.join(ROOT, "public"), exist_ok=True)

@@ -20,7 +20,8 @@ if (g >= 0) {
 }
 const tot = (arr) => Math.round(Array.from(arr).reduce((x, y) => x + y, 0) / r.n);
 assert.deepStrictEqual([tot(r.rDiv), tot(r.rConf), tot(r.rSB), tot(r.wSB)], [8, 4, 2, 1], "bracket sends 8, 4, 2 and 1 teams through each round");
-assert.deepStrictEqual([tot(r.draftN), tot(r.pick1), tot(r.top5)], [18, 1, 5], "draft order covers the 18 non-playoff teams");
+assert.deepStrictEqual([tot(r.draftN), tot(r.pick1), tot(r.top5)], [32, 1, 5], "draft order covers all 32 picks");
+assert.strictEqual(tot(r.draftSum), 528, "picks 1 to 32 are each used once");
 for (let i = 0; i < 32; i++) assert.ok(r.rDiv[i] <= r.po[i] && r.rConf[i] <= r.rDiv[i] && r.rSB[i] <= r.rConf[i] && r.wSB[i] <= r.rSB[i], "rounds nest");
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
