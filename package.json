@@ -6,7 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "build": "python3 scripts/build.py",
-    "test": "node test/run.js"
+    "test": "node test/run.js",
+    "snapshot": "node scripts/snapshot.js",
+    "refresh": "python3 scripts/build.py && node test/run.js && node scripts/snapshot.js"
   },
-  "engines": { "node": ">=18" }
+  "engines": {
+    "node": ">=18"
+  }
 }

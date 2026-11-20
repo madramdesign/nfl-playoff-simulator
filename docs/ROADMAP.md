@@ -3,12 +3,13 @@
 Order is by dependency, not by size.
 
 ## Needs you
-- [ ] Create a GitHub repository for the project. Scheduled refresh, snapshots and every later item depend on it.
+- [x] Create a GitHub repository for the project (done Nov. 20: `madramdesign/nfl-playoff-simulator`).
 - [ ] Decide whether a free The Odds API key (500 credits a month) is acceptable. It unlocks consensus lines and futures.
 
-## Next, once the repository exists
-- [ ] Daily scheduled rebuild and republish.
-- [ ] Dated snapshots of inputs and forecasts; "what changed since yesterday" with attribution to results, lines and model.
+## Next
+- [x] Daily scheduled rebuild and republish (`npm run refresh`).
+- [x] Dated snapshots of forecasts in `data/snapshots/`.
+- [ ] "What changed since yesterday" on the page, with attribution to results, lines and model, built from the snapshots.
 - [ ] Track this season's forecasts against results as they come in (true out-of-sample calibration).
 - [ ] Verify the live-score feed against a real game.
 
