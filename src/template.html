@@ -268,6 +268,7 @@ footer p{margin:0 0 8px}
     <p><strong>Live scores.</strong> When the live score feed is connected, a game in progress uses an in-game win chance built from the current margin, the time left and the pregame line, and a finished game counts in the standings.</p>
     <p>Unpicked games are simulated 8,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
     <p>Ties in the standings follow the NFL's procedure: head-to-head, division record, common games, conference record, strength of victory and strength of schedule. If teams are still level, scores are simulated for the remaining games and the points steps are applied: combined ranking in points scored and allowed within the conference, then league-wide, then net points. Three rarely reached steps are skipped (net points in common games or conference games, and net touchdowns) before the final coin flip. Injuries and quarterback changes are not modeled beyond what the betting lines reflect, and picks cannot be ties.</p>
+    <p id="fpCredit" hidden>Quarterback projections from FantasyPros.</p>
     <p>An independent fan project. Not affiliated with the NFL, any team or any publisher.</p>
   </footer>
 </main>
@@ -474,7 +475,9 @@ function simulate(picks,focus,nOverride,liveP,now){
       if(an)ul.appendChild(el("li","","History: since 2010, "+(side==="home"?"home":"road")+" favorites of "+(an.hi>90?an.lo+" points or more":an.lo+" to "+an.hi+" points")+" won "+p100(an.favWin)+" of "+an.n+" games. The underdog won the other "+p100(1-an.favWin)+"."));
       var cb=R.calibration.filter(function(c){return pf>=c.lo&&pf<c.hi})[0];
       if(cb&&cb.n>=30&&g[6]==null)ul.appendChild(el("li","","Track record: when this model rated a favorite "+Math.round(cb.lo*100)+" to "+Math.round(cb.hi*100)+"%, that team won "+p100(cb.act)+" of "+cb.n+" past games"+(Math.abs(cb.act-cb.pred)>=.04?", so it has been "+(cb.act<cb.pred?"overconfident":"underconfident")+" in this range.":".")))}
-    [g[3],g[2]].forEach(function(t){var q=D.qb&&D.qb[t];if(q&&g[1]===D.qbWeek)ul.appendChild(el("li","",q.name+", the "+TM[t].n+" quarterback, is on this week's injury report ("+(q.status||q.practice)+")."+(g[6]!=null?" The line should already reflect it.":"")));
+    [g[3],g[2]].forEach(function(t){var fq=D.fp&&D.fp.week===g[1]&&D.fp.teams[t];
+      if(fq)ul.appendChild(el("li","","Possible quarterback change: FantasyPros projects "+fq.proj+" as the "+TM[t].n+"' top quarterback this week, and "+fq.last+" started their last game. Results so far may not describe this lineup."+(g[6]!=null?" The line should already reflect it.":"")));
+      var q=D.qb&&D.qb[t];if(q&&g[1]===D.qbWeek)ul.appendChild(el("li","",q.name+", the "+TM[t].n+" quarterback, is on this week's injury report ("+(q.status||q.practice)+")."+(g[6]!=null?" The line should already reflect it.":"")));
       if(D.luck&&Math.abs(D.luck[t])>=8)ul.appendChild(el("li","","The "+TM[t].n+" have "+(D.luck[t]>0?"gained":"lost")+" about "+Math.abs(Math.round(D.luck[t]))+" points this season from fumble bounces, which tends not to last. The results rating already removes this; their record does not."));
       var o=OS[t],n=o[0]+o[1]+o[2];if(n>=4&&(o[0]/n>=.75||o[1]/n>=.75))ul.appendChild(el("li","","The "+TM[t].n+" are "+o[0]+"-"+o[1]+(o[2]?"-"+o[2]:"")+" in games decided by 8 points or fewer. Records that lopsided in close games usually drift back toward even."))});
     if(g[6]==null)ul.appendChild(el("li","","No betting line is posted for this game yet, so injuries and other news are not in this number at all."));
@@ -642,6 +645,7 @@ function simulate(picks,focus,nOverride,liveP,now){
     R.narratives.forEach(function(x){var d=el("div","claim"),good=x.verdict==="Supported";d.appendChild(el("span","chip "+(good?"ok":x.verdict==="Not supported"||x.verdict==="Opposite of the claim"?"warn":""),x.verdict));d.appendChild(document.createTextNode(" “"+x.claim+"”"));
       d.appendChild(el("p","",x.effect==null?x.n+" games.":"Measured: "+x.measure+". Result: "+(x.effect>0?"+":x.effect<0?"−":"")+Math.abs(x.effect).toFixed(1)+" points, give or take "+(2*x.se).toFixed(1)+", over "+x.n.toLocaleString()+" games."+(x.note?" "+x.note:"")));$("claims").appendChild(d)});
     R.rejected.forEach(function(x){$("rejected").appendChild(el("li","",x.what+": "+x.why+"."))})})();
+  if(D.fp)$("fpCredit").hidden=false;
   drawModes();last=simulate(picks,focus,0,liveArr());render(last);
 
   // Live feed: only present when the page is served by server.js, which exposes /api/live.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-20 (repository and automation)
+- Project pushed to GitHub; daily scheduled refresh; dated forecast snapshots.
+- FantasyPros fetch script and GitHub Actions workflow; possible quarterback changes flagged in the reasoning panel. Written against the documented response format and tested with a mock file only.
+
 ## 2026-11-20 (adversarial pass)
 - Audit, research notes and this docs set.
 - `scripts/evaluate.py`: point-in-time backtest of six methods, calibration, analogs by spread, eight narrative tests; writes `data/model_report.json`.

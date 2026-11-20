@@ -1,0 +1,32 @@
+name: Fetch FantasyPros data
+
+# Runs on GitHub's servers, which can reach the FantasyPros API. The key lives in the repository secret
+# FANTASYPROS_API_KEY (Settings > Secrets and variables > Actions) and is never written to a file.
+on:
+  schedule:
+    - cron: "10 8 * * *"   # daily, about 3:10 AM Eastern, before the page refresh
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Fetch
+        env:
+          FANTASYPROS_API_KEY: ${{ secrets.FANTASYPROS_API_KEY }}
+        run: python3 scripts/fetch_fantasypros.py
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/fantasypros
+          git diff --cached --quiet || git commit -m "FantasyPros data refresh"
+          git pull --rebase origin main
+          git push origin HEAD:main

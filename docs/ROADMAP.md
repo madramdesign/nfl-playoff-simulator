@@ -3,6 +3,7 @@
 Order is by dependency, not by size.
 
 ## Needs you
+- [ ] Add the FantasyPros key as the repository secret `FANTASYPROS_API_KEY`, then run the "Fetch FantasyPros data" workflow once and check its output.
 - [x] Create a GitHub repository for the project (done Nov. 20: `madramdesign/nfl-playoff-simulator`).
 - [ ] Decide whether a free The Odds API key (500 credits a month) is acceptable. It unlocks consensus lines and futures.
 

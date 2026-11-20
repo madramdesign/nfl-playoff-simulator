@@ -13,3 +13,4 @@
 - Read `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` before adding features. House rule from the brief: no factor goes into the model without a backtest showing an out-of-sample gain; record rejections in `scripts/evaluate.py`'s `rejected` list.
 - The reasoning panel (`whyPanel`) must only state things computed from `D` or a `simulate` result.
 - `npm run refresh` rebuilds from fresh data, runs the tests and saves a dated snapshot in `data/snapshots/`. A scheduled task runs it daily, republishes the page and commits the result; do not hand-edit snapshots.
+- API keys never go in the repository. FantasyPros data is fetched by `.github/workflows/fantasypros.yml` using the secret `FANTASYPROS_API_KEY` (limits: 1 call a second, 100 a day, non-commercial, attribution required). The fetch script was written from the docs and has not yet run against the real API: check the first run's saved files before relying on field names.
