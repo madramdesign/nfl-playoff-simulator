@@ -13,6 +13,8 @@ Leakage rules followed here:
 import csv, json, math, os, sys, collections
 import numpy as np
 
+QB_PATH = next((a[5:] for a in sys.argv if a.startswith("--qb=")), None)     # nfelo qb_elos.csv; adds the quarterback shift to the results rating
+sys.argv = [a for a in sys.argv if not a.startswith("--qb=")]
 games_path, tw_dir = sys.argv[1], sys.argv[2]
 out_path = sys.argv[3] if len(sys.argv) > 3 else os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "model_report.json")
 Y0, Y1 = 2021, 2025
@@ -50,6 +52,21 @@ def ridge(rows, teams, lam):
     A[:n, :n] += lam * np.eye(n); A[n, n] += 1e-6
     s = np.linalg.solve(A, b); s[:n] -= s[:n].mean(); return {t: s[idx[t]] for t in teams}, s[n]
 
+QBADJ = {}
+if QB_PATH:
+    alias = {"LAR": "LA", "OAK": "LV"}
+    for r in csv.DictReader(open(QB_PATH, newline="")):
+        for s in "12":
+            v = num(r.get(f"qb{s}_adj"))
+            if r.get("game_id") and v is not None and not math.isnan(v): QBADJ[(r["game_id"], alias.get(r[f"team{s}"], r[f"team{s}"]))] = (r[f"qb{s}"], v / 25.0)
+def qb_shifts(played, teams):
+    """Current starter's adjustment minus the average over the team's games so far, in points (see build.py qb_shift)."""
+    vals = collections.defaultdict(list)
+    for g in sorted(played, key=lambda g: g["w"]):
+        for t in (g["h"], g["a"]):
+            if (g["id"], t) in QBADJ: vals[t].append(QBADJ[(g["id"], t)][1])
+    return {t: (vals[t][-1] - sum(vals[t]) / len(vals[t])) if vals[t] else 0.0 for t in teams}
+
 # ---------- Elo, run over every season in the file so it is warmed up by 2021 ----------
 ELO_K, ELO_HFA, ELO_REGRESS = 20.0, 48.0, 1 / 3
 elo = collections.defaultdict(lambda: 1500.0); elo_after = {}; season = None
@@ -77,11 +94,12 @@ for y in range(Y0, Y1 + 1):
         margin, _ = ridge([(g["h"], g["a"], g["m"] - FUM_PTS * (S[(g["id"], g["a"])]["bounce"] - S[(g["id"], g["h"])]["bounce"]), g["neutral"], 1.0) for g in played], teams, 4)
         epa, _ = ridge([(g["h"], g["a"], S[(g["id"], g["h"])]["epa"] - S[(g["id"], g["a"])]["epa"], g["neutral"], 1.0) for g in played], teams, 4)
         market, hfa = ridge([(g["h"], g["a"], g["sp"], g["neutral"], .75 ** (W + 1 - g["w"])) for g in gs if g["w"] <= W + 1 and g["sp"] is not None], teams, .05)
+        qsh = qb_shifts(played, teams)
         el = {t: (elo_at(y, W, t) - 1500) / 25 for t in teams}; mean_el = sum(el.values()) / len(el); el = {t: v - mean_el for t, v in el.items()}
         for g in gs:
             if g["w"] <= W or g["m"] == 0: continue
             home = 0 if g["neutral"] else hfa; dif = lambda R: R[g["h"]] - R[g["a"]]
-            results = (1 - EPA_W) * dif(margin) + EPA_W * EPA_S * dif(epa)
+            results = (1 - EPA_W) * dif(margin) + EPA_W * EPA_S * dif(epa) + dif(qsh)
             rec.append(dict(y=y, W=W, ahead=g["w"] - W, win=1 if g["m"] > 0 else 0, pline=g["pline"],
                             market=prob(SHRINK * dif(market) + home), margin=prob(SHRINK * dif(margin) + home), epa=prob(SHRINK * EPA_S * dif(epa) + home),
                             elo=prob(SHRINK * dif(el) + home), results=prob(SHRINK * results + home), ensemble=prob(SHRINK * (.5 * dif(market) + .5 * results) + home),
@@ -157,8 +175,13 @@ narr.append(dict(claim="Home-field advantage is as strong as ever", measure="ave
                  se=round(math.sqrt(np.var(hfa_new, ddof=1) / len(hfa_new) + np.var(hfa_old, ddof=1) / len(hfa_old)), 2),
                  verdict="Not supported" if np.mean(hfa_new) < np.mean(hfa_old) - 2 * math.sqrt(np.var(hfa_new, ddof=1) / len(hfa_new) + np.var(hfa_old, ddof=1) / len(hfa_old)) else "No clear change",
                  note=f"Home teams won by {np.mean(hfa_old):.2f} points on average in 2010-2018 and {np.mean(hfa_new):.2f} in 2019-2025."))
-report = dict(seasons=[Y0, Y1], horizon="games two or more weeks ahead", models=models, tested=extra, nextweek=nextweek, bySeason=by_season, calibration=cal, disagreement=dis, analogs=analogs, narratives=narr,
-              rejected=[dict(what="Quarterback-change discount on earlier results", why="no measurable gain (log loss 0.6395 against 0.6396)"),
+hold_path = os.path.join(os.path.dirname(out_path), "qb_holdout_report.json")
+holdout = json.load(open(hold_path)).get("holdoutAvg") if os.path.exists(hold_path) else None
+report = dict(qbAdjusted=bool(QB_PATH), holdout=holdout, seasons=[Y0, Y1], horizon="games two or more weeks ahead", models=models, tested=extra, nextweek=nextweek, bySeason=by_season, calibration=cal, disagreement=dis, analogs=analogs, narratives=narr,
+              rejected=[dict(what="Discounting results from before a quarterback change", why="no measurable gain (log loss 0.6395 against 0.6396); replaced by the quarterback-value adjustment, which did help"),
+                        dict(what="Quarterback adjustment applied to the sportsbook-spread rating as well", why="no gain (0.6391 against 0.6383 on results only)"),
+                        dict(what="nfelo's team rating as an extra voice in the blend", why="no gain at any weight (best 0.6389 at 10%)"),
+                        dict(what="Elo in the blend", why="no gain (0.6393 at 10%)"),
                         dict(what="Discount for return touchdowns", why="made predictions worse (0.6411 against 0.6396)"),
                         dict(what="Weighting recent games more in the results rating", why="worse than equal weighting (0.6459 against 0.6438)"),
                         dict(what="Rest-day adjustment", why="effect was inconsistent between home and road teams")])

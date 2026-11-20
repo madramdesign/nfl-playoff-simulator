@@ -14,3 +14,5 @@
 - The reasoning panel (`whyPanel`) must only state things computed from `D` or a `simulate` result.
 - `npm run refresh` rebuilds from fresh data, runs the tests and saves a dated snapshot in `data/snapshots/`. A scheduled task runs it daily, republishes the page and commits the result; do not hand-edit snapshots.
 - API keys never go in the repository. FantasyPros data is fetched by `.github/workflows/fantasypros.yml` using the secret `FANTASYPROS_API_KEY` (limits: 1 call a second, 100 a day, non-commercial, attribution required). The fetch script was written from the docs and has not yet run against the real API: check the first run's saved files before relying on field names.
+- `data/news.json` holds league news (own-words summary, source link, team). A `qb_change` item makes `to` the team's current starter in `qb_shift`. Never invent an item: each needs a real source URL.
+- Build inputs can be passed as files (`--csv --team-stats --injuries --qb`) or left to download.

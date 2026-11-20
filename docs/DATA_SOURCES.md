@@ -10,6 +10,9 @@ Sources, costs and licence notes are in [RESEARCH_PLAYOFF_PREDICTOR.md](RESEARCH
 | Weekly team stats | `--team-stats` | nflverse `stats_team_week_{season}.csv` |
 | Injury report | `--injuries` | nflverse `injuries_{season}.csv` |
 | FantasyPros quarterback projections | none | `data/fantasypros/qb_projections.json`, written by `scripts/fetch_fantasypros.py` (needs `FANTASYPROS_API_KEY`; run by the GitHub Actions workflow) |
+| Quarterback values | `--qb` | nfelo `qb_elos.csv` (credit nfeloapp.com) |
+| League news | none | `data/news.json`, maintained by the daily run |
+| Previous forecast | none | latest file in `data/snapshots/` |
 | Traded first-round picks | none | `data/pick_owners.json` (hand-edited) |
 | Backtest report | none | `data/model_report.json` (from `scripts/evaluate.py`) |
 
@@ -27,6 +30,8 @@ If team stats or injuries cannot be downloaded the build still succeeds and says
 | `luck` | Points gained or lost from fumble bounces, per team |
 | `history` | Playoff and division odds for every team after each completed week |
 | `owners`, `ownersAsOf` | Holder of each first-round pick |
+| `qbShift`, `qbCredit` | Quarterback adjustment per team and whether nfelo data was used |
+| `news`, `prev` | News items and the previous snapshot, for the what-changed view |
 | `fp` | Teams whose FantasyPros-projected top quarterback differs from their last starter (a flag, not a model input) |
 | `qb`, `qbWeek` | Starting quarterbacks on this week's injury report |
 | `report` | Backtest report |

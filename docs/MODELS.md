@@ -14,6 +14,10 @@ All ratings are in points per game against an average team (stored as points tim
 
 Log loss is for games two or more weeks ahead, 2021-2025, 5,922 forecasts. A coin flip scores 0.693.
 
+## Quarterback adjustment
+
+Each team's results rating is moved by (current starter's pre-game adjustment in nfelo's quarterback file) minus (the average adjustment across the team's games so far). The current starter is the last game's starter unless `data/news.json` names a new one. A new starter with no value this season gets no adjustment and a caution in the reasoning panel, because a value from an earlier season is stale. Credit: nfeloapp.com.
+
 ## Decisions and the evidence
 
 - **Use the line when it exists.** On next-week games the closing moneyline (0.597) beat the blend (0.618) and every rating.

@@ -1,0 +1,15 @@
+{
+  "_note": "League news that can change team strength. Maintained by the daily scheduled run; items older than 10 days are dropped. Summaries are in our own words with a link to the source. For kind qb_change, `to` becomes the team's current starter in the build.",
+  "items": [
+    {
+      "date": "2026-11-20",
+      "team": "IND",
+      "kind": "qb_change",
+      "from": "Daniel Jones",
+      "to": "Anthony Richardson",
+      "summary": "The Colts released starting quarterback Daniel Jones a day after benching him in a 26-3 loss to Houston. Anthony Richardson starts in Week 12 against the Giants.",
+      "source": "NBC Sports",
+      "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/colts-release-qb-daniel-jones"
+    }
+  ]
+}

@@ -16,5 +16,7 @@ const snap = {
 };
 const dir = path.join(root, "data", "snapshots");
 fs.mkdirSync(dir, { recursive: true });
-fs.writeFileSync(path.join(dir, date + ".json"), JSON.stringify(snap));
+const file = path.join(dir, date + ".json");
+if (fs.existsSync(file) && !process.argv.includes("--force")) { console.log("snapshot for", date, "already exists; kept the first one of the day"); process.exit(0); }
+fs.writeFileSync(file, JSON.stringify(snap));
 console.log("snapshot saved:", date, "games played", snap.played, "lines", Object.keys(snap.lines).length);

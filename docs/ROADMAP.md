@@ -10,13 +10,14 @@ Order is by dependency, not by size.
 ## Next
 - [x] Daily scheduled rebuild and republish (`npm run refresh`).
 - [x] Dated snapshots of forecasts in `data/snapshots/`.
-- [ ] "What changed since yesterday" on the page, with attribution to results, lines and model, built from the snapshots.
+- [x] "What changed" on the page: news, line moves and movers since the previous snapshot. Still open: splitting a change into results, lines and model.
 - [ ] Track this season's forecasts against results as they come in (true out-of-sample calibration).
 - [ ] Verify the live-score feed against a real game.
 
 ## Model
-- [ ] Quarterback adjustment from a starter-value source (nfelo's published QB values or our own from play-by-play), validated in the backtest before adoption.
-- [ ] Walk-forward tuning of the constants, or hold out a season.
+- [x] Quarterback adjustment from nfelo's published values, validated in the backtest.
+- [ ] A value for a newly named starter who has not played this season.
+- [x] Hold-out check of the constants (see `BACKTESTING.md`). Still open: adopt walk-forward constants in the build.
 - [ ] Share one rating module between `build.py` and `evaluate.py`.
 - [ ] Clinching checked against nflseedR.
 - [ ] A batch run at 100,000 or more simulations for published figures.
@@ -24,6 +25,11 @@ Order is by dependency, not by size.
 ## Markets
 - [ ] Multi-book consensus, opening lines, line movement.
 - [ ] Division, conference and Super Bowl futures beside the model's figures.
+
+## Not started (no key needed)
+- [ ] Playoff bracket diagram.
+- [ ] Weather flags from Open-Meteo through a GitHub workflow.
+- [ ] nfelo opening lines for line-movement history.
 
 ## Considered and parked
 - Weather engine: only matters for totals and a handful of playoff games; revisit in January with Open-Meteo.

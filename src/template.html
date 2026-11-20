@@ -83,6 +83,10 @@ select{font:500 15px var(--body);color:var(--ink);background:var(--card);border:
 .chip{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--muted);margin-right:4px;white-space:nowrap}
 .chip.ok{color:var(--good);border-color:var(--good)}
 .chip.warn{color:var(--bad);border-color:var(--bad)}
+.news{padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
+.news:first-child{border-top:0}
+.news a{color:var(--accent)}
+.news p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
 .claim{padding:9px 0;border-top:1px solid var(--line);font-size:13.5px}
 .claim:first-child{border-top:0}
 .claim p{margin:4px 0 0;color:var(--muted);font-size:12.5px}
@@ -147,6 +151,17 @@ footer p{margin:0 0 8px}
     <div class="tile"><b id="tDiv">–</b><span>Win the division</span></div>
     <div class="tile"><b id="tWc">–</b><span>Get in as a wild card</span></div>
     <div class="tile"><b id="tRec">–</b><span id="tRecLab">Projected record</span></div>
+  </section>
+
+  <section class="card" id="chgCard">
+    <h2>What changed</h2>
+    <p class="hint" id="chgIntro"></p>
+    <div id="chgNews"></div>
+    <h3 class="pp" id="chgLinesH">Betting lines that moved</h3>
+    <table><tbody id="chgLines"></tbody></table>
+    <h3 class="pp" id="chgMoveH">Biggest movers in playoff chance</h3>
+    <table><tbody id="chgMovers"></tbody></table>
+    <p class="hint" style="margin-top:8px" id="chgNote"></p>
   </section>
 
   <section class="two">
@@ -269,6 +284,7 @@ footer p{margin:0 0 8px}
     <p>Unpicked games are simulated 8,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
     <p>Ties in the standings follow the NFL's procedure: head-to-head, division record, common games, conference record, strength of victory and strength of schedule. If teams are still level, scores are simulated for the remaining games and the points steps are applied: combined ranking in points scored and allowed within the conference, then league-wide, then net points. Three rarely reached steps are skipped (net points in common games or conference games, and net touchdowns) before the final coin flip. Injuries and quarterback changes are not modeled beyond what the betting lines reflect, and picks cannot be ties.</p>
     <p id="fpCredit" hidden>Quarterback projections from FantasyPros.</p>
+    <p id="qbCredit" hidden>Quarterback values from nfelo (nfeloapp.com). A team whose current starter rates better or worse than the quarterbacks behind its results so far has its results rating moved by the difference.</p>
     <p>An independent fan project. Not affiliated with the NFL, any team or any publisher.</p>
   </footer>
 </main>
@@ -475,7 +491,11 @@ function simulate(picks,focus,nOverride,liveP,now){
       if(an)ul.appendChild(el("li","","History: since 2010, "+(side==="home"?"home":"road")+" favorites of "+(an.hi>90?an.lo+" points or more":an.lo+" to "+an.hi+" points")+" won "+p100(an.favWin)+" of "+an.n+" games. The underdog won the other "+p100(1-an.favWin)+"."));
       var cb=R.calibration.filter(function(c){return pf>=c.lo&&pf<c.hi})[0];
       if(cb&&cb.n>=30&&g[6]==null)ul.appendChild(el("li","","Track record: when this model rated a favorite "+Math.round(cb.lo*100)+" to "+Math.round(cb.hi*100)+"%, that team won "+p100(cb.act)+" of "+cb.n+" past games"+(Math.abs(cb.act-cb.pred)>=.04?", so it has been "+(cb.act<cb.pred?"overconfident":"underconfident")+" in this range.":".")))}
-    [g[3],g[2]].forEach(function(t){var fq=D.fp&&D.fp.week===g[1]&&D.fp.teams[t];
+    [g[3],g[2]].forEach(function(t){var qs=D.qbShift&&D.qbShift[t];
+      if(qs&&qs.shift==null)ul.appendChild(el("li","",qs.qb+" replaces "+qs.was+" at quarterback for the "+TM[t].n+". There is no rating for him this season, so the results rating still describes the "+TM[t].n+" as they played under "+qs.was+"."+(g[6]!=null?" The betting line may already reflect the change.":"")));
+      else if(qs&&Math.abs(qs.shift)>=1)ul.appendChild(el("li","","Quarterback adjustment: the "+TM[t].n+"' results rating is moved "+(qs.shift>0?"up":"down")+" "+Math.abs(qs.shift).toFixed(1)+" points because "+qs.qb+" ("+qs.starts+" of "+qs.games+" starts) rates "+(qs.shift>0?"better":"worse")+" than the average behind their results. If someone else starts, this is wrong."));
+      (D.news||[]).forEach(function(n){if(n.team===t&&n.kind!=="qb_change")ul.appendChild(el("li","","News, "+n.date+": "+n.summary+" ("+n.source+")"))});
+      var fq=D.fp&&D.fp.week===g[1]&&D.fp.teams[t];
       if(fq)ul.appendChild(el("li","","Possible quarterback change: FantasyPros projects "+fq.proj+" as the "+TM[t].n+"' top quarterback this week, and "+fq.last+" started their last game. Results so far may not describe this lineup."+(g[6]!=null?" The line should already reflect it.":"")));
       var q=D.qb&&D.qb[t];if(q&&g[1]===D.qbWeek)ul.appendChild(el("li","",q.name+", the "+TM[t].n+" quarterback, is on this week's injury report ("+(q.status||q.practice)+")."+(g[6]!=null?" The line should already reflect it.":"")));
       if(D.luck&&Math.abs(D.luck[t])>=8)ul.appendChild(el("li","","The "+TM[t].n+" have "+(D.luck[t]>0?"gained":"lost")+" about "+Math.abs(Math.round(D.luck[t]))+" points this season from fumble bounces, which tends not to last. The results rating already removes this; their record does not."));
@@ -561,6 +581,26 @@ function simulate(picks,focus,nOverride,liveP,now){
       return win.concat(rest)});
     $("seedHint").textContent=r.open?"Your picks plus simulated results for the "+r.open+" games still open. Division favorites are seeded by projected wins, then the three likeliest wild cards. Shown: projected record and playoff chance.":"Final seeds with every game picked.";
     field($("seeds"),proj,function(t){return r.open?projW(t)+" \u00b7 "+pct(r.po[t]/r.n)+" in":recStr(locked(t))},r.open?"projected to miss":"miss the playoffs");
+    // --- what changed since the previous saved forecast ---
+    (function(){var P=D.prev,news=D.news||[];if(!P&&!news.length){$("chgCard").hidden=true;return}
+      var nb=$("chgNews");nb.textContent="";
+      news.slice().sort(function(a,b){return a.date<b.date?1:-1}).forEach(function(n){var d=el("div","news");d.appendChild(el("strong","",TM[n.team].n+", "+n.date+". "));d.appendChild(document.createTextNode(n.summary+" "));
+        if(n.url){var a=el("a","",n.source||"Source");a.href=n.url;a.rel="noopener";d.appendChild(a)}
+        var gi=-1;GAMES.forEach(function(g,i){if(gi<0&&(g[2]===n.team||g[3]===n.team))gi=i});
+        if(gi>=0){var g=GAMES[gi],home=g[3]===n.team,now=home?dispProb(gi):1-dispProb(gi),was=P&&P.lines&&P.lines[g[0]]!=null?(home?P.lines[g[0]]:1-P.lines[g[0]]):null;
+          d.appendChild(el("p","","Next game: "+TM[g[2]].a+" at "+TM[g[3]].a+", Week "+g[1]+". The "+TM[n.team].n+" are "+p100(now)+" to win"+(was!=null&&Math.abs(was-now)>=.005?", from "+p100(was)+" in the "+P.date+" forecast.":(g[6]!=null?"; the line has not moved since the "+(P?P.date:"last")+" forecast.":"; no betting line is posted yet."))))}
+        nb.appendChild(d)});
+      if(!P){$("chgIntro").textContent="News that can change team strength.";$("chgLinesH").hidden=$("chgMoveH").hidden=true;$("chgNote").textContent="";return}
+      var fwas=P.playoffs[focus],fnow=r.po[focus]/r.n;
+      $("chgIntro").textContent="Compared with the forecast saved on "+P.date+": the "+TM[focus].n+"' playoff chance was "+p100(fwas)+" and is "+p100(fnow)+" now"+(r.open<GAMES.length?" with your picks":"")+". "+(D.played.length-P.played)+" games have finished since.";
+      var lb=$("chgLines");lb.textContent="";var moved=[];GAMES.forEach(function(g){var was=P.lines&&P.lines[g[0]];if(was!=null&&g[6]!=null&&Math.abs(g[6]-was)>=.03)moved.push([g,was])});
+      moved.sort(function(a,b){return Math.abs(b[0][6]-b[1])-Math.abs(a[0][6]-a[1])}).slice(0,6).forEach(function(x){var g=x[0],up=g[6]>x[1],tm=up?g[3]:g[2],tr=el("tr");
+        tr.appendChild(el("td","",TM[g[2]].a+" at "+TM[g[3]].a+", Wk "+g[1]));tr.appendChild(el("td","",TM[tm].a+" "+p100(up?x[1]:1-x[1])+" → "+p100(up?g[6]:1-g[6])));lb.appendChild(tr)});
+      $("chgLinesH").hidden=!moved.length;
+      var mb=$("chgMovers");mb.textContent="";var mv=TM.map(function(x,i){return[i,r.po[i]/r.n-P.playoffs[i]]}).filter(function(x){return Math.abs(x[1])>=.03}).sort(function(a,b){return Math.abs(b[1])-Math.abs(a[1])}).slice(0,6);
+      mv.forEach(function(x){var tr=el("tr",x[0]===focus?"me":"");tr.appendChild(el("td","",TM[x[0]].n));tr.appendChild(el("td","",p100(P.playoffs[x[0]])+" → "+p100(r.po[x[0]]/r.n)));tr.appendChild(el("td","",(x[1]>0?"+":"−")+Math.abs(Math.round(x[1]*100))));mb.appendChild(tr)});
+      $("chgMoveH").hidden=!mv.length;
+      $("chgNote").textContent=(!moved.length&&!mv.length?"No line has moved 3 points or more and no team's playoff chance has moved 3 points or more. ":"")+"Changes under 3 points are not listed: that is within the simulation's own noise. Your picks and what-if settings are included in the current figures."})();
     // --- what if ---
     $("whatifLab").textContent="Make the "+TM[focus].n+" "+(tweakPts===0?"stronger or weaker":Math.abs(tweakPts).toFixed(1)+" points "+(tweakPts>0?"stronger":"weaker")+" than the model thinks");
     $("whatifOut").textContent=tweakPts===0||!baseRun?"At 0 the forecast is the model's own.":"Playoffs "+pct(baseRun.po)+" → "+pct(r.po[focus]/r.n)+". Division "+pct(baseRun.dv)+" → "+pct(r.dv[focus]/r.n)+". Super Bowl win "+pct(baseRun.sb)+" → "+pct(r.wSB[focus]/r.n)+".";
@@ -640,12 +680,12 @@ function simulate(picks,focus,nOverride,liveP,now){
   (function(){var R=D.report;if(!R){$("perfCard").hidden=true;$("claimCard").hidden=true;return}
     $("perfIntro").textContent="Replayed on the "+R.seasons[0]+" to "+R.seasons[1]+" seasons: "+R.models[0].n.toLocaleString()+" forecasts of "+R.horizon+", the games that have no betting line yet.";
     R.models.forEach(function(m,k){var tr=el("tr",k===0?"me":"");tr.appendChild(el("td","",m.name));tr.appendChild(el("td","",(m.acc*100).toFixed(1)+"%"));tr.appendChild(el("td","",m.logloss.toFixed(3)));$("perf").appendChild(tr)});
-    var nl=R.nextweek[0],nb=R.nextweek[1];$("perfNote").textContent="For next week's games the closing betting line is better than every model here: it picked "+(nl.acc*100).toFixed(1)+"% of winners (log loss "+nl.logloss.toFixed(3)+") against "+(nb.acc*100).toFixed(1)+"% ("+nb.logloss.toFixed(3)+") for the blend. That is why a posted line is used as it stands. Elo is shown for comparison only; adding it to the blend did not improve it.";
+    var nl=R.nextweek[0],nb=R.nextweek[1];$("perfNote").textContent="For next week's games the closing betting line is better than every model here: it picked "+(nl.acc*100).toFixed(1)+"% of winners (log loss "+nl.logloss.toFixed(3)+") against "+(nb.acc*100).toFixed(1)+"% ("+nb.logloss.toFixed(3)+") for the blend. That is why a posted line is used as it stands. Elo is shown for comparison only; adding it to the blend did not improve it."+(R.holdout?" A stricter check, tuning the model only on earlier seasons and scoring it on the next, gave "+R.holdout.tuned_earlier.toFixed(3)+" against "+R.holdout.market_only.toFixed(3)+" for the sportsbook-spread rating alone and "+R.holdout.fixed.toFixed(3)+" with the page's settings, so expect real results nearer the first figure.":"");
     R.calibration.forEach(function(c){if(c.n<30)return;var tr=el("tr");tr.appendChild(el("td","",Math.round(c.lo*100)+" to "+Math.round(c.hi*100)+"%"));tr.appendChild(el("td","",(c.act*100).toFixed(0)+"%"));tr.appendChild(el("td","",c.n.toLocaleString()));$("calib").appendChild(tr)});
     R.narratives.forEach(function(x){var d=el("div","claim"),good=x.verdict==="Supported";d.appendChild(el("span","chip "+(good?"ok":x.verdict==="Not supported"||x.verdict==="Opposite of the claim"?"warn":""),x.verdict));d.appendChild(document.createTextNode(" “"+x.claim+"”"));
       d.appendChild(el("p","",x.effect==null?x.n+" games.":"Measured: "+x.measure+". Result: "+(x.effect>0?"+":x.effect<0?"−":"")+Math.abs(x.effect).toFixed(1)+" points, give or take "+(2*x.se).toFixed(1)+", over "+x.n.toLocaleString()+" games."+(x.note?" "+x.note:"")));$("claims").appendChild(d)});
     R.rejected.forEach(function(x){$("rejected").appendChild(el("li","",x.what+": "+x.why+"."))})})();
-  if(D.fp)$("fpCredit").hidden=false;
+  if(D.fp)$("fpCredit").hidden=false;if(D.qbCredit)$("qbCredit").hidden=false;
   drawModes();last=simulate(picks,focus,0,liveArr());render(last);
 
   // Live feed: only present when the page is served by server.js, which exposes /api/live.

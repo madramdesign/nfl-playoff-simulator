@@ -15,6 +15,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SOURCE = "https://raw.githubusercontent.com/nflverse/nfldata/master/data/games.csv"
 TEAM_STATS = "https://github.com/nflverse/nflverse-data/releases/download/stats_team/stats_team_week_{season}.csv"
 INJURIES = "https://github.com/nflverse/nflverse-data/releases/download/injuries/injuries_{season}.csv"
+QB_VALUES = "https://raw.githubusercontent.com/greerreNFL/nfeloqb/main/qb_elos.csv"   # nfelo's published quarterback values; credit nfeloapp.com
+QB_TEAM = {"LA": "LAR", "LV": "OAK"}     # nflverse abbreviation -> the one used in the quarterback file
+QB_ELO_PER_VALUE = 3.3                   # the file's own convention: adjustment = 3.3 x (quarterback value - team baseline)
 ELO_K, ELO_HFA, ELO_REGRESS = 20.0, 48.0, 1 / 3   # Elo is shown as a second opinion only; adding it to the blend did not help in the backtest
 RESULTS_RIDGE = 4.0     # pulls results ratings toward average; worth about four phantom games against an average team
 EPA_WEIGHT, EPA_SCALE = 0.2, 1.2
@@ -121,6 +124,50 @@ def fantasypros_qb(text, season):
         if pts >= 5 and _plain(name) != _plain(last[team]): out[str(order.index(team))] = {"proj": name, "last": last[team], "points": round(pts, 1)}
     return {"week": week, "fetched": raw["fetched"][:10], "teams": out}
 
+def qb_shift(text, season, qb_text, asof=None, news=None):
+    """Rating shift for each team's results rating when its current quarterback differs in quality from the ones who
+    produced its results: (current starter's pre-game adjustment) - (average adjustment over the season so far), in rating points.
+    Backtest (scripts/backtest_qb.py): log loss 0.6383 with the shift against 0.6391 without, and 0.6335 against 0.6345 in games after a change.
+    A starter named in data/news.json with no value this season gets no shift: a stale value is not evidence."""
+    order = [t for ts in DIV.values() for t in ts]; shift = [0.0] * 32; info = {}
+    if not qb_text: return shift, info
+    games = {}
+    for r in csv.DictReader(io.StringIO(text)):
+        if r["season"] == str(season) and r["game_type"] == "REG" and num(r["home_score"]) is not None and (asof is None or int(r["week"]) <= asof): games[r["game_id"]] = int(r["week"])
+    per = {t: [] for t in order}; latest = {}
+    for r in csv.DictReader(io.StringIO(qb_text)):
+        for s in "12":
+            v = num(r.get(f"qb{s}_value_post")) or num(r.get(f"qb{s}_value_pre"))
+            if v is not None and r.get("season") == str(season) and (r.get("game_id") in games): latest[r[f"qb{s}"]] = v
+        if r.get("game_id") not in games: continue
+        for t in order:
+            s = "1" if r["team1"] == QB_TEAM.get(t, t) else "2" if r["team2"] == QB_TEAM.get(t, t) else None
+            adj = num(r.get(f"qb{s}_adj")) if s else None; val = num(r.get(f"qb{s}_value_pre")) if s else None
+            if adj is not None and val is not None: per[t].append((games[r["game_id"]], r[f"qb{s}"], adj, val))
+    change = {n["team"]: n for n in (news or []) if n.get("kind") == "qb_change" and n.get("to")} if asof is None else {}
+    for i, t in enumerate(order):
+        rows = sorted(per[t])
+        if not rows: continue
+        mean = sum(x[2] for x in rows) / len(rows); wk, name, adj, val = rows[-1]; baseline = val - adj / QB_ELO_PER_VALUE
+        if t in change and "".join(c for c in change[t]["to"].lower() if c.isalpha()) != "".join(c for c in name.lower() if c.isalpha()):
+            new = change[t]["to"]; nv = latest.get(new)
+            if nv is None: info[str(i)] = {"qb": new, "was": name, "shift": None}; continue
+            adj = QB_ELO_PER_VALUE * (nv - baseline); name = new
+        shift[i] = round(adj - mean, 1)
+        if abs(shift[i]) >= 12.5: info[str(i)] = {"qb": name, "shift": round(shift[i] / ELO_PER_POINT, 1), "starts": sum(1 for x in rows if x[1] == name), "games": len(rows)}
+    return shift, info
+
+def previous_snapshot():
+    """The latest saved forecast from an earlier day (or today's first one if that is all there is), for the what-changed view."""
+    d = os.path.join(ROOT, "data", "snapshots")
+    if not os.path.isdir(d): return None
+    files = sorted(f for f in os.listdir(d) if f.endswith(".json"))
+    if not files: return None
+    today = datetime.date.today().isoformat(); earlier = [f for f in files if f[:10] < today]
+    try: s = json.load(open(os.path.join(d, (earlier or files)[-1])))
+    except Exception: return None
+    return {k: s.get(k) for k in ("date", "teams", "playoffs", "division", "superBowl", "lines", "played")}
+
 def build(text, season, stats_text=None, asof=None):
     """asof=W rebuilds the picture as it stood after week W: later results are hidden and only lines through week W+1 are used."""
     teams, idx = [], {}
@@ -201,13 +248,27 @@ def history(text, season, stats, page):
     return {"weeks": weeks, "po": res["po"], "dv": res["dv"]}
 
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--csv"); ap.add_argument("--team-stats"); ap.add_argument("--injuries"); ap.add_argument("--season", type=int, default=2026); a = ap.parse_args()
+    ap = argparse.ArgumentParser(); ap.add_argument("--csv"); ap.add_argument("--team-stats"); ap.add_argument("--injuries"); ap.add_argument("--qb"); ap.add_argument("--season", type=int, default=2026); a = ap.parse_args()
     text = open(a.csv, newline="").read() if a.csv else urllib.request.urlopen(SOURCE, timeout=60).read().decode()
     if a.team_stats: stats = open(a.team_stats, newline="").read()
     else:
         try: stats = urllib.request.urlopen(TEAM_STATS.format(season=a.season), timeout=120).read().decode()
         except Exception as err: print("team stats unavailable, results rating will use scoring margin only:", err); stats = None
     data = build(text, a.season, stats)
+    news_path = os.path.join(ROOT, "data", "news.json"); news = []
+    if os.path.exists(news_path):
+        cutoff = (datetime.date.today() - datetime.timedelta(days=10)).isoformat()
+        news = [n for n in json.load(open(news_path)).get("items", []) if n.get("date", "") >= cutoff]
+    if a.qb: qb_text = open(a.qb, newline="").read()
+    else:
+        try: qb_text = urllib.request.urlopen(QB_VALUES, timeout=120).read().decode()
+        except Exception as err: print("quarterback values unavailable, no quarterback adjustment:", err); qb_text = None
+    shift, data["qbShift"] = qb_shift(text, a.season, qb_text, news=news)
+    data["rate2"] = [round(v + s, 1) for v, s in zip(data["rate2"], shift)]     # results rating only; the backtest found no gain on the spread rating
+    data["qbCredit"] = bool(qb_text)
+    order = [t for ts in DIV.values() for t in ts]
+    data["news"] = [dict(n, team=order.index(n["team"])) for n in news if n.get("team") in order]
+    data["prev"] = previous_snapshot()
     if a.injuries: inj = open(a.injuries, newline="").read()
     else:
         try: inj = urllib.request.urlopen(INJURIES.format(season=a.season), timeout=120).read().decode()

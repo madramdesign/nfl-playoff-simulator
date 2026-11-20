@@ -42,6 +42,27 @@ Slightly underconfident below 75%, overconfident at 75-80%. The model almost nev
 
 Only weakly. Where the four independent ratings were within 5 points of each other the Brier score was 0.214; where they were 15 or more apart it was 0.227. The page shows disagreement as a caution, not as a confidence score.
 
+## Hold-out check
+
+`scripts/backtest_qb.py` retunes the constants using only seasons before the one being scored.
+
+| Scored season | Tuned on earlier seasons | Page's constants | Spread rating alone |
+|---|---|---|---|
+| 2023 | 0.6647 | 0.6548 | 0.6690 |
+| 2024 | 0.6048 | 0.6008 | 0.6151 |
+| 2025 | 0.6810 | 0.6753 | 0.6818 |
+| Average | 0.6503 | 0.6437 | 0.6554 |
+
+The in-sample figures flatter the model by about 0.007. The honest version still beat the spread rating alone in all three seasons, but the gap in 2025 was tiny. The constants chosen varied a lot from year to year, which says the surface is flat and the exact weights are not well determined.
+
+## Outside benchmarks on next-week games (845 games)
+
+Closing line 0.6022, nfelo at close 0.6064, nfelo at open 0.6104, opening line 0.6130, our spread rating 0.6167, our blend 0.6198. The closing line beats everything, and the opening line gives up about 0.011 to it.
+
+## Quarterback adjustment
+
+Shifting the results rating by the current starter's nfelo value against the season average: 0.6383 against 0.6391 overall, 0.6335 against 0.6345 in the 3,059 forecasts involving a team that had changed quarterback. Applying it to the spread rating too gave nothing. Quarterback data covered 1,191 of 1,359 games. The table above this section was produced before the adjustment; with it the blend scores 0.6383.
+
 ## Known leakage and optimism
 
 1. **Constants tuned in-sample.** Ridge strength, the 0.8/0.2 and 0.5/0.5 weights and the 0.8 shrink were chosen on these same five seasons. There are few of them and the surface is flat, but reported scores are optimistic. The fix is walk-forward tuning or holding out 2025.

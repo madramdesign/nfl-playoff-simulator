@@ -41,6 +41,10 @@ This downloads the nflverse games file (schedule, final scores, spreads and mone
 - **Luck:** fumbles lost above the league-average share are taken out of scoring margin before rating teams. A quarterback-change discount and a return-touchdown discount were tested in `scripts/backtest_adjustments.py` and left out because they did not improve predictions.
 - Injuries are only reflected as far as the betting lines reflect them. Picks cannot be ties.
 
+## News and what changed
+
+`data/news.json` lists recent news that can change team strength, each with a source. The page's "What changed" section shows those items beside the betting lines and playoff chances that have moved since the previous saved forecast. Quarterback values come from nfelo's published files (credit nfeloapp.com).
+
 ## Challenging the forecast
 
 - Every game has a "Why? What could be wrong?" panel: each method's number side by side, how the page's number is built, and the strongest evidence against it, all computed from the model's inputs.

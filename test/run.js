@@ -37,6 +37,8 @@ if (E2.D.report) {
   for (const c of E2.D.report.calibration) assert.ok(c.act >= 0 && c.act <= 1 && c.pred >= c.lo - 1e-9 && c.pred <= c.hi + 1e-9, "calibration rows are consistent");
   assert.ok(E2.D.report.models[0].logloss < 0.6931, "the blend beats a coin flip in the backtest");
 }
+if (E2.D.news) for (const n of E2.D.news) assert.ok(n.summary && n.date && /^https:\/\//.test(n.url || "") && n.team >= 0 && n.team < 32, "every news item has a summary, a date, a team and a source link");
+if (E2.D.prev) assert.strictEqual(E2.D.prev.playoffs.length, 32, "previous snapshot covers all teams");
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
 assert.deepStrictEqual(feed[0], { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 });
