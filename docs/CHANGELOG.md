@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-20 (news ticker)
+- Scrolling news ticker under the page header; each item links to the What changed section.
+- Effect of a news item on every team's playoff chance: the line move for the team's next game times what that game is worth to each team (`simulate`'s new `watch` argument). Shown only when a line from before the news exists.
+- News items gain `headline` and optional `lineBefore`; the build attaches pre-news lines from earlier snapshots.
+
 ## 2026-11-20 (quarterbacks, news, what changed)
 - Quarterback adjustment on the results rating from nfelo's published quarterback values (backtest 0.6383 against 0.6391; 0.6335 against 0.6345 in games after a change). A newly named starter with no value this season gets no adjustment.
 - `data/news.json` and a "What changed" section: news items with sources, line moves and playoff-chance movers since the previous snapshot.

@@ -157,6 +157,17 @@ def qb_shift(text, season, qb_text, asof=None, news=None):
         if abs(shift[i]) >= 12.5: info[str(i)] = {"qb": name, "shift": round(shift[i] / ELO_PER_POINT, 1), "starts": sum(1 for x in rows if x[1] == name), "games": len(rows)}
     return shift, info
 
+def lines_before(item):
+    """Home win chances seen before a news item: from the latest snapshot dated before it, plus any `lineBefore` recorded with the item."""
+    out = {}; d = os.path.join(ROOT, "data", "snapshots")
+    if os.path.isdir(d):
+        earlier = sorted(f for f in os.listdir(d) if f.endswith(".json") and f[:10] < item.get("date", ""))
+        if earlier:
+            try: out.update(json.load(open(os.path.join(d, earlier[-1]))).get("lines") or {})
+            except Exception: pass
+    out.update(item.get("lineBefore") or {})
+    return {k: v for k, v in out.items() if ("_" + item["team"] + "_") in (k + "_") or k.endswith("_" + item["team"])}
+
 def previous_snapshot():
     """The latest saved forecast from an earlier day (or today's first one if that is all there is), for the what-changed view."""
     d = os.path.join(ROOT, "data", "snapshots")
@@ -267,7 +278,7 @@ def main():
     data["rate2"] = [round(v + s, 1) for v, s in zip(data["rate2"], shift)]     # results rating only; the backtest found no gain on the spread rating
     data["qbCredit"] = bool(qb_text)
     order = [t for ts in DIV.values() for t in ts]
-    data["news"] = [dict(n, team=order.index(n["team"])) for n in news if n.get("team") in order]
+    data["news"] = [dict(n, team=order.index(n["team"]), before=lines_before(n)) for n in news if n.get("team") in order]
     data["prev"] = previous_snapshot()
     if a.injuries: inj = open(a.injuries, newline="").read()
     else:

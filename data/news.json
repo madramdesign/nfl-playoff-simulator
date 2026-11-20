@@ -1,5 +1,5 @@
 {
-  "_note": "League news that can change team strength. Maintained by the daily scheduled run; items older than 10 days are dropped. Summaries are in our own words with a link to the source. For kind qb_change, `to` becomes the team's current starter in the build.",
+  "_note": "League news that can change team strength. Maintained by the daily scheduled run; items older than 10 days are dropped. `headline` is a short ticker line and `summary` one or two sentences, both in our own words, with a link to the source. For kind qb_change, `to` becomes the team's current starter in the build. `lineBefore` is optional: the home team's win chance for a game as observed before the news, keyed by game id.",
   "items": [
     {
       "date": "2026-11-20",
@@ -9,7 +9,40 @@
       "to": "Anthony Richardson",
       "summary": "The Colts released starting quarterback Daniel Jones a day after benching him in a 26-3 loss to Houston. Anthony Richardson starts in Week 12 against the Giants.",
       "source": "NBC Sports",
-      "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/colts-release-qb-daniel-jones"
+      "url": "https://www.nbcsports.com/nfl/profootballtalk/rumor-mill/news/colts-release-qb-daniel-jones",
+      "headline": "Colts release QB Daniel Jones; Anthony Richardson to start",
+      "lineBefore": {
+        "2026_12_NYG_IND": 0.313
+      }
+    },
+    {
+      "date": "2026-11-20",
+      "team": "NE",
+      "kind": "qb_change",
+      "from": "Drake Maye",
+      "to": "Tommy DeVito",
+      "headline": "Patriots QB Drake Maye has a fractured fibula; Tommy DeVito expected to start",
+      "summary": "Tests showed Patriots quarterback Drake Maye fractured his right fibula in the loss to Detroit. He is expected to miss most or all of the remaining games, with Tommy DeVito expected to start.",
+      "source": "Heavy",
+      "url": "https://heavy.com/sports/nfl/new-england-patriots/patriots-drake-maye-gets-official-injury-surgery-call-insider/"
+    },
+    {
+      "date": "2026-11-20",
+      "team": "LA",
+      "kind": "injury",
+      "headline": "Rams WR Puka Nacua likely out for the season after knee surgery",
+      "summary": "Rams receiver Puka Nacua had surgery on his knee and is expected to miss a couple of months, which likely ends his season, coach Sean McVay said.",
+      "source": "NFL.com",
+      "url": "https://www.nfl.com/news/rams-wr-puka-nacua-likely-out-for-season-knee-surgery"
+    },
+    {
+      "date": "2026-11-18",
+      "team": "DET",
+      "kind": "injury",
+      "headline": "Lions DE Aidan Hutchinson out for the season with a torn ACL",
+      "summary": "Lions defensive end Aidan Hutchinson tore his right ACL and was placed on injured reserve, ending his season.",
+      "source": "DraftKings Network",
+      "url": "https://dknetwork.draftkings.com/2026/11/17/nfl-injury-report-week-11/"
     }
   ]
 }

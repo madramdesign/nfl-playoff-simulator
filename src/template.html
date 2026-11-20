@@ -83,6 +83,16 @@ select{font:500 15px var(--body);color:var(--ink);background:var(--card);border:
 .chip{display:inline-block;font-size:11px;font-weight:600;border-radius:999px;padding:2px 8px;border:1px solid var(--line);color:var(--muted);margin-right:4px;white-space:nowrap}
 .chip.ok{color:var(--good);border-color:var(--good)}
 .chip.warn{color:var(--bad);border-color:var(--bad)}
+.ticker{overflow:hidden;margin:12px -16px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--card)}
+.track{display:inline-flex;white-space:nowrap;animation:tick linear infinite;will-change:transform}
+.ticker:hover .track,.ticker:focus-within .track,.ticker.paused .track{animation-play-state:paused}
+.tk{font:400 13px var(--body);color:var(--ink);background:none;border:0;padding:9px 18px;cursor:pointer;border-right:1px solid var(--line)}
+.tk b{font-family:var(--display);font-weight:600;font-size:14px;letter-spacing:.05em;text-transform:uppercase;margin-right:6px}
+.tk .when{color:var(--muted);margin-right:6px}
+.tk .eff{font-weight:600;margin-left:8px}
+.tk .eff.up{color:var(--good)} .tk .eff.dn{color:var(--bad)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media (prefers-reduced-motion:reduce){.track{animation:none}.ticker{overflow-x:auto}}
 .news{padding:8px 0;border-top:1px solid var(--line);font-size:13.5px}
 .news:first-child{border-top:0}
 .news a{color:var(--accent)}
@@ -142,6 +152,7 @@ footer p{margin:0 0 8px}
     <h1 id="title">Giants Playoff Odds Simulator</h1>
     <p class="sub">Pick the winner of any remaining game in the league. Each team shows its chance to win, from sportsbook odds blended with results so far. Records, standings and playoff odds rebuild from your picks, and games you leave alone are simulated thousands of times. Data updated <span class="asof"></span>.</p>
     <p class="sub" id="feed" hidden></p>
+    <div class="ticker" id="ticker" hidden><div class="track" id="track"></div></div>
     <label class="pickteam" for="team">Follow <select id="team"></select></label>
     <div class="pickteam" style="flex-wrap:wrap"><span>Odds from</span><div class="tabs" id="modes" role="group" aria-label="Odds source" style="margin:0;padding:0"></div></div>
   </header>
@@ -336,13 +347,15 @@ function liveProbFor(i,L){var fr=L.q>=5?.04:((4-L.q)*15+Math.min(15,Math.max(0,L
 function seedsToday(){return simulate(GAMES.map(function(){return 0}),0,1,null,true).first}
 function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;var t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 // picks[i]: 0 simulate, 1 away wins, 2 home wins
-function simulate(picks,focus,nOverride,liveP,now){
+function simulate(picks,focus,nOverride,liveP,now,watch){
   var open=0,i;for(i=0;i<GAMES.length;i++)if(!picks[i])open++;
   var N=now?1:nOverride||(open?8000:200),rnd=rng(20261116);
   var po=new Float64Array(NT),dv=new Float64Array(NT),sw=new Float64Array(NT),seedC=[],hist={},lev=GAMES.map(function(){return[0,0,0,0]});
   for(i=0;i<NT;i++)seedC.push([0,0,0,0,0,0,0]);
   var first=[null,null],pts,res,cnt,adj=new Float32Array(NT),out=new Uint8Array(GAMES.length),inP=new Uint8Array(NT);
   var rDiv=new Float64Array(NT),rConf=new Float64Array(NT),rSB=new Float64Array(NT),wSB=new Float64Array(NT),draftSum=new Float64Array(NT),draftN=new Float64Array(NT),pick1=new Float64Array(NT),top5=new Float64Array(NT);
+  // watch: game indices for which every team's playoff count is kept separately by who won, to measure what that game is worth to each team.
+  var WT={};(watch||[]).forEach(function(gi){WT[gi]={nH:0,nA:0,H:new Float64Array(NT),A:new Float64Array(NT)}});
   var elim=new Uint8Array(NT),pf,pa,scored=0,ALLT=[];for(i=0;i<NT;i++)ALLT.push(i);
   // Scores are only needed by the late tiebreaker steps, so they are drawn the first time a tie gets that far in a simulated season.
   function ensureScores(){if(scored)return;scored=1;pf=BPF.slice();pa=BPA.slice();if(now)return;
@@ -433,9 +446,10 @@ function simulate(picks,focus,nOverride,liveP,now){
     for(i=0;i<NT;i++)sw[i]+=pts[i];
     var k2=Math.round(pts[focus]*2);hist[k2]=(hist[k2]||0)+1;
     // lev[i] = [home wins, home wins and focus team in playoffs, away wins, away wins and focus team in playoffs]
+    for(var wk in WT){var wt=WT[wk],arr=out[wk]?wt.H:wt.A;if(out[wk])wt.nH++;else wt.nA++;for(i=0;i<NT;i++)arr[i]+=inP[i]}
     var fin=inP[focus];for(i=0;i<GAMES.length;i++){if(out[i]){lev[i][0]++;lev[i][1]+=fin}else{lev[i][2]++;lev[i][3]+=fin}}
   }
-  return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first,rDiv:rDiv,rConf:rConf,rSB:rSB,wSB:wSB,draftSum:draftSum,draftN:draftN,pick1:pick1,top5:top5};
+  return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first,rDiv:rDiv,rConf:rConf,rSB:rSB,wSB:wSB,draftSum:draftSum,draftN:draftN,pick1:pick1,top5:top5,watch:WT};
 }
 </script>
 <script>
@@ -458,6 +472,27 @@ function simulate(picks,focus,nOverride,liveP,now){
 
   Array.prototype.forEach.call(document.querySelectorAll(".asof"),function(n){n.textContent=D.built||"recently"});
   var TODAY=seedsToday(),openWhy=null,tweakPts=0,baseRun=null;
+  // News: each item is tied to its team's next game. WATCH asks the engine what that game is worth to every team.
+  var NEWS=(D.news||[]).slice().sort(function(a,b){return a.date<b.date?1:-1}),WATCH=[];
+  NEWS.forEach(function(n){n.gi=-1;GAMES.forEach(function(g,i){if(n.gi<0&&(g[2]===n.team||g[3]===n.team))n.gi=i});if(n.gi>=0&&WATCH.indexOf(n.gi)<0)WATCH.push(n.gi)});
+  var MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  function shortDate(s){var p=s.split("-");return MON[+p[1]-1]+" "+(+p[2])}
+  function signed(v){return(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(1)}
+  // Estimated change in each team's playoff chance from a news item: how far the betting line for the team's next game
+  // moved after the news, times what that game is worth to each team. Null when there is no line from before the news.
+  function newsEffect(n,r){if(n.gi<0||picks[n.gi])return null;var g=GAMES[n.gi],was=n.before&&n.before[g[0]],w=r.watch&&r.watch[n.gi];
+    if(was==null||!w||!w.nH||!w.nA)return null;var d=dispProb(n.gi)-was;if(Math.abs(d)<.005)return{move:0,was:was,teams:[]};
+    var out=[];for(var t=0;t<NT;t++){var e=d*(w.H[t]/w.nH-w.A[t]/w.nA)*100;if(Math.abs(e)>=.1)out.push([t,e])}
+    return{move:d,was:was,teams:out.sort(function(a,b){return Math.abs(b[1])-Math.abs(a[1])})}}
+  function buildTicker(){if(!NEWS.length)return;var tr=$("track");tr.textContent="";
+    for(var copy=0;copy<2;copy++)NEWS.forEach(function(n,k){var b=el("button","tk");b.type="button";if(copy)b.setAttribute("aria-hidden","true"),b.tabIndex=-1;
+      b.appendChild(el("b","",TM[n.team].n));b.appendChild(el("span","when",shortDate(n.date)));b.appendChild(document.createTextNode(n.headline||n.summary));b.appendChild(el("span","eff tk-eff-"+k));
+      b.addEventListener("click",function(){$("chgCard").scrollIntoView({behavior:"smooth",block:"start"})});tr.appendChild(b)});
+    tr.style.animationDuration=Math.max(24,NEWS.length*11)+"s";$("ticker").hidden=false;
+    $("ticker").addEventListener("touchstart",function(){this.classList.add("paused")},{passive:true});$("ticker").addEventListener("touchend",function(){var x=this;setTimeout(function(){x.classList.remove("paused")},2500)});}
+  function fillTicker(r){NEWS.forEach(function(n,k){var e=newsEffect(n,r),txt="",cls="";
+      if(e&&e.teams.length){var mine=e.teams.filter(function(x){return x[0]===focus})[0]||e.teams[0];txt=TM[mine[0]].n+" playoff chance "+signed(mine[1]);cls=mine[1]>0?" up":" dn"}
+      Array.prototype.forEach.call(document.querySelectorAll(".tk-eff-"+k),function(s){s.textContent=txt;s.className="eff tk-eff-"+k+cls})})}
   // one-score records from finished games, for the "what could be wrong" notes
   var OS=TM.map(function(){return[0,0,0]});D.played.forEach(function(g){var m=g[3]-g[2];if(Math.abs(m)>8)return;if(m===0){OS[g[0]][2]++;OS[g[1]][2]++}else{OS[m>0?g[1]:g[0]][0]++;OS[m>0?g[0]:g[1]][1]++}});
   var GP=BW[0]+BL[0]+BT[0];
@@ -584,12 +619,17 @@ function simulate(picks,focus,nOverride,liveP,now){
     // --- what changed since the previous saved forecast ---
     (function(){var P=D.prev,news=D.news||[];if(!P&&!news.length){$("chgCard").hidden=true;return}
       var nb=$("chgNews");nb.textContent="";
-      news.slice().sort(function(a,b){return a.date<b.date?1:-1}).forEach(function(n){var d=el("div","news");d.appendChild(el("strong","",TM[n.team].n+", "+n.date+". "));d.appendChild(document.createTextNode(n.summary+" "));
+      NEWS.forEach(function(n){var d=el("div","news");d.appendChild(el("strong","",TM[n.team].n+", "+n.date+". "));d.appendChild(document.createTextNode(n.summary+" "));
         if(n.url){var a=el("a","",n.source||"Source");a.href=n.url;a.rel="noopener";d.appendChild(a)}
         var gi=-1;GAMES.forEach(function(g,i){if(gi<0&&(g[2]===n.team||g[3]===n.team))gi=i});
         if(gi>=0){var g=GAMES[gi],home=g[3]===n.team,now=home?dispProb(gi):1-dispProb(gi),was=P&&P.lines&&P.lines[g[0]]!=null?(home?P.lines[g[0]]:1-P.lines[g[0]]):null;
-          d.appendChild(el("p","","Next game: "+TM[g[2]].a+" at "+TM[g[3]].a+", Week "+g[1]+". The "+TM[n.team].n+" are "+p100(now)+" to win"+(was!=null&&Math.abs(was-now)>=.005?", from "+p100(was)+" in the "+P.date+" forecast.":(g[6]!=null?"; the line has not moved since the "+(P?P.date:"last")+" forecast.":"; no betting line is posted yet."))))}
+          d.appendChild(el("p","","Next game: "+TM[g[2]].a+" at "+TM[g[3]].a+", Week "+g[1]+". The "+TM[n.team].n+" are "+p100(now)+" to win"+(n.before&&n.before[g[0]]!=null?", from "+p100(home?n.before[g[0]]:1-n.before[g[0]])+" before the news.":was!=null&&Math.abs(was-now)>=.005?", from "+p100(was)+" in the "+P.date+" forecast.":(g[6]!=null?".":"; no betting line is posted yet."))))}
+        var e=newsEffect(n,r);
+        if(e&&e.teams.length)d.appendChild(el("p","","Estimated change in playoff chance from the line move after this news (from "+p100(GAMES[n.gi][3]===n.team?e.was:1-e.was)+"), through this one game: "+e.teams.slice(0,10).map(function(x){return TM[x[0]].n+" "+signed(x[1])}).join(", ")+". Teams not listed move by less than 0.1."));
+        else if(e)d.appendChild(el("p","","The line for this game has not moved since before the news, so no team's playoff chance changes yet."));
+        else d.appendChild(el("p","",n.gi>=0&&picks[n.gi]?"You have picked this game, so no estimate is shown.":"No estimate of the effect on playoff chances: there is no betting line from before the news to compare with."));
         nb.appendChild(d)});
+      fillTicker(r);
       if(!P){$("chgIntro").textContent="News that can change team strength.";$("chgLinesH").hidden=$("chgMoveH").hidden=true;$("chgNote").textContent="";return}
       var fwas=P.playoffs[focus],fnow=r.po[focus]/r.n;
       $("chgIntro").textContent="Compared with the forecast saved on "+P.date+": the "+TM[focus].n+"' playoff chance was "+p100(fwas)+" and is "+p100(fnow)+" now"+(r.open<GAMES.length?" with your picks":"")+". "+(D.played.length-P.played)+" games have finished since.";
@@ -655,7 +695,7 @@ function simulate(picks,focus,nOverride,liveP,now){
       out[t]=divIn?"z":canCatch<=2?"x":(divOut&&surelyAbove>=7)?"e":""}
     return out}
   var timer=0;
-  function rerun(){drawGames();clearTimeout(timer);timer=setTimeout(function(){last=simulate(picks,focus,0,liveArr());render(last)},20)}
+  function rerun(){drawGames();clearTimeout(timer);timer=setTimeout(function(){last=simulate(picks,focus,0,liveArr(),false,WATCH);render(last)},20)}
   $("fav").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week&&!picks[i])picks[i]=dispProb(i)>=.5?2:1});save();rerun()});
   $("clrW").addEventListener("click",function(){GAMES.forEach(function(g,i){if(g[1]===week){picks[i]=0;delete live[g[0]]}});save();rerun()});
   $("clrAll").addEventListener("click",function(){picks=GAMES.map(function(){return 0});live={};save();rerun()});
@@ -663,7 +703,7 @@ function simulate(picks,focus,nOverride,liveP,now){
   function quick(n){var x=simulate(picks,focus,n||3000,liveArr());return{po:x.po[focus]/x.n,dv:x.dv[focus]/x.n,sb:x.wSB[focus]/x.n}}
   var wTimer=0;
   $("whatif").addEventListener("input",function(){tweakPts=+this.value;clearTimeout(wTimer);wTimer=setTimeout(function(){
-    if(tweakPts!==0){applyTweak(0);baseRun=quick()}applyTweak(tweakPts);last=simulate(picks,focus,0,liveArr());render(last)},120)});
+    if(tweakPts!==0){applyTweak(0);baseRun=quick()}applyTweak(tweakPts);last=simulate(picks,focus,0,liveArr(),false,WATCH);render(last)},120)});
   function resetTweak(){tweakPts=0;baseRun=null;$("whatif").value=0;setTweak([]);$("sensOut").textContent=""}
   $("sens").addEventListener("click",function(){var out=$("sensOut"),btn=this;out.textContent="";btn.disabled=true;btn.textContent="Running…";
     setTimeout(function(){var keepMode=MODE,keepT=tweakPts,rows=[];
@@ -685,8 +725,9 @@ function simulate(picks,focus,nOverride,liveP,now){
     R.narratives.forEach(function(x){var d=el("div","claim"),good=x.verdict==="Supported";d.appendChild(el("span","chip "+(good?"ok":x.verdict==="Not supported"||x.verdict==="Opposite of the claim"?"warn":""),x.verdict));d.appendChild(document.createTextNode(" “"+x.claim+"”"));
       d.appendChild(el("p","",x.effect==null?x.n+" games.":"Measured: "+x.measure+". Result: "+(x.effect>0?"+":x.effect<0?"−":"")+Math.abs(x.effect).toFixed(1)+" points, give or take "+(2*x.se).toFixed(1)+", over "+x.n.toLocaleString()+" games."+(x.note?" "+x.note:"")));$("claims").appendChild(d)});
     R.rejected.forEach(function(x){$("rejected").appendChild(el("li","",x.what+": "+x.why+"."))})})();
+  buildTicker();
   if(D.fp)$("fpCredit").hidden=false;if(D.qbCredit)$("qbCredit").hidden=false;
-  drawModes();last=simulate(picks,focus,0,liveArr());render(last);
+  drawModes();last=simulate(picks,focus,0,liveArr(),false,WATCH);render(last);
 
   // Live feed: only present when the page is served by server.js, which exposes /api/live.
   function applyFeed(list){var changed=false;

@@ -39,6 +39,9 @@ if (E2.D.report) {
 }
 if (E2.D.news) for (const n of E2.D.news) assert.ok(n.summary && n.date && /^https:\/\//.test(n.url || "") && n.team >= 0 && n.team < 32, "every news item has a summary, a date, a team and a source link");
 if (E2.D.prev) assert.strictEqual(E2.D.prev.playoffs.length, 32, "previous snapshot covers all teams");
+const wg = E.GAMES.findIndex((x) => x[6] != null), rw = E.simulate(none, nyg, 2000, null, false, [wg]);
+assert.strictEqual(rw.watch[wg].nH + rw.watch[wg].nA, rw.n, "a watched game is counted in every simulated season");
+assert.ok(Math.abs(Array.from(rw.watch[wg].H).reduce((x, y) => x + y, 0) + Array.from(rw.watch[wg].A).reduce((x, y) => x + y, 0) - 14 * rw.n) < 1e-6, "watched counts add up to the playoff field");
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
 assert.deepStrictEqual(feed[0], { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 });
