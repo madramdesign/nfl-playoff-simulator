@@ -34,7 +34,7 @@ This downloads the nflverse games file (schedule, final scores, spreads and mone
 
 - **Games with a posted moneyline:** the line with the bookmaker's margin removed.
 - **Games without a line yet:** team ratings fitted to this season's point spreads, weighted toward recent weeks, plus home-field advantage.
-- **Tiebreakers:** head-to-head, division record, common games, conference record, then a coin flip. Deeper official steps such as strength of victory are not implemented.
+- **Tiebreakers:** the NFL procedure through strength of schedule (head-to-head, division record, common games, conference record, strength of victory, strength of schedule), then a coin flip. The points-based steps are not implemented because simulated games have no scores.
 - Injuries are only reflected as far as the betting lines reflect them. Picks cannot be ties.
 
 ## Layout

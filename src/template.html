@@ -165,7 +165,7 @@ footer p{margin:0 0 8px}
     <p><strong>Where the percentages come from.</strong> Two views of team strength are combined. Sportsbooks: the posted moneyline with the bookmaker's margin removed, or, where no line is posted yet, ratings fitted to this season's point spreads. Results: each team's win-loss record and point differential, the way standings-based projections rate teams. Blend averages the two, and the buttons under the team menu switch between them. Lines as of <span class="asof"></span>.</p>
     <p><strong>Live scores.</strong> When the live score feed is connected, a game in progress uses an in-game win chance built from the current margin, the time left and the pregame line, and a finished game counts in the standings.</p>
     <p>Unpicked games are simulated 8,000 times using those percentages with some random variation in team strength. These are estimates, not betting advice.</p>
-    <p>Ties in the standings are broken by head-to-head, division record, common games and conference record. Later steps such as strength of victory are replaced by a coin flip, so a close race can differ from the official order. Injuries and quarterback changes are not modeled, and picks cannot be ties.</p>
+    <p>Ties in the standings follow the NFL's procedure through its first six steps: head-to-head, division record, common games, conference record, strength of victory and strength of schedule. The remaining steps rank teams by points scored and allowed, which a win-or-lose simulation does not produce, so anything still tied after that is settled by a coin flip. Injuries and quarterback changes are not modeled, and picks cannot be ties.</p>
     <p>An independent fan project. Not affiliated with the NFL, any team or any publisher.</p>
   </footer>
 </main>
@@ -210,26 +210,38 @@ function simulate(picks,focus,nOverride,liveP,now){
   function share(t,os){var s=0,g=0,k,o;for(k=0;k<os.length;k++){o=os[k];if(o!==t){s+=res[t*NT+o];g+=cnt[t*NT+o]}}return g?s/g:-1}
   function common(ts,min){var os=[],o,k,ok;for(o=0;o<NT;o++){if(ts.indexOf(o)>=0)continue;ok=1;for(k=0;k<ts.length;k++)if(!cnt[ts[k]*NT+o]){ok=0;break}if(ok)os.push(o)}
     if(min){for(k=0;k<ts.length;k++){var g=0;for(o=0;o<os.length;o++)g+=cnt[ts[k]*NT+os[o]];if(g<min)return null}}return os}
+  // Opponents' winning percentage, weighted by wins over them (strength of victory) or by games against them (strength of schedule).
+  function sov(t){var s=0,g=0,o,w;for(o=0;o<NT;o++){w=res[t*NT+o];if(w){s+=w*pts[o];g+=w}}return g?s/g:0}
+  function sos(t){var s=0,g=0,o,w;for(o=0;o<NT;o++){w=cnt[t*NT+o];if(w){s+=w*pts[o];g+=w}}return g?s/g:0}
   function narrow(ts,key){var m=-Infinity,ks=[],k,v;for(k=0;k<ts.length;k++){v=Math.round(key(ts[k])*1e6);ks.push(v);if(v>m)m=v}return ts.filter(function(t,j){return ks[j]===m})}
   function divBreak(ts){var k=0,nx,os;
-    while(ts.length>1&&k<4){
+    while(ts.length>1&&k<6){
       if(k===0)nx=narrow(ts,function(t){return share(t,ts)});
       else if(k===1)nx=narrow(ts,function(t){return share(t,DM[t])});
       else if(k===2){os=common(ts,0);nx=os.length?narrow(ts,function(t){return share(t,os)}):ts}
-      else nx=narrow(ts,function(t){return share(t,CM[t])});
+      else if(k===3)nx=narrow(ts,function(t){return share(t,CM[t])});
+      else if(k===4)nx=narrow(ts,sov);
+      else nx=narrow(ts,sos);
       if(nx.length<ts.length){ts=nx;k=0}else k++}
     return ts.length>1?ts[Math.floor(rnd()*ts.length)]:ts[0]}
   function wildBreak(ts){var by={},c=[],k,d,os,nx;
     for(k=0;k<ts.length;k++){d=TM[ts[k]].d;(by[d]=by[d]||[]).push(ts[k])}
     for(d in by)c.push(by[d].length>1?divBreak(by[d]):by[d][0]);
     k=0;
-    while(c.length>1&&k<3){
+    while(c.length>1&&k<5){
       nx=c;
       if(k===0){
         if(c.length===2){if(cnt[c[0]*NT+c[1]])nx=narrow(c,function(t){return share(t,c)})}
-        else{for(var j=0;j<c.length;j++){var sweep=1;for(var m=0;m<c.length;m++){if(m===j)continue;var n=cnt[c[j]*NT+c[m]];if(!n||res[c[j]*NT+c[m]]<n){sweep=0;break}}if(sweep){nx=[c[j]];break}}}
+        else{
+          // Three or more clubs: head-to-head counts only as a sweep. A club that beat all the others advances; one that lost to all the others drops out.
+          var j,m2,n2,swept=-1,lostAll=-1;
+          for(j=0;j<c.length;j++){var allW=1,allL=1;for(m2=0;m2<c.length;m2++){if(m2===j)continue;n2=cnt[c[j]*NT+c[m2]];if(!n2){allW=0;allL=0;break}if(res[c[j]*NT+c[m2]]<n2)allW=0;if(res[c[j]*NT+c[m2]]>0)allL=0}
+            if(allW){swept=c[j];break}if(allL&&lostAll<0)lostAll=c[j]}
+          if(swept>=0)nx=[swept];else if(lostAll>=0)nx=c.filter(function(t){return t!==lostAll})}
       }else if(k===1)nx=narrow(c,function(t){return share(t,CM[t])});
-      else{os=common(c,4);if(os)nx=narrow(c,function(t){return share(t,os)})}
+      else if(k===2){os=common(c,4);if(os)nx=narrow(c,function(t){return share(t,os)})}
+      else if(k===3)nx=narrow(c,sov);
+      else nx=narrow(c,sos);
       if(nx.length<c.length){c=nx;k=0}else k++}
     return c.length>1?c[Math.floor(rnd()*c.length)]:c[0]}
   function order(list,need){var pool=list.slice(),r=[],m,k,tied,p;
