@@ -1,0 +1,125 @@
+{
+ "v": 1,
+ "id": "fx-1",
+ "generatedAt": "2026-11-22T19:30:00Z",
+ "source": "espn-scoreboard",
+ "scope": "local",
+ "_fixture": "Synthetic fixture: real matchups, invented data. For development and tests only.",
+ "header": {
+  "away": "MIA",
+  "home": "BUF",
+  "state": "in",
+  "period": 3,
+  "clock": "8:03",
+  "awayScore": 10,
+  "homeScore": 17
+ },
+ "winProb": [
+  {
+   "play": 1,
+   "home": 0.86
+  },
+  {
+   "play": 2,
+   "home": 0.84
+  },
+  {
+   "play": 3,
+   "home": 0.88
+  },
+  {
+   "play": 4,
+   "home": 0.8
+  },
+  {
+   "play": 5,
+   "home": 0.83
+  },
+  {
+   "play": 6,
+   "home": 0.9
+  },
+  {
+   "play": 7,
+   "home": 0.86
+  },
+  {
+   "play": 8,
+   "home": 0.79
+  },
+  {
+   "play": 9,
+   "home": 0.82
+  },
+  {
+   "play": 10,
+   "home": 0.78
+  }
+ ],
+ "scoring": [
+  {
+   "period": 1,
+   "clock": "9:12",
+   "team": "BUF",
+   "text": "Fixture: 34-yard field goal",
+   "awayScore": 0,
+   "homeScore": 3
+  },
+  {
+   "period": 2,
+   "clock": "4:40",
+   "team": "MIA",
+   "text": "Fixture: 12-yard touchdown pass",
+   "awayScore": 7,
+   "homeScore": 3
+  },
+  {
+   "period": 2,
+   "clock": "0:05",
+   "team": "BUF",
+   "text": "Fixture: 1-yard touchdown run",
+   "awayScore": 7,
+   "homeScore": 10
+  },
+  {
+   "period": 3,
+   "clock": "12:20",
+   "team": "MIA",
+   "text": "Fixture: 41-yard field goal",
+   "awayScore": 10,
+   "homeScore": 10
+  },
+  {
+   "period": 3,
+   "clock": "9:01",
+   "team": "BUF",
+   "text": "Fixture: 22-yard touchdown pass",
+   "awayScore": 10,
+   "homeScore": 17
+  }
+ ],
+ "plays": [
+  {
+   "period": 3,
+   "clock": "8:40",
+   "team": "MIA",
+   "text": "Fixture: pass short right for 6 yards",
+   "type": "Pass"
+  },
+  {
+   "period": 3,
+   "clock": "8:03",
+   "team": "MIA",
+   "text": "Fixture: run up the middle for 3 yards",
+   "type": "Rush"
+  }
+ ],
+ "injuries": [
+  {
+   "team": "MIA",
+   "name": "Fixture Linebacker",
+   "pos": "LB",
+   "status": "Questionable"
+  }
+ ]
+}

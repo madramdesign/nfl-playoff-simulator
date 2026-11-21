@@ -1,0 +1,907 @@
+{
+ "_note": "Canonical team entities. Index i matches D.teams order in scripts/build.py (division order). Provider ids: nv nflverse, espnId/espnAbbr ESPN, fp FantasyPros, sleeper Sleeper. roof: open, dome, retractable or fixed (translucent fixed roof). aliases are matched against headlines; city names shared by two teams (New York, Los Angeles) are deliberately left out.",
+ "teams": [
+  {
+   "i": 0,
+   "a": "BUF",
+   "nv": "BUF",
+   "espnId": "2",
+   "espnAbbr": "BUF",
+   "fp": "BUF",
+   "sleeper": "BUF",
+   "name": "Buffalo Bills",
+   "nick": "Bills",
+   "conf": "AFC",
+   "div": "AFC East",
+   "color": "#00338d",
+   "alt": "#d50a0a",
+   "stadium": {
+    "name": "Highmark Stadium",
+    "city": "Orchard Park, NY",
+    "lat": 42.7738,
+    "lon": -78.787,
+    "roof": "open"
+   },
+   "aliases": [
+    "Bills",
+    "Buffalo",
+    "Buffalo Bills"
+   ]
+  },
+  {
+   "i": 1,
+   "a": "MIA",
+   "nv": "MIA",
+   "espnId": "15",
+   "espnAbbr": "MIA",
+   "fp": "MIA",
+   "sleeper": "MIA",
+   "name": "Miami Dolphins",
+   "nick": "Dolphins",
+   "conf": "AFC",
+   "div": "AFC East",
+   "color": "#008e97",
+   "alt": "#fc4c02",
+   "stadium": {
+    "name": "Hard Rock Stadium",
+    "city": "Miami Gardens, FL",
+    "lat": 25.958,
+    "lon": -80.2389,
+    "roof": "open"
+   },
+   "aliases": [
+    "Dolphins",
+    "Fins",
+    "Miami",
+    "Miami Dolphins"
+   ]
+  },
+  {
+   "i": 2,
+   "a": "NE",
+   "nv": "NE",
+   "espnId": "17",
+   "espnAbbr": "NE",
+   "fp": "NEP",
+   "sleeper": "NE",
+   "name": "New England Patriots",
+   "nick": "Patriots",
+   "conf": "AFC",
+   "div": "AFC East",
+   "color": "#002a5c",
+   "alt": "#c60c30",
+   "stadium": {
+    "name": "Gillette Stadium",
+    "city": "Foxborough, MA",
+    "lat": 42.0909,
+    "lon": -71.2643,
+    "roof": "open"
+   },
+   "aliases": [
+    "New England",
+    "New England Patriots",
+    "Patriots",
+    "Pats"
+   ]
+  },
+  {
+   "i": 3,
+   "a": "NYJ",
+   "nv": "NYJ",
+   "espnId": "20",
+   "espnAbbr": "NYJ",
+   "fp": "NYJ",
+   "sleeper": "NYJ",
+   "name": "New York Jets",
+   "nick": "Jets",
+   "conf": "AFC",
+   "div": "AFC East",
+   "color": "#115740",
+   "alt": "#ffffff",
+   "stadium": {
+    "name": "MetLife Stadium",
+    "city": "East Rutherford, NJ",
+    "lat": 40.8135,
+    "lon": -74.0745,
+    "roof": "open"
+   },
+   "aliases": [
+    "Jets",
+    "New York Jets"
+   ]
+  },
+  {
+   "i": 4,
+   "a": "BAL",
+   "nv": "BAL",
+   "espnId": "33",
+   "espnAbbr": "BAL",
+   "fp": "BAL",
+   "sleeper": "BAL",
+   "name": "Baltimore Ravens",
+   "nick": "Ravens",
+   "conf": "AFC",
+   "div": "AFC North",
+   "color": "#29126f",
+   "alt": "#000000",
+   "stadium": {
+    "name": "M&T Bank Stadium",
+    "city": "Baltimore, MD",
+    "lat": 39.278,
+    "lon": -76.6227,
+    "roof": "open"
+   },
+   "aliases": [
+    "Baltimore",
+    "Baltimore Ravens",
+    "Ravens"
+   ]
+  },
+  {
+   "i": 5,
+   "a": "CIN",
+   "nv": "CIN",
+   "espnId": "4",
+   "espnAbbr": "CIN",
+   "fp": "CIN",
+   "sleeper": "CIN",
+   "name": "Cincinnati Bengals",
+   "nick": "Bengals",
+   "conf": "AFC",
+   "div": "AFC North",
+   "color": "#fb4f14",
+   "alt": "#000000",
+   "stadium": {
+    "name": "Paycor Stadium",
+    "city": "Cincinnati, OH",
+    "lat": 39.0955,
+    "lon": -84.5161,
+    "roof": "open"
+   },
+   "aliases": [
+    "Bengals",
+    "Cincinnati",
+    "Cincinnati Bengals"
+   ]
+  },
+  {
+   "i": 6,
+   "a": "CLE",
+   "nv": "CLE",
+   "espnId": "5",
+   "espnAbbr": "CLE",
+   "fp": "CLE",
+   "sleeper": "CLE",
+   "name": "Cleveland Browns",
+   "nick": "Browns",
+   "conf": "AFC",
+   "div": "AFC North",
+   "color": "#472a08",
+   "alt": "#ff3c00",
+   "stadium": {
+    "name": "Huntington Bank Field",
+    "city": "Cleveland, OH",
+    "lat": 41.5061,
+    "lon": -81.6995,
+    "roof": "open"
+   },
+   "aliases": [
+    "Browns",
+    "Cleveland",
+    "Cleveland Browns"
+   ]
+  },
+  {
+   "i": 7,
+   "a": "PIT",
+   "nv": "PIT",
+   "espnId": "23",
+   "espnAbbr": "PIT",
+   "fp": "PIT",
+   "sleeper": "PIT",
+   "name": "Pittsburgh Steelers",
+   "nick": "Steelers",
+   "conf": "AFC",
+   "div": "AFC North",
+   "color": "#000000",
+   "alt": "#ffb612",
+   "stadium": {
+    "name": "Acrisure Stadium",
+    "city": "Pittsburgh, PA",
+    "lat": 40.4468,
+    "lon": -80.0158,
+    "roof": "open"
+   },
+   "aliases": [
+    "Pittsburgh",
+    "Pittsburgh Steelers",
+    "Steelers"
+   ]
+  },
+  {
+   "i": 8,
+   "a": "HOU",
+   "nv": "HOU",
+   "espnId": "34",
+   "espnAbbr": "HOU",
+   "fp": "HOU",
+   "sleeper": "HOU",
+   "name": "Houston Texans",
+   "nick": "Texans",
+   "conf": "AFC",
+   "div": "AFC South",
+   "color": "#021018",
+   "alt": "#eb0028",
+   "stadium": {
+    "name": "NRG Stadium",
+    "city": "Houston, TX",
+    "lat": 29.6847,
+    "lon": -95.4107,
+    "roof": "retractable"
+   },
+   "aliases": [
+    "Houston",
+    "Houston Texans",
+    "Texans"
+   ]
+  },
+  {
+   "i": 9,
+   "a": "IND",
+   "nv": "IND",
+   "espnId": "11",
+   "espnAbbr": "IND",
+   "fp": "IND",
+   "sleeper": "IND",
+   "name": "Indianapolis Colts",
+   "nick": "Colts",
+   "conf": "AFC",
+   "div": "AFC South",
+   "color": "#003b75",
+   "alt": "#ffffff",
+   "stadium": {
+    "name": "Lucas Oil Stadium",
+    "city": "Indianapolis, IN",
+    "lat": 39.7601,
+    "lon": -86.1639,
+    "roof": "retractable"
+   },
+   "aliases": [
+    "Colts",
+    "Indianapolis",
+    "Indianapolis Colts",
+    "Indy"
+   ]
+  },
+  {
+   "i": 10,
+   "a": "JAX",
+   "nv": "JAX",
+   "espnId": "30",
+   "espnAbbr": "JAX",
+   "fp": "JAC",
+   "sleeper": "JAX",
+   "name": "Jacksonville Jaguars",
+   "nick": "Jaguars",
+   "conf": "AFC",
+   "div": "AFC South",
+   "color": "#007487",
+   "alt": "#d7a22a",
+   "stadium": {
+    "name": "EverBank Stadium",
+    "city": "Jacksonville, FL",
+    "lat": 30.3239,
+    "lon": -81.6373,
+    "roof": "open"
+   },
+   "aliases": [
+    "Jacksonville",
+    "Jacksonville Jaguars",
+    "Jags",
+    "Jaguars"
+   ]
+  },
+  {
+   "i": 11,
+   "a": "TEN",
+   "nv": "TEN",
+   "espnId": "10",
+   "espnAbbr": "TEN",
+   "fp": "TEN",
+   "sleeper": "TEN",
+   "name": "Tennessee Titans",
+   "nick": "Titans",
+   "conf": "AFC",
+   "div": "AFC South",
+   "color": "#4495d2",
+   "alt": "#001532",
+   "stadium": {
+    "name": "Nissan Stadium",
+    "city": "Nashville, TN",
+    "lat": 36.1665,
+    "lon": -86.7713,
+    "roof": "open"
+   },
+   "aliases": [
+    "Tennessee",
+    "Tennessee Titans",
+    "Titans"
+   ]
+  },
+  {
+   "i": 12,
+   "a": "DEN",
+   "nv": "DEN",
+   "espnId": "7",
+   "espnAbbr": "DEN",
+   "fp": "DEN",
+   "sleeper": "DEN",
+   "name": "Denver Broncos",
+   "nick": "Broncos",
+   "conf": "AFC",
+   "div": "AFC West",
+   "color": "#0a2343",
+   "alt": "#fc4c02",
+   "stadium": {
+    "name": "Empower Field at Mile High",
+    "city": "Denver, CO",
+    "lat": 39.7439,
+    "lon": -105.0201,
+    "roof": "open"
+   },
+   "aliases": [
+    "Broncos",
+    "Denver",
+    "Denver Broncos"
+   ]
+  },
+  {
+   "i": 13,
+   "a": "KC",
+   "nv": "KC",
+   "espnId": "12",
+   "espnAbbr": "KC",
+   "fp": "KCC",
+   "sleeper": "KC",
+   "name": "Kansas City Chiefs",
+   "nick": "Chiefs",
+   "conf": "AFC",
+   "div": "AFC West",
+   "color": "#e31837",
+   "alt": "#ffb612",
+   "stadium": {
+    "name": "GEHA Field at Arrowhead Stadium",
+    "city": "Kansas City, MO",
+    "lat": 39.0489,
+    "lon": -94.4839,
+    "roof": "open"
+   },
+   "aliases": [
+    "Chiefs",
+    "Kansas City",
+    "Kansas City Chiefs"
+   ]
+  },
+  {
+   "i": 14,
+   "a": "LV",
+   "nv": "LV",
+   "espnId": "13",
+   "espnAbbr": "LV",
+   "fp": "LVR",
+   "sleeper": "LV",
+   "name": "Las Vegas Raiders",
+   "nick": "Raiders",
+   "conf": "AFC",
+   "div": "AFC West",
+   "color": "#000000",
+   "alt": "#a5acaf",
+   "stadium": {
+    "name": "Allegiant Stadium",
+    "city": "Las Vegas, NV",
+    "lat": 36.0909,
+    "lon": -115.1833,
+    "roof": "dome"
+   },
+   "aliases": [
+    "Las Vegas",
+    "Las Vegas Raiders",
+    "Raiders"
+   ]
+  },
+  {
+   "i": 15,
+   "a": "LAC",
+   "nv": "LAC",
+   "espnId": "24",
+   "espnAbbr": "LAC",
+   "fp": "LAC",
+   "sleeper": "LAC",
+   "name": "Los Angeles Chargers",
+   "nick": "Chargers",
+   "conf": "AFC",
+   "div": "AFC West",
+   "color": "#0080c6",
+   "alt": "#ffc20e",
+   "stadium": {
+    "name": "SoFi Stadium",
+    "city": "Inglewood, CA",
+    "lat": 33.9535,
+    "lon": -118.3392,
+    "roof": "fixed"
+   },
+   "aliases": [
+    "Bolts",
+    "Chargers",
+    "Los Angeles Chargers"
+   ]
+  },
+  {
+   "i": 16,
+   "a": "DAL",
+   "nv": "DAL",
+   "espnId": "6",
+   "espnAbbr": "DAL",
+   "fp": "DAL",
+   "sleeper": "DAL",
+   "name": "Dallas Cowboys",
+   "nick": "Cowboys",
+   "conf": "NFC",
+   "div": "NFC East",
+   "color": "#002a5c",
+   "alt": "#b0b7bc",
+   "stadium": {
+    "name": "AT&T Stadium",
+    "city": "Arlington, TX",
+    "lat": 32.7473,
+    "lon": -97.0945,
+    "roof": "retractable"
+   },
+   "aliases": [
+    "Cowboys",
+    "Dallas",
+    "Dallas Cowboys"
+   ]
+  },
+  {
+   "i": 17,
+   "a": "NYG",
+   "nv": "NYG",
+   "espnId": "19",
+   "espnAbbr": "NYG",
+   "fp": "NYG",
+   "sleeper": "NYG",
+   "name": "New York Giants",
+   "nick": "Giants",
+   "conf": "NFC",
+   "div": "NFC East",
+   "color": "#003c7f",
+   "alt": "#c9243f",
+   "stadium": {
+    "name": "MetLife Stadium",
+    "city": "East Rutherford, NJ",
+    "lat": 40.8135,
+    "lon": -74.0745,
+    "roof": "open"
+   },
+   "aliases": [
+    "Giants",
+    "New York Giants"
+   ]
+  },
+  {
+   "i": 18,
+   "a": "PHI",
+   "nv": "PHI",
+   "espnId": "21",
+   "espnAbbr": "PHI",
+   "fp": "PHI",
+   "sleeper": "PHI",
+   "name": "Philadelphia Eagles",
+   "nick": "Eagles",
+   "conf": "NFC",
+   "div": "NFC East",
+   "color": "#06424d",
+   "alt": "#000000",
+   "stadium": {
+    "name": "Lincoln Financial Field",
+    "city": "Philadelphia, PA",
+    "lat": 39.9008,
+    "lon": -75.1675,
+    "roof": "open"
+   },
+   "aliases": [
+    "Eagles",
+    "Philadelphia",
+    "Philadelphia Eagles",
+    "Philly"
+   ]
+  },
+  {
+   "i": 19,
+   "a": "WAS",
+   "nv": "WAS",
+   "espnId": "28",
+   "espnAbbr": "WSH",
+   "fp": "WAS",
+   "sleeper": "WAS",
+   "name": "Washington Commanders",
+   "nick": "Commanders",
+   "conf": "NFC",
+   "div": "NFC East",
+   "color": "#5a1414",
+   "alt": "#ffb612",
+   "stadium": {
+    "name": "Northwest Stadium",
+    "city": "Landover, MD",
+    "lat": 38.9077,
+    "lon": -76.8645,
+    "roof": "open"
+   },
+   "aliases": [
+    "Commanders",
+    "Washington",
+    "Washington Commanders"
+   ]
+  },
+  {
+   "i": 20,
+   "a": "CHI",
+   "nv": "CHI",
+   "espnId": "3",
+   "espnAbbr": "CHI",
+   "fp": "CHI",
+   "sleeper": "CHI",
+   "name": "Chicago Bears",
+   "nick": "Bears",
+   "conf": "NFC",
+   "div": "NFC North",
+   "color": "#0b1c3a",
+   "alt": "#e64100",
+   "stadium": {
+    "name": "Soldier Field",
+    "city": "Chicago, IL",
+    "lat": 41.8623,
+    "lon": -87.6167,
+    "roof": "open"
+   },
+   "aliases": [
+    "Bears",
+    "Chicago",
+    "Chicago Bears"
+   ]
+  },
+  {
+   "i": 21,
+   "a": "DET",
+   "nv": "DET",
+   "espnId": "8",
+   "espnAbbr": "DET",
+   "fp": "DET",
+   "sleeper": "DET",
+   "name": "Detroit Lions",
+   "nick": "Lions",
+   "conf": "NFC",
+   "div": "NFC North",
+   "color": "#0076b6",
+   "alt": "#bbbbbb",
+   "stadium": {
+    "name": "Ford Field",
+    "city": "Detroit, MI",
+    "lat": 42.34,
+    "lon": -83.0456,
+    "roof": "dome"
+   },
+   "aliases": [
+    "Detroit",
+    "Detroit Lions",
+    "Lions"
+   ]
+  },
+  {
+   "i": 22,
+   "a": "GB",
+   "nv": "GB",
+   "espnId": "9",
+   "espnAbbr": "GB",
+   "fp": "GBP",
+   "sleeper": "GB",
+   "name": "Green Bay Packers",
+   "nick": "Packers",
+   "conf": "NFC",
+   "div": "NFC North",
+   "color": "#204e32",
+   "alt": "#ffb612",
+   "stadium": {
+    "name": "Lambeau Field",
+    "city": "Green Bay, WI",
+    "lat": 44.5013,
+    "lon": -88.0622,
+    "roof": "open"
+   },
+   "aliases": [
+    "Green Bay",
+    "Green Bay Packers",
+    "Packers"
+   ]
+  },
+  {
+   "i": 23,
+   "a": "MIN",
+   "nv": "MIN",
+   "espnId": "16",
+   "espnAbbr": "MIN",
+   "fp": "MIN",
+   "sleeper": "MIN",
+   "name": "Minnesota Vikings",
+   "nick": "Vikings",
+   "conf": "NFC",
+   "div": "NFC North",
+   "color": "#4f2683",
+   "alt": "#ffc62f",
+   "stadium": {
+    "name": "U.S. Bank Stadium",
+    "city": "Minneapolis, MN",
+    "lat": 44.9736,
+    "lon": -93.2575,
+    "roof": "dome"
+   },
+   "aliases": [
+    "Minnesota",
+    "Minnesota Vikings",
+    "Vikings"
+   ]
+  },
+  {
+   "i": 24,
+   "a": "ATL",
+   "nv": "ATL",
+   "espnId": "1",
+   "espnAbbr": "ATL",
+   "fp": "ATL",
+   "sleeper": "ATL",
+   "name": "Atlanta Falcons",
+   "nick": "Falcons",
+   "conf": "NFC",
+   "div": "NFC South",
+   "color": "#a71930",
+   "alt": "#000000",
+   "stadium": {
+    "name": "Mercedes-Benz Stadium",
+    "city": "Atlanta, GA",
+    "lat": 33.7554,
+    "lon": -84.4008,
+    "roof": "retractable"
+   },
+   "aliases": [
+    "Atlanta",
+    "Atlanta Falcons",
+    "Falcons"
+   ]
+  },
+  {
+   "i": 25,
+   "a": "CAR",
+   "nv": "CAR",
+   "espnId": "29",
+   "espnAbbr": "CAR",
+   "fp": "CAR",
+   "sleeper": "CAR",
+   "name": "Carolina Panthers",
+   "nick": "Panthers",
+   "conf": "NFC",
+   "div": "NFC South",
+   "color": "#0085ca",
+   "alt": "#000000",
+   "stadium": {
+    "name": "Bank of America Stadium",
+    "city": "Charlotte, NC",
+    "lat": 35.2258,
+    "lon": -80.8528,
+    "roof": "open"
+   },
+   "aliases": [
+    "Carolina",
+    "Carolina Panthers",
+    "Panthers"
+   ]
+  },
+  {
+   "i": 26,
+   "a": "NO",
+   "nv": "NO",
+   "espnId": "18",
+   "espnAbbr": "NO",
+   "fp": "NOS",
+   "sleeper": "NO",
+   "name": "New Orleans Saints",
+   "nick": "Saints",
+   "conf": "NFC",
+   "div": "NFC South",
+   "color": "#d3bc8d",
+   "alt": "#000000",
+   "stadium": {
+    "name": "Caesars Superdome",
+    "city": "New Orleans, LA",
+    "lat": 29.9511,
+    "lon": -90.0812,
+    "roof": "dome"
+   },
+   "aliases": [
+    "New Orleans",
+    "New Orleans Saints",
+    "Saints"
+   ]
+  },
+  {
+   "i": 27,
+   "a": "TB",
+   "nv": "TB",
+   "espnId": "27",
+   "espnAbbr": "TB",
+   "fp": "TBB",
+   "sleeper": "TB",
+   "name": "Tampa Bay Buccaneers",
+   "nick": "Buccaneers",
+   "conf": "NFC",
+   "div": "NFC South",
+   "color": "#bd1c36",
+   "alt": "#3e3a35",
+   "stadium": {
+    "name": "Raymond James Stadium",
+    "city": "Tampa, FL",
+    "lat": 27.9759,
+    "lon": -82.5033,
+    "roof": "open"
+   },
+   "aliases": [
+    "Buccaneers",
+    "Bucs",
+    "Tampa Bay",
+    "Tampa Bay Buccaneers"
+   ]
+  },
+  {
+   "i": 28,
+   "a": "ARI",
+   "nv": "ARI",
+   "espnId": "22",
+   "espnAbbr": "ARI",
+   "fp": "ARI",
+   "sleeper": "ARI",
+   "name": "Arizona Cardinals",
+   "nick": "Cardinals",
+   "conf": "NFC",
+   "div": "NFC West",
+   "color": "#a40227",
+   "alt": "#ffffff",
+   "stadium": {
+    "name": "State Farm Stadium",
+    "city": "Glendale, AZ",
+    "lat": 33.5276,
+    "lon": -112.2626,
+    "roof": "retractable"
+   },
+   "aliases": [
+    "Arizona",
+    "Arizona Cardinals",
+    "Cardinals"
+   ]
+  },
+  {
+   "i": 29,
+   "a": "LAR",
+   "nv": "LA",
+   "espnId": "14",
+   "espnAbbr": "LAR",
+   "fp": "LAR",
+   "sleeper": "LAR",
+   "name": "Los Angeles Rams",
+   "nick": "Rams",
+   "conf": "NFC",
+   "div": "NFC West",
+   "color": "#003594",
+   "alt": "#ffd100",
+   "stadium": {
+    "name": "SoFi Stadium",
+    "city": "Inglewood, CA",
+    "lat": 33.9535,
+    "lon": -118.3392,
+    "roof": "fixed"
+   },
+   "aliases": [
+    "Los Angeles Rams",
+    "Rams"
+   ]
+  },
+  {
+   "i": 30,
+   "a": "SF",
+   "nv": "SF",
+   "espnId": "25",
+   "espnAbbr": "SF",
+   "fp": "SFO",
+   "sleeper": "SF",
+   "name": "San Francisco 49ers",
+   "nick": "49ers",
+   "conf": "NFC",
+   "div": "NFC West",
+   "color": "#aa0000",
+   "alt": "#b3995d",
+   "stadium": {
+    "name": "Levi's Stadium",
+    "city": "Santa Clara, CA",
+    "lat": 37.403,
+    "lon": -121.97,
+    "roof": "open"
+   },
+   "aliases": [
+    "49ers",
+    "Niners",
+    "San Francisco",
+    "San Francisco 49ers"
+   ]
+  },
+  {
+   "i": 31,
+   "a": "SEA",
+   "nv": "SEA",
+   "espnId": "26",
+   "espnAbbr": "SEA",
+   "fp": "SEA",
+   "sleeper": "SEA",
+   "name": "Seattle Seahawks",
+   "nick": "Seahawks",
+   "conf": "NFC",
+   "div": "NFC West",
+   "color": "#002a5c",
+   "alt": "#69be28",
+   "stadium": {
+    "name": "Lumen Field",
+    "city": "Seattle, WA",
+    "lat": 47.5952,
+    "lon": -122.3316,
+    "roof": "open"
+   },
+   "aliases": [
+    "Seahawks",
+    "Seattle",
+    "Seattle Seahawks"
+   ]
+  }
+ ],
+ "rivalries": [
+  {
+   "a": "DAL",
+   "b": "SF",
+   "why": "Repeated NFC playoff meetings, including conference title games in the 1970s, 1980s and 1990s"
+  },
+  {
+   "a": "NE",
+   "b": "IND",
+   "why": "Repeated AFC playoff meetings in the 2000s"
+  },
+  {
+   "a": "KC",
+   "b": "BUF",
+   "why": "Four playoff meetings in the 2020-2024 seasons"
+  }
+ ],
+ "neutralSites": {
+  "Estadio Banorte": {
+   "city": "Mexico City",
+   "lat": 19.3029,
+   "lon": -99.1505
+  },
+  "Tottenham Hotspur Stadium": {
+   "city": "London",
+   "lat": 51.6043,
+   "lon": -0.0664
+  },
+  "Wembley Stadium": {
+   "city": "London",
+   "lat": 51.556,
+   "lon": -0.2795
+  }
+ }
+}

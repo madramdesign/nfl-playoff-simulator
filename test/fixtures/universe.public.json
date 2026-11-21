@@ -1,0 +1,640 @@
+{
+ "v": 1,
+ "_fixture": "Synthetic fixture: real matchups, invented data. For development and tests only. Public-only variant.",
+ "generatedAt": "2026-11-22T19:30:00Z",
+ "season": 2026,
+ "week": 12,
+ "seasonType": "regular",
+ "sources": {
+  "nflverse-games": {
+   "id": "nflverse-games",
+   "label": "nflverse schedule and lines",
+   "tier": 2,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T13:30:00.000Z",
+   "lastError": null,
+   "ageSec": 21600,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
+  },
+  "nflverse-injuries": {
+   "id": "nflverse-injuries",
+   "label": "nflverse injury report",
+   "tier": 2,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T12:30:00.000Z",
+   "lastError": null,
+   "ageSec": 25200,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
+  },
+  "open-meteo": {
+   "id": "open-meteo",
+   "label": "Open-Meteo forecast",
+   "tier": 2,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T19:05:00.000Z",
+   "lastError": null,
+   "ageSec": 1500,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
+  },
+  "rss-yahoo": {
+   "id": "rss-yahoo",
+   "label": "Yahoo Sports NFL RSS",
+   "tier": 2,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T19:25:00.000Z",
+   "lastError": null,
+   "ageSec": 300,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
+  },
+  "rss-espn": {
+   "id": "rss-espn",
+   "label": "ESPN NFL RSS",
+   "tier": 2,
+   "scope": "public",
+   "status": "stale",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T18:00:00.000Z",
+   "lastError": "answered 503",
+   "ageSec": 5400,
+   "latencyMs": 90,
+   "fails": 1,
+   "records": 10,
+   "maxStaleSec": 900
+  },
+  "curated-news": {
+   "id": "curated-news",
+   "label": "Curated news (data/news.json)",
+   "tier": 2,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T10:30:00.000Z",
+   "lastError": null,
+   "ageSec": 32400,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
+  }
+ },
+ "games": [
+  {
+   "id": "fx-1",
+   "gid": "2026_12_MIA_BUF",
+   "week": 12,
+   "kickoff": "2026-11-22T18:00:00.000Z",
+   "away": "MIA",
+   "home": "BUF",
+   "state": "pre",
+   "period": 0,
+   "clock": "0:00",
+   "awayScore": 0,
+   "homeScore": 0,
+   "situation": null,
+   "venue": {
+    "name": "Fixture Stadium",
+    "city": "Fixture City",
+    "indoor": false,
+    "neutral": false
+   },
+   "broadcast": null,
+   "odds": null,
+   "weather": {
+    "source": "open-meteo",
+    "tempF": 38,
+    "windMph": 18,
+    "gustMph": 29,
+    "precipProb": 20,
+    "precipIn": 0,
+    "snowIn": 0,
+    "summary": null,
+    "flags": [
+     "wind"
+    ]
+   },
+   "winProb": null,
+   "source": "nflverse-games"
+  },
+  {
+   "id": "fx-2",
+   "gid": "2026_12_NO_CHI",
+   "week": 12,
+   "kickoff": "2026-11-22T16:10:00.000Z",
+   "away": "NO",
+   "home": "CHI",
+   "state": "post",
+   "period": 0,
+   "clock": "0:00",
+   "awayScore": 13,
+   "homeScore": 27,
+   "situation": null,
+   "venue": {
+    "name": "Fixture Stadium",
+    "city": "Fixture City",
+    "indoor": false,
+    "neutral": false
+   },
+   "broadcast": null,
+   "odds": {
+    "source": "nflverse-games",
+    "provider": "nflverse (one book)",
+    "spread": {
+     "open": null,
+     "current": -11.5
+    },
+    "total": {
+     "open": null,
+     "current": 48.5
+    },
+    "homeML": {
+     "open": null,
+     "current": null
+    },
+    "awayML": {
+     "open": null,
+     "current": null
+    },
+    "homeProb": {
+     "open": null,
+     "current": 0.83
+    }
+   },
+   "weather": {
+    "source": "open-meteo",
+    "tempF": 51,
+    "windMph": 9,
+    "gustMph": 15,
+    "precipProb": 70,
+    "precipIn": 0.12,
+    "snowIn": 0,
+    "summary": null,
+    "flags": [
+     "rain"
+    ]
+   },
+   "winProb": null,
+   "source": "nflverse-games"
+  },
+  {
+   "id": "fx-3",
+   "gid": "2026_12_TEN_DAL",
+   "week": 12,
+   "kickoff": "2026-11-22T20:00:00.000Z",
+   "away": "TEN",
+   "home": "DAL",
+   "state": "pre",
+   "period": 0,
+   "clock": "0:00",
+   "awayScore": 0,
+   "homeScore": 0,
+   "situation": null,
+   "venue": {
+    "name": "Fixture Dome",
+    "city": "Fixture City",
+    "indoor": true,
+    "neutral": false
+   },
+   "broadcast": null,
+   "odds": {
+    "source": "nflverse-games",
+    "provider": "nflverse (one book)",
+    "spread": {
+     "open": null,
+     "current": -7.5
+    },
+    "total": {
+     "open": null,
+     "current": 54.5
+    },
+    "homeML": {
+     "open": null,
+     "current": null
+    },
+    "awayML": {
+     "open": null,
+     "current": null
+    },
+    "homeProb": {
+     "open": null,
+     "current": 0.71
+    }
+   },
+   "weather": null,
+   "winProb": null,
+   "source": "nflverse-games"
+  },
+  {
+   "id": "fx-4",
+   "gid": "2026_12_JAX_NYG",
+   "week": 12,
+   "kickoff": "2026-11-22T23:00:00.000Z",
+   "away": "JAX",
+   "home": "NYG",
+   "state": "pre",
+   "period": 0,
+   "clock": "0:00",
+   "awayScore": 0,
+   "homeScore": 0,
+   "situation": null,
+   "venue": {
+    "name": "Fixture Stadium",
+    "city": "Fixture City",
+    "indoor": false,
+    "neutral": false
+   },
+   "broadcast": null,
+   "odds": {
+    "source": "nflverse-games",
+    "provider": "nflverse (one book)",
+    "spread": {
+     "open": null,
+     "current": 6
+    },
+    "total": {
+     "open": null,
+     "current": 46.5
+    },
+    "homeML": {
+     "open": null,
+     "current": null
+    },
+    "awayML": {
+     "open": null,
+     "current": null
+    },
+    "homeProb": {
+     "open": null,
+     "current": 0.31
+    }
+   },
+   "weather": {
+    "source": "open-meteo",
+    "tempF": 47,
+    "windMph": 11,
+    "gustMph": 19,
+    "precipProb": 75,
+    "precipIn": 0.12,
+    "snowIn": 0,
+    "summary": null,
+    "flags": [
+     "rain"
+    ]
+   },
+   "winProb": null,
+   "source": "nflverse-games"
+  },
+  {
+   "id": "fx-5",
+   "gid": "2026_12_MIN_SF",
+   "week": 12,
+   "kickoff": "2026-11-23T02:30:00.000Z",
+   "away": "MIN",
+   "home": "SF",
+   "state": "pre",
+   "period": 0,
+   "clock": "0:00",
+   "awayScore": 0,
+   "homeScore": 0,
+   "situation": null,
+   "venue": {
+    "name": "Fixture Neutral Site",
+    "city": "Mexico City",
+    "indoor": false,
+    "neutral": true
+   },
+   "broadcast": null,
+   "odds": {
+    "source": "nflverse-games",
+    "provider": "nflverse (one book)",
+    "spread": {
+     "open": null,
+     "current": -3
+    },
+    "total": {
+     "open": null,
+     "current": 46.5
+    },
+    "homeML": {
+     "open": null,
+     "current": null
+    },
+    "awayML": {
+     "open": null,
+     "current": null
+    },
+    "homeProb": {
+     "open": null,
+     "current": 0.58
+    }
+   },
+   "weather": {
+    "source": "open-meteo",
+    "tempF": 64,
+    "windMph": 6,
+    "gustMph": 10,
+    "precipProb": 5,
+    "precipIn": 0,
+    "snowIn": 0,
+    "summary": null,
+    "flags": []
+   },
+   "winProb": null,
+   "source": "nflverse-games"
+  },
+  {
+   "id": "fx-6",
+   "gid": "2026_12_CIN_WAS",
+   "week": 12,
+   "kickoff": "2026-11-23T20:30:00.000Z",
+   "away": "CIN",
+   "home": "WAS",
+   "state": "pre",
+   "period": 0,
+   "clock": "0:00",
+   "awayScore": 0,
+   "homeScore": 0,
+   "situation": null,
+   "venue": {
+    "name": "Fixture Stadium",
+    "city": "Fixture City",
+    "indoor": false,
+    "neutral": false
+   },
+   "broadcast": null,
+   "odds": {
+    "source": "nflverse-games",
+    "provider": "nflverse (one book)",
+    "spread": {
+     "open": null,
+     "current": 6
+    },
+    "total": {
+     "open": null,
+     "current": 53.5
+    },
+    "homeML": {
+     "open": null,
+     "current": null
+    },
+    "awayML": {
+     "open": null,
+     "current": null
+    },
+    "homeProb": {
+     "open": null,
+     "current": 0.33
+    }
+   },
+   "weather": {
+    "source": "open-meteo",
+    "tempF": 31,
+    "windMph": 7,
+    "gustMph": 12,
+    "precipProb": 10,
+    "precipIn": 0,
+    "snowIn": 0,
+    "summary": null,
+    "flags": []
+   },
+   "winProb": null,
+   "source": "nflverse-games"
+  }
+ ],
+ "events": [
+  {
+   "id": "fx-ev-4",
+   "type": "weather",
+   "subtype": "wind",
+   "ts": "2026-11-22T19:05:00.000Z",
+   "seenAt": "2026-11-22T19:07:00.000Z",
+   "teams": [
+    "MIA",
+    "BUF"
+   ],
+   "players": [],
+   "title": "MIA at BUF: wind 18 mph, gusts 29 mph at kickoff",
+   "url": null,
+   "source": "open-meteo",
+   "publisher": "Open-Meteo",
+   "importance": 40,
+   "confidence": 0.8,
+   "sourceCount": 1,
+   "sources": [
+    {
+     "publisher": "Open-Meteo",
+     "url": null
+    }
+   ],
+   "gameId": "fx-1",
+   "data": {
+    "windMph": 18,
+    "gustMph": 29
+   }
+  },
+  {
+   "id": "fx-ev-2",
+   "type": "news",
+   "subtype": null,
+   "ts": "2026-11-22T18:35:00.000Z",
+   "seenAt": "2026-11-22T18:37:00.000Z",
+   "teams": [
+    "NYG"
+   ],
+   "players": [],
+   "title": "Fixture headline: Giants starting quarterback ruled out for Sunday",
+   "url": "https://example.com/fixture/1",
+   "source": "rss-yahoo",
+   "publisher": "Yahoo Sports",
+   "importance": 88,
+   "confidence": 0.89,
+   "sourceCount": 2,
+   "sources": [
+    {
+     "publisher": "Yahoo Sports",
+     "url": "https://example.com/fixture/1"
+    },
+    {
+     "publisher": "ESPN",
+     "url": "https://example.com/fixture/2"
+    }
+   ],
+   "gameId": null,
+   "data": {}
+  },
+  {
+   "id": "fx-ev-11",
+   "type": "news",
+   "subtype": null,
+   "ts": "2026-11-22T18:00:00.000Z",
+   "seenAt": "2026-11-22T18:02:00.000Z",
+   "teams": [],
+   "players": [],
+   "title": "Fixture headline: league announces schedule note",
+   "url": "https://example.com/fixture/4",
+   "source": "rss-espn",
+   "publisher": "ESPN",
+   "importance": 12,
+   "confidence": 0.85,
+   "sourceCount": 1,
+   "sources": [
+    {
+     "publisher": "ESPN",
+     "url": "https://example.com/fixture/4"
+    }
+   ],
+   "gameId": null,
+   "data": {}
+  },
+  {
+   "id": "fx-ev-9",
+   "type": "injury",
+   "subtype": "Questionable",
+   "ts": "2026-11-22T09:30:00.000Z",
+   "seenAt": "2026-11-22T09:32:00.000Z",
+   "teams": [
+    "KC"
+   ],
+   "players": [
+    {
+     "name": "Fixture Tackle",
+     "pos": "T"
+    }
+   ],
+   "title": "Fixture Tackle (T) listed Questionable",
+   "url": null,
+   "source": "nflverse-injuries",
+   "publisher": "nflverse",
+   "importance": 16,
+   "confidence": 0.8,
+   "sourceCount": 1,
+   "sources": [
+    {
+     "publisher": "nflverse",
+     "url": null
+    }
+   ],
+   "gameId": null,
+   "data": {
+    "status": "Questionable",
+    "starter": null
+   }
+  },
+  {
+   "id": "fx-ev-10",
+   "type": "qb_change",
+   "subtype": null,
+   "ts": "2026-11-21T19:30:00.000Z",
+   "seenAt": "2026-11-21T19:32:00.000Z",
+   "teams": [
+    "IND"
+   ],
+   "players": [],
+   "title": "Fixture: Colts name a new starting quarterback",
+   "url": "https://example.com/fixture/3",
+   "source": "curated-news",
+   "publisher": "Fixture Publisher",
+   "importance": 80,
+   "confidence": 0.85,
+   "sourceCount": 1,
+   "sources": [
+    {
+     "publisher": "Fixture Publisher",
+     "url": "https://example.com/fixture/3"
+    }
+   ],
+   "gameId": null,
+   "data": {}
+  },
+  {
+   "id": "fx-ev-12",
+   "type": "news",
+   "subtype": null,
+   "ts": "2026-11-20T17:30:00.000Z",
+   "seenAt": "2026-11-20T17:32:00.000Z",
+   "teams": [
+    "SEA"
+   ],
+   "players": [],
+   "title": "Fixture headline: Seahawks activate linebacker from injured reserve",
+   "url": "https://example.com/fixture/5",
+   "source": "rss-yahoo",
+   "publisher": "Yahoo Sports",
+   "importance": 30,
+   "confidence": 0.85,
+   "sourceCount": 1,
+   "sources": [
+    {
+     "publisher": "Yahoo Sports",
+     "url": "https://example.com/fixture/5"
+    }
+   ],
+   "gameId": null,
+   "data": {}
+  }
+ ],
+ "injuries": {
+  "NYG": {
+   "burden": 1.42,
+   "out": 2,
+   "doubtful": 0,
+   "questionable": 1,
+   "ir": 1,
+   "qbOut": true,
+   "players": [
+    {
+     "name": "Fixture Back",
+     "pos": "RB",
+     "status": "Injured Reserve",
+     "type": "Foot",
+     "returnDate": null,
+     "date": "2026-11-16T13:30:00.000Z",
+     "espnId": null,
+     "starter": null,
+     "source": "nflverse-injuries"
+    }
+   ]
+  },
+  "KC": {
+   "burden": 0.11,
+   "out": 0,
+   "doubtful": 0,
+   "questionable": 1,
+   "ir": 0,
+   "qbOut": false,
+   "players": [
+    {
+     "name": "Fixture Tackle",
+     "pos": "T",
+     "status": "Questionable",
+     "type": "Shoulder",
+     "returnDate": null,
+     "date": "2026-11-22T09:30:00.000Z",
+     "espnId": null,
+     "starter": null,
+     "source": "nflverse-injuries"
+    }
+   ]
+  }
+ },
+ "transactions": []
+}

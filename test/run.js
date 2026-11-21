@@ -3,6 +3,10 @@ const fs = require("fs"), path = require("path"), assert = require("assert");
 const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
 const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
 scripts.forEach((s) => new Function(s)); // every script parses
+// embedded data never contains a raw "<": feed text such as "<!--<script" must not be able to break the page
+const dataLine = html.split("\n").find((l) => l.startsWith("var D="));
+assert.ok(dataLine && !dataLine.includes("<"), "embedded data escapes <");
+assert.strictEqual((html.match(/<script\b/g) || []).length, scripts.length, "every script element is closed where it should be");
 const E = new Function(scripts[0] + ";return {simulate,GAMES,TM,baseProb,liveProbFor}")();
 const none = E.GAMES.map(() => 0), nyg = E.TM.findIndex((t) => t.a === "NYG");
 const r = E.simulate(none, nyg);
@@ -42,8 +46,15 @@ if (E2.D.prev) assert.strictEqual(E2.D.prev.playoffs.length, 32, "previous snaps
 const wg = E.GAMES.findIndex((x) => x[6] != null), rw = E.simulate(none, nyg, 2000, null, false, [wg]);
 assert.strictEqual(rw.watch[wg].nH + rw.watch[wg].nA, rw.n, "a watched game is counted in every simulated season");
 assert.ok(Math.abs(Array.from(rw.watch[wg].H).reduce((x, y) => x + y, 0) + Array.from(rw.watch[wg].A).reduce((x, y) => x + y, 0) - 14 * rw.n) < 1e-6, "watched counts add up to the playoff field");
+// optional seed: leaving it out keeps the page's fixed seed; a different seed gives different, still valid, draws
+const s0 = E.simulate(none, nyg, 3000), s1 = E.simulate(none, nyg, 3000, null, false, null, 20261116), s2 = E.simulate(none, nyg, 3000, null, false, null, 7);
+assert.deepStrictEqual(Array.from(s0.po), Array.from(s1.po), "default seed is unchanged");
+assert.notDeepStrictEqual(Array.from(s0.po), Array.from(s2.po), "another seed draws different seasons");
+assert.strictEqual(Math.round(Array.from(s2.po).reduce((x, y) => x + y, 0) / s2.n), 14, "any seed still fills 14 playoff spots");
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
 assert.deepStrictEqual(feed[0], { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 });
 assert.strictEqual(feed[1].home, "WAS"); assert.strictEqual(feed[1].state, "post");
 console.log("ok: engine and feed parser pass; Giants playoff odds", Math.round((r.po[nyg] / r.n) * 100) + "%");
+require("./fabric.test.js");   // data fabric, contracts and server routes (async; exits non-zero on failure)
+require("./mcp.test.js");      // MCP server over stdio (async; exits non-zero on failure)

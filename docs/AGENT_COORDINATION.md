@@ -11,9 +11,9 @@ Claude Code creates subagent worktrees from `main`. Every implementation agent f
 | Orchestrator (also data-platform) | NU-001 to NU-006 | `worktree-nfl-universe` | `.claude/worktrees/nfl-universe` | `docs/`, `CLAUDE.md`, `.claude/`, `lib/`, `shared/`, `server.js`, `scripts/build.py`, `scripts/fabric-snapshot.js`, `data/fabric/`, `test/` except files listed for others | None | Active |
 | Researcher (World Monitor) | NU-002 | none (read-only) | none | none | NU-001 | Done; findings in `WORLDMONITOR_ARCHITECTURE_ANALYSIS.md` |
 | Researcher (open source, terms, media) | NU-003b | none (read-only) | none | none; orchestrator filed `GITHUB_RESEARCH.md` and the registry | NU-001 | Done |
-| Frontend | NU-007 | `worktree-agent-adaeb813e8038ab4d` (last commit `cf03470`) | `.claude/worktrees/agent-adaeb813e8038ab4d` | `src/universe/**`, shell markup and simulator deferral in `src/template.html`, `scripts/gen_geo.py`, `test/universe.test.js`, `docs/AGENT_STATUS/WS2-frontend.md` | NU-004, owner approval of the plan | Paused at the owner's request; branch parked unmerged with only the map-outline generator (`scripts/gen_geo.py`, `src/universe/05-geo.js`) |
-| MCP | NU-008 | to be created | to be created | `mcp/**`, `test/mcp.test.js`, `docs/MCP_ARCHITECTURE.md` | NU-006 merged | Not started |
-| QA / red team | NU-009 | none (read-only) | none | none | NU-006 to NU-008 merged | Not started |
+| Frontend | NU-007 | `worktree-agent-adaeb813e8038ab4d` | `.claude/worktrees/agent-adaeb813e8038ab4d` | `src/universe/**`, shell markup and simulator deferral in `src/template.html`, `scripts/gen_geo.py`, `test/universe.test.js`, `package.json` test script, `docs/AGENT_STATUS/WS2-frontend.md` | NU-004, plan approval (given) | Done, merged with review fixes |
+| MCP | NU-008 | `worktree-agent-ad1ce008d0e55eb4f` | `.claude/worktrees/agent-ad1ce008d0e55eb4f` | `mcp/**`, `test/mcp.test.js`, `docs/MCP_ARCHITECTURE.md`, `docs/AGENT_STATUS/WS4-mcp.md` | NU-006 (done) | Done, merged |
+| QA / red team | NU-009 | none (read-only) | none | none | NU-006 to NU-008 merged | Done |
 
 ## Task queue
 | ID | Task | Priority | Owner | Dependencies | Acceptance criteria | Status |
@@ -24,12 +24,12 @@ Claude Code creates subagent worktrees from `main`. Every implementation agent f
 | NU-003b | Open-source projects, terms of use, odds and media sources | P1 | Researcher | NU-001 | `GITHUB_RESEARCH.md` with cited sources; registry terms filled | Done; raised DEC-006 for the owner |
 | NU-004 | Define canonical contracts and dependency graph | P0 | Orchestrator | NU-001–003 | `shared/teams.json`, `lib/contract.js`, fixture, `DATA_MODEL.md`, `WORKSTREAMS.md` | Done |
 | NU-005 | Merge the owner's bootstrap files | P0 | Orchestrator | None | Constitution, agents, rules and templates in the repository, filled with real content | Done |
-| NU-006 | Data fabric: adapters, breakers, cache, events, `/api/universe`, snapshot | P0 | Orchestrator | NU-004, plan approval | Real output passes `validateUniverse`; failure-mode tests pass | Paused: scaffolding (`lib/fabric/source.js`, `entities.js`, `score.js`) uncommitted in the integration worktree |
-| NU-007 | Command-center interface | P0 | Frontend | NU-004, plan approval | `npm test` passes; renders from fixture, live API and no server; phone width | Paused; branch parked |
-| NU-008 | MCP server | P1 | MCP | NU-006 | Protocol round-trip tests; read-only tools with source and age | Not started |
-| NU-009 | Independent review of merged work | P1 | QA / red team | NU-006–008 | Blocking issues listed separately | Not started |
+| NU-006 | Data fabric: adapters, breakers, cache, events, `/api/universe`, snapshot | P0 | Orchestrator | NU-004, plan approval | Real output passes `validateUniverse`; failure-mode tests pass | Done (`de5c239`): real output from both scopes passes the contract; 21 tests |
+| NU-007 | Command-center interface | P0 | Frontend | NU-004, plan approval | `npm test` passes; renders from fixture, live API and no server; phone width | Done, merged; interface review running |
+| NU-008 | MCP server | P1 | MCP | NU-006 | Protocol round-trip tests; read-only tools with source and age | Done, merged |
+| NU-009 | Independent review of merged work | P1 | QA / red team | NU-006–008 | Blocking issues listed separately | Done: fabric and interface reviewed; all findings fixed |
 
-## Open questions from paused work (answer before NU-006 and NU-007 restart)
+## Questions from the paused frontend work (answered Nov. 21 when NU-007 restarted)
 | From | Question | Proposed answer |
 |---|---|---|
 | Frontend | Independent 100,000-season runs need different seeds, but `simulate` seeds its generator with a constant | Add an optional `seed` argument to `simulate` (default unchanged), with a test that the default output is identical; cleaner than rebinding `rng` inside the worker |

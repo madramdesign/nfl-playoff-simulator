@@ -34,11 +34,11 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 }
 ```
 
-**Source**: `{id, label, tier 1-4, status ok|stale|down|disabled|pending, breaker closed|open|half-open, lastOk ISO|null, lastError, ageSec, latencyMs, fails, records}`. Status is `stale` when the last good answer is older than the source's `maxStaleSec`, `down` when it has never answered or the breaker is open with no usable cache.
+**Source**: `{id, label, tier 1-4, scope public|local, status ok|stale|down|disabled|pending, breaker closed|open|half-open, lastOk ISO|null, lastError, ageSec, latencyMs, fails, records, maxStaleSec}`. Status is `stale` when the last good answer is older than the source's `maxStaleSec`, `down` when it has never answered or the breaker is open with no usable cache. `scope` follows DEC-006: `local` sources (ESPN's JSON) are served only by the local server and never committed or published.
 
-**Game**: `{id, gid, week, kickoff, away, home, state pre|in|post, period, clock, awayScore, homeScore, situation, venue {name, city, indoor, neutral}, broadcast, odds, weather, winProb}`.
-- `odds`: `{provider, spread {open, current}, total {open, current}, homeML {open, current}, awayML {open, current}, homeProb {open, current}}`. `spread` is from the home team's side (negative: home favored). `homeProb` is the moneyline with the bookmaker margin removed. Any value may be null.
-- `weather`: `{source, tempF, windMph, gustMph, precipProb, precipIn, snowIn, summary, flags[]}` at the kickoff hour. Flags: `wind` (sustained 15 mph or more, or gusts 25 or more), `rain` (precipitation chance 60% or more), `snow`, `cold` (25°F or below). Indoor games get `null`. The flags are descriptions, not model inputs.
+**Game**: `{id, gid, week, kickoff, away, home, state pre|in|post, period, clock, awayScore, homeScore, situation, venue {name, city, indoor, neutral}, broadcast, odds, weather, winProb, source}`. `source` is the id of the source the game's state came from (nflverse schedule publicly; ESPN scoreboard locally, which overrides it).
+- `odds`: `{source, provider, spread {open, current}, total {open, current}, homeML {open, current}, awayML {open, current}, homeProb {open, current}}`. `spread` is from the home team's side (negative: home favored). `homeProb` is the moneyline with the bookmaker margin removed. Any value may be null; nflverse gives one current line and no open.
+- `weather`: `{source, tempF, windMph, gustMph, precipProb, precipIn, snowIn, summary, flags[]}` at the kickoff hour; `source` is a source id. Flags: `wind` (sustained 15 mph or more, or gusts 25 or more), `rain` (precipitation chance 60% or more), `snow`, `cold` (25°F or below). Indoor games get `null`. The flags are descriptions, not model inputs.
 - `situation` (live only): `{possession, down, distance, yardLine, text, redZone, awayTimeouts, homeTimeouts}`.
 - `winProb` (live only): `{home, source}`.
 
@@ -50,13 +50,29 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 
 **TeamInjuries**: `{burden, out, doubtful, questionable, ir, qbOut, players[{name, pos, status, type, returnDate, date, espnId}]}`. `burden` is a descriptive index (status weight times position weight, summed). It is not a model input: no injury factor has passed a backtest here yet.
 
+**Public snapshot**: the same shape with only `public` sources, no `situation` or `winProb`, and odds and weather only from public sources. `validatePublicSnapshot` enforces it; the snapshot script refuses to write a file that fails.
+
+## `/api/game/<espnId>` (version 1, local scope)
+
+```
+{ v: 1, id, generatedAt, source, scope,
+  header:   {away, home, state, period, clock, awayScore, homeScore},
+  winProb:  [{play, home}],                      home win chance after each play, in order
+  scoring:  [{period, clock, team, text, awayScore, homeScore}],
+  plays:    [{period, clock, team, text, type}], the most recent 40 plays
+  injuries: [{team, name, pos, status}] }
+```
+Checked by `validateGameDetail`. Play and scoring text are factual descriptions from the local source and are never committed.
+
+Fixtures: `node test/fixtures/make-fixtures.js` writes `universe.sample.json` (all sources), `universe.public.json` (public only) and `game.sample.json`. Matchups are real; every other value is invented.
+
 ## Other endpoints
 
 | Path | Returns |
 |---|---|
 | `/api/universe` | The payload above. `?since=ISO` trims events to those seen after that time |
 | `/api/health` | `{generatedAt, sources}` only |
-| `/api/game/<espnId>` | Trimmed game summary: win-probability series, scoring plays, recent plays, injuries listed for the game |
+| `/api/game/<espnId>` | The game detail above |
 | `/api/team/<abbr>` | Team slice: events, injuries, transactions and the current depth chart |
 | `/api/live` | The original trimmed scoreboard, kept for the simulator view |
 

@@ -45,14 +45,19 @@ Record significant decisions with date, status, context, options, decision, rati
 - Rationale: one failing feed must not blank the page; browsers would hit cross-origin limits; per-source health becomes visible in one place.
 
 ### DEC-006 — Whether to use ESPN's JSON endpoints
-- Date: 2026-11-21. Status: **Proposed — needs the owner's decision.** (First drafted as "Accepted" before the terms research; revised the same day.)
+- Date: 2026-11-21. Status: **Accepted: option 1, personal local use** (owner's choice, Nov. 21, 2026). First drafted as "Accepted" before the terms research, reopened the same day, then decided by the owner.
 - Context: ESPN's scoreboard, news, injuries, transactions and depth-chart JSON all answered on Nov. 21 and would cover most of the live layer. WS3 found they fall under the Disney Terms of Use, whose section 2.B(x) bars automated access, data mining and building datasets, and ESPN has licensed no public API since 2014. The existing simulator already reads the scoreboard through `/api/live`. Under this project's constitution, technical access is not permission.
 - Options considered:
   1. **Personal, local use only.** Keep ESPN behind the local server at low volume, never commit or publish ESPN-derived data (no ESPN content in the embedded snapshot or in committed fixtures), and drop it on request. The owner accepts the terms risk.
   2. **Permitted sources only.** Use nflverse (daily, not live), Yahoo and ESPN RSS headlines under their RSS terms, Open-Meteo, api.weather.gov, Sleeper and curated news. Live scores, injuries within the day, transactions and odds movement are then missing or a day late.
   3. **Licensed feed.** A commercial provider (for example SportsDataIO or Sportradar) under contract. Paid.
 - Recommendation: option 1 for the owner's own machine, combined with option 2 for anything published or committed; revisit option 3 if the project is ever shared publicly or used commercially.
-- Consequences: until decided, no new ESPN adapter is built and no ESPN-derived data is added to anything published. Existing items affected: `/api/live` in `server.js` (on `main`), `test/sample-scoreboard.json` (on `main`) and `test/fixtures/universe.sample.json` (integration branch), which are built from ESPN responses and should be replaced by synthetic fixtures under option 2.
+- Consequences of option 1:
+  - Every source has a `scope` (`public` or `local`) in `lib/contract.js`. ESPN JSON sources are `local`: they run only behind the local server.
+  - Anything committed or published (the snapshot embedded in the page, `data/fabric/` files, fixtures) is built from public sources only and must pass `validatePublicSnapshot`.
+  - The ESPN-derived fixture from earlier that day was replaced by synthetic fixtures (`test/fixtures/make-fixtures.js`). Its first version remains in the integration branch's local history (commit `8363f78`); squash-merge or rewrite before that branch is ever pushed. `test/sample-scoreboard.json` on `main` is hand-made, not ESPN data.
+  - `/api/live` keeps working as before; it was always local.
+  - The MCP server, being a local tool for the owner's own agents, may expose local sources; each answer names its source and scope.
 - Sources: [Disney ToU](https://disneytermsofuse.com/english/), `NFL_DATA_SOURCE_REGISTRY.md`.
 
 ### DEC-007 — Descriptive indexes are not model inputs
@@ -89,3 +94,12 @@ Record significant decisions with date, status, context, options, decision, rati
 ### DEC-013 — Attribution shown beside the data
 - Date: 2026-11-21. Status: Accepted.
 - Decision: the page credits each source where its data appears: Open-Meteo (link required next to weather), Sleeper (trending data), nflverse (and "FTN Data via nflverse" if FTN charting is used), nfeloapp.com (already shown), each RSS publisher on every headline.
+
+### DEC-014 — Plan approved; remaining owner choices defaulted
+- Date: 2026-11-21. Status: Accepted.
+- Context: the owner chose ESPN option 1 when asked which option building should restart with, which restarts M1 (data fabric) and M3 (command center) under `MASTER_PLAN.md`.
+- Defaults until the owner says otherwise: no language model (rule-based brief, DEC-009); no keyed odds source (nflverse lines publicly, ESPN's single book locally); the server runs only on the owner's machine; the integration branch is not merged into `main`.
+
+### DEC-015 — Optional seed for the simulation engine
+- Date: 2026-11-21. Status: Accepted.
+- Decision: `simulate(picks, focus, n, liveProbs, now, watch, seed)`; leaving `seed` out keeps the fixed seed, so every existing caller gets identical results (tested). Independent batches for 100,000-season runs pass different seeds.

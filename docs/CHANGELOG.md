@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-21 (NFL Universe, milestone 1)
+- Project operating system: constitution in `CLAUDE.md`, agent definitions and rules in `.claude/`, living documents in `docs/` (audit, World Monitor analysis, license decision, source registry with terms, architecture, dependency plan, decisions).
+- Contracts: `shared/teams.json` (canonical teams and provider ids), `lib/contract.js` (`/api/universe`, public snapshot, `/api/game`), synthetic fixtures from `test/fixtures/make-fixtures.js`.
+- Data fabric (`lib/fabric/`): adapters for nflverse, Open-Meteo, ESPN and Yahoo RSS, curated news, and local-only ESPN JSON; circuit breakers with last-good caches; injury reports compared across sources; headlines clustered across publishers; events with first-seen times; `/api/universe`, `/api/health`, `/api/game/<id>`, `/api/team/<abbr>`.
+- `scripts/fabric-snapshot.js`: public snapshot embedded in the page and a dated event record; first step of `npm run refresh`.
+- `simulate()` takes an optional seed (default unchanged).
+- The server listens on localhost by default (`HOST` to change) and the API refuses foreign Host headers (`ALLOWED_HOSTS` to add names). A malformed request no longer crashes the server (also a bug on `main`).
+- Independent review of the data fabric: 3 blocking and 9 non-blocking findings fixed (fresh daily snapshot, separate public and local caches, a complete public-snapshot check, kept kickoff and score events, clustering and scoring corrections, nickname-tolerant injury matching, starter-aware quarterback flag); 25 fabric tests including negative cases.
+- MCP server (`mcp/`): 14 read-only tools over stdio; `docs/MCP_ARCHITECTURE.md`.
+- Command center (`src/universe/`), now the page's default view: geographic, division and "intelligence" map modes with 17 layers, URL state, time ranges, intelligence feed, games strip, ticker, team and game panels, system health, the computed brief, and simulation in a Web Worker (20,000 seasons by default, 100,000 on request). Paints from the embedded snapshot, then polls `/api/universe` with backoff; labels snapshot and stale data as such. The simulator is unchanged as `?view=sim` and starts only when shown.
+- The page refuses non-web link addresses from data.
+- Independent review of the command center: 3 blocking and 8 non-blocking findings fixed (honest live status from source health, mode labels, a headline that could break the page, panel robustness, live-chance consistency, focus, ticker, deep-run race, labels, accessibility); 104 interface checks.
+- Build: `src/universe/` modules inlined into the page; `python3 scripts/build.py --reuse` re-renders without downloading.
+
 ## 2026-11-20 (news ticker)
 - Scrolling news ticker under the page header; each item links to the What changed section.
 - Effect of a news item on every team's playoff chance: the line move for the team's next game times what that game is worth to each team (`simulate`'s new `watch` argument). Shown only when a line from before the news exists.

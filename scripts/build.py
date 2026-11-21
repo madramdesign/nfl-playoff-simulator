@@ -258,9 +258,50 @@ def history(text, season, stats, page):
         os.unlink(tmp)
     return {"weeks": weeks, "po": res["po"], "dv": res["dv"]}
 
+def fabric_bootstrap():
+    """The last saved data-fabric snapshot (data/fabric/latest.json, written by scripts/fabric-snapshot.js), embedded so the
+    static page can show injuries, transactions and headlines as of the build. The page labels it with its age."""
+    path = os.path.join(ROOT, "data", "fabric", "latest.json")
+    if not os.path.exists(path): return None
+    try: return json.load(open(path))
+    except Exception as err: print("fabric snapshot unreadable, skipped:", err); return None
+
+def assemble(page, data):
+    """Fills the template: the data blob, the team entity file and the command-center modules in src/universe/
+    (all .css files, then all .js files, each in file-name order). Output stays one self-contained HTML file."""
+    udir = os.path.join(ROOT, "src", "universe"); files = sorted(os.listdir(udir)) if os.path.isdir(udir) else []
+    css = "\n".join(open(os.path.join(udir, f)).read() for f in files if f.endswith(".css"))
+    js = "\n".join("// ---- src/universe/" + f + "\n" + open(os.path.join(udir, f)).read() for f in files if f.endswith(".js"))
+    # "<" is written as < in embedded JSON (same value once parsed), so no text from a feed, such as a headline
+    # containing "</script" or "<!--<script", can end or confuse the script element that holds it.
+    teams = json.dumps(json.load(open(os.path.join(ROOT, "shared", "teams.json"))), separators=(",", ":")).replace("<", "\\u003c")
+    blob = json.dumps(data, separators=(",", ":")).replace("<", "\\u003c")
+    assert "</script" not in js.lower() and "<!--" not in js
+    for marker in ("/*DATA*/", "/*UNIVERSE_JS*/", "/*UNIVERSE_CSS*/", "/*TEAMS*/"):
+        assert page.count(marker) <= 1, marker
+        assert all(marker not in part for part in (css, js)), marker + " must not appear inside a module"
+    assert page.count("/*DATA*/") == 1
+    # the template writes `var UT=/*TEAMS*/null;` so it stays valid JavaScript before it is filled
+    page = page.replace("/*UNIVERSE_CSS*/", css).replace("/*UNIVERSE_JS*/", js).replace("/*TEAMS*/null", teams)
+    return page.replace("/*DATA*/", blob)
+
+def reuse():
+    """Rebuilds public/index.html from the current template and modules, keeping the data already in the built page
+    (no downloads). Refreshes only the fabric snapshot. For working on the interface: python3 scripts/build.py --reuse"""
+    import re
+    built = open(os.path.join(ROOT, "public", "index.html")).read()
+    m = re.search(r"^var D=(\{.*\});$", built, re.M)
+    if not m: raise SystemExit("public/index.html has no data line to reuse; run a full build")
+    data = json.loads(m.group(1)); data["fabric"] = fabric_bootstrap()
+    page = open(os.path.join(ROOT, "src", "template.html")).read()
+    open(os.path.join(ROOT, "public", "index.html"), "w").write(assemble(page, data))
+    print("rebuilt public/index.html from the template, keeping data built", data.get("built"))
+
 def main():
-    ap = argparse.ArgumentParser(); ap.add_argument("--csv"); ap.add_argument("--team-stats"); ap.add_argument("--injuries"); ap.add_argument("--qb"); ap.add_argument("--season", type=int, default=2026); a = ap.parse_args()
-    text = open(a.csv, newline="").read() if a.csv else urllib.request.urlopen(SOURCE, timeout=60).read().decode()
+    ap = argparse.ArgumentParser(); ap.add_argument("--csv"); ap.add_argument("--team-stats"); ap.add_argument("--injuries"); ap.add_argument("--qb"); ap.add_argument("--season", type=int, default=2026)
+    ap.add_argument("--reuse", action="store_true", help="re-render the page with the data already in public/index.html"); a = ap.parse_args()
+    if a.reuse: return reuse()
+    text =open(a.csv, newline="").read() if a.csv else urllib.request.urlopen(SOURCE, timeout=60).read().decode()
     if a.team_stats: stats = open(a.team_stats, newline="").read()
     else:
         try: stats = urllib.request.urlopen(TEAM_STATS.format(season=a.season), timeout=120).read().decode()
@@ -296,10 +337,9 @@ def main():
         raw = json.load(open(owners_path)); order = [t for ts in DIV.values() for t in ts]
         data["owners"] = [order.index(raw[t]) if t in raw else None for t in order]
         data["ownersAsOf"] = datetime.date.fromtimestamp(os.path.getmtime(owners_path)).strftime("%b. ") + str(datetime.date.fromtimestamp(os.path.getmtime(owners_path)).day)
-    blob = json.dumps(data, separators=(",", ":"))
-    assert "</script" not in blob
+    data["fabric"] = fabric_bootstrap()
     os.makedirs(os.path.join(ROOT, "public"), exist_ok=True)
-    open(os.path.join(ROOT, "public", "index.html"), "w").write(page.replace("/*DATA*/", blob))
+    open(os.path.join(ROOT, "public", "index.html"), "w").write(assemble(page, data))
     print(f"built public/index.html: {len(data['played'])} games played, {len(data['games'])} remaining, {sum(1 for g in data['games'] if g[6] is not None)} with sportsbook lines, EPA from {data['epaGames']} games")
 
 if __name__ == "__main__": main()

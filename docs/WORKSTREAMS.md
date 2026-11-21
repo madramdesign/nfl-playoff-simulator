@@ -24,11 +24,11 @@ Each write-capable stream has its own git worktree and branch, owns a fixed set 
 | ID | Stream | Agent | Worktree / branch | Owns (writes) | Interface it builds on | Tests it must pass | Status |
 |---|---|---|---|---|---|---|---|
 | WS0 | Contracts and build | orchestrator | integration branch | `lib/contract.js`, `shared/teams.json`, `docs/DATA_MODEL.md`, `scripts/build.py` (assembly), template markers | Audit, source probes | `npm test`; fixture validates | Done |
-| WS1 | Data fabric | orchestrator (as data-engineer) | integration branch | `lib/fabric/**`, `server.js`, `scripts/fabric-snapshot.js`, `test/fabric.test.js`, `test/fixtures/espn/`, `data/fabric/` | `lib/contract.js` | contract validation of real and fixture output; breaker and failure tests | In progress |
-| WS2 | Command-center interface | frontend | own worktree and branch | `src/universe/**`, shell markup and simulator deferral in `src/template.html`, `scripts/gen_geo.py`, `test/universe.test.js` | `lib/contract.js`, `test/fixtures/universe.sample.json`, engine globals | `npm test`; page parses; headless render at desktop and phone width | Running |
+| WS1 | Data fabric | orchestrator (as data-engineer) | integration branch | `lib/fabric/**`, `server.js`, `scripts/fabric-snapshot.js`, `test/fabric.test.js`, `data/fabric/` | `lib/contract.js` | contract validation of real and fixture output; breaker and failure tests | Done |
+| WS2 | Command-center interface | frontend | own worktree and branch | `src/universe/**`, shell markup and simulator deferral in `src/template.html`, `scripts/gen_geo.py`, `test/universe.test.js`, `package.json` test script | `lib/contract.js`, `test/fixtures/*.json`, engine globals | `npm test`; page parses; headless render at desktop and phone width | Done, merged |
 | WS3 | Open-source, terms and media research | researcher (read-only) | none | nothing | none | sources cited | Done |
-| WS4 | MCP server | data-engineer or ai-engineer | own worktree and branch | `mcp/**`, `test/mcp.test.js`, `docs/MCP_ARCHITECTURE.md` | `lib/fabric` exports, engine | protocol round-trip tests | Waiting on WS1 |
-| WS5 | Review | qa + red-team (read-only) | none | nothing | merged branch | | Waiting |
+| WS4 | MCP server | ai-engineer | own worktree and branch | `mcp/**`, `test/mcp.test.js`, `docs/MCP_ARCHITECTURE.md` | `lib/fabric` exports, engine | protocol round-trip tests | Done, merged |
+| WS5 | Review | qa + red-team (read-only) | none | nothing | merged branch | | Done |
 
 ## Ordering
 

@@ -87,7 +87,10 @@ Phases may overlap only when dependencies and interfaces are documented.
 | 1. World Monitor architecture and licensing | Done | `WORLDMONITOR_ARCHITECTURE_ANALYSIS.md`, `OPEN_SOURCE_LICENSE_DECISION.md` |
 | 2. Data-source and terms research | Done: endpoints verified, terms read, open-source projects, odds and official media surveyed. ESPN's JSON is not licensed for automated use (DEC-006, owner decision) | `NFL_DATA_SOURCE_REGISTRY.md`, `GITHUB_RESEARCH.md` |
 | 3. Canonical data model, contracts, architecture decisions | Done for teams, games, events, injuries, transactions; players not yet canonical | `DATA_MODEL.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `lib/contract.js`, `shared/teams.json` |
-| 4-14 | Not started as features. Two pieces were begun before the owner asked to finish planning first and are parked: fabric scaffolding (uncommitted in the integration worktree) and the command-center interface (frontend agent's branch, unmerged) | `CURRENT_STATE.md` |
+| 4. Ingestion, normalization, entity resolution, provenance | Milestone M1 done (data fabric), reviewed | `lib/fabric/` |
+| 11. Command-center UI | Milestone M3 first slice done | `src/universe/` |
+| 12. AI assistant | Rule-based brief only (DEC-009); MCP server (M2) done | `mcp/` |
+| Others | Not started; see the dependency plan | |
 
 ## Dependency plan
 

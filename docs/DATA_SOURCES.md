@@ -35,6 +35,7 @@ If team stats or injuries cannot be downloaded the build still succeeds and says
 | `fp` | Teams whose FantasyPros-projected top quarterback differs from their last starter (a flag, not a model input) |
 | `qb`, `qbWeek` | Starting quarterbacks on this week's injury report |
 | `report` | Backtest report |
+| `fabric` | The public NFL Universe snapshot (`data/fabric/latest.json`, shape in `DATA_MODEL.md`), or null |
 | `built` | Build date |
 
 ## Freshness and quality

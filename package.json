@@ -6,9 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "build": "python3 scripts/build.py",
-    "test": "node test/run.js",
+    "test": "node test/run.js && node test/universe.test.js",
     "snapshot": "node scripts/snapshot.js",
-    "refresh": "python3 scripts/build.py && node test/run.js && node scripts/snapshot.js"
+    "refresh": "node scripts/fabric-snapshot.js && python3 scripts/build.py && npm test && node scripts/snapshot.js",
+    "fabric-snapshot": "node scripts/fabric-snapshot.js"
   },
   "engines": {
     "node": ">=18"

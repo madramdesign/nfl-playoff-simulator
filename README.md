@@ -1,4 +1,8 @@
-# NFL Playoff Simulator
+# NFL Universe (and the NFL Playoff Simulator)
+
+The page opens on the NFL Universe command center: a map of all 32 teams with switchable layers (games, lines, weather, injuries, news, playoff odds, momentum, model disagreement), a unified intelligence feed, this week's games, team and game panels, a source-health panel, and a "What is happening in the NFL?" brief computed from the data (no AI model writes it). Its state is in the URL (`?team=NYG&layers=teams,injuries&timeRange=48h`), so views can be shared. The original simulator is the second view (`?view=sim`) and works as before.
+
+## The simulator
 
 Pick the winner of any remaining NFL game and see every team's record, the standings and the playoff seeds rebuild. Games you leave alone are simulated thousands of times, using win chances taken from sportsbook odds. While games are on, live scores move the odds.
 
@@ -10,7 +14,32 @@ Needs Node 18 or newer. No packages to install.
 npm start
 ```
 
-Then open http://localhost:3000.
+Then open http://localhost:3000. The server listens on this machine only. To open it to your network, set `HOST=0.0.0.0` and list the names you will use in `ALLOWED_HOSTS` (for example `ALLOWED_HOSTS=192.168.1.20`); the API refuses other host names.
+
+## NFL Universe data fabric
+
+`server.js` also serves the NFL Universe data layer (`lib/fabric/`), which gathers schedule and lines (nflverse), the weekly injury report (nflverse), game-day weather (Open-Meteo), headlines (ESPN and Yahoo RSS), the curated items in `data/news.json`, and, on your own machine only, ESPN's live scoreboard, news, injuries and transactions.
+
+| Endpoint | What it returns |
+|---|---|
+| `/api/universe` | Games, a unified event feed, injuries, transactions and the health of every source (`?since=<ISO time>` for new events only) |
+| `/api/health` | Status, age and circuit-breaker state of each source |
+| `/api/game/<ESPN id>` | One game: win-probability series, scoring plays, recent plays |
+| `/api/team/<abbreviation>` | One team's slice of the above |
+
+Every source runs behind a timeout, a retry, a circuit breaker and a last-good cache, so one failing feed never blanks the rest. ESPN's JSON is not licensed for automated use, so it is used locally only and nothing derived from it is committed or published (`docs/DECISIONS.md`, DEC-006). `FABRIC_SCOPES=public npm start` serves public sources only.
+
+## MCP server for AI agents
+
+`mcp/server.js` is a read-only MCP server over stdio with 14 tools (games, live games, injuries, news, events, odds, weather, team, standings, playoff odds, run a simulation, what changed, source health, search). Register it with Claude Code:
+
+```
+claude mcp add nfl-universe -- node /full/path/to/mcp/server.js
+```
+
+Every answer names its sources, their status and scope, and any that are unavailable. It writes no files and takes no outside action. Details: `docs/MCP_ARCHITECTURE.md`.
+
+`npm run fabric-snapshot` saves the public sources to `data/fabric/latest.json` (embedded in the page by the build, so the static page has them) and records newly seen events in `data/fabric/events/<date>.json`. `npm run refresh` runs it first. Field-by-field contract: `docs/DATA_MODEL.md`.
 
 ## Live scores
 
@@ -66,6 +95,11 @@ Start with `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` for what exis
 | `scripts/backtest.py`, `scripts/backtest_adjustments.py` | Replays 2021-2025 to choose rating weights (need numpy). |
 | `scripts/evaluate.py` | Backtest, calibration, analogs and narrative tests; writes `data/model_report.json`. |
 | `docs/` | Audit, research, models, backtesting, red team, roadmap, changelog. |
-| `test/run.js` | Checks for the engine and the feed parser (`npm test`). |
+| `test/run.js` | Checks for the engine and the feed parser (`npm test`); also runs `test/fabric.test.js`. |
+| `lib/contract.js`, `lib/fabric/` | NFL Universe data contract and data fabric. |
+| `shared/teams.json` | Canonical teams: provider ids, stadiums, aliases. |
+| `src/universe/` | NFL Universe command-center modules, inlined into the page by the build. |
+| `scripts/fabric-snapshot.js` | Public fabric snapshot and daily event record. |
+| `CLAUDE.md`, `.claude/`, `docs/CURRENT_STATE.md` | Project instructions for AI agents, and the living plan. |
 
-An independent fan project. Not affiliated with the NFL, any team, ESPN or any publisher. The odds are estimates, not betting advice.
+An independent fan project. Not affiliated with the NFL, any team, ESPN or any publisher. The odds are estimates, not betting advice. The NFL Universe layout borrows ideas from World Monitor (github.com/koala73/worldmonitor) but contains none of its code. Weather data by Open-Meteo.com (CC BY 4.0); schedule, lines and injury reports from nflverse (CC-BY 4.0).
