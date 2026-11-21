@@ -94,9 +94,9 @@ These predate NFL Universe and remain binding.
 - News effects are computed, never typed in: `newsEffect` multiplies the line move since before the news by each team's conditional playoff gap for that game (`simulate(..., watch)`). No pre-news line means no estimate is shown.
 
 ## NFL Universe specifics
-These describe the integration branch `worktree-nfl-universe`. Until the owner approves merging it, `main` carries these instructions and the docs, but not the code they mention (`src/universe/`, `lib/`, `shared/`, `build.py --reuse`). Check `git branch` before relying on them.
+Milestone 1 was merged into `main` on Nov. 21, 2026 (squash commit `8bd0cff`), so everything below exists on `main`.
 - Command-center code lives in `src/universe/*.js` and `*.css`; `scripts/build.py` inlines them into the page in file-name order inside one closure. `python3 scripts/build.py --reuse` re-renders the page without downloading data.
 - Canonical team entities and provider ids: `shared/teams.json` (index order matches `D.teams`). The `/api/universe` payload contract: `lib/contract.js`, described in `docs/DATA_MODEL.md`. Change either only through the orchestrator.
 - The data fabric (`lib/fabric/`) is the only code that calls external sources; the page reads `/api/universe` or the snapshot embedded at build (`D.fabric`).
 - Descriptive indexes (injury burden, weather flags, news importance) are not model inputs until a backtest says otherwise (`docs/DECISIONS.md`).
-- NFL Universe work happens on the integration branch `worktree-nfl-universe`; `main` receives only the daily refresh until the owner approves a merge.
+- New NFL Universe work happens on an integration branch (currently `worktree-nfl-universe`) with agents in their own worktrees; it reaches `main` only after review, passing tests and the owner's approval. The daily refresh commits to `main` and now also runs `scripts/fabric-snapshot.js` and the full test suite.

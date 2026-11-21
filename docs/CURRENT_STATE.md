@@ -5,8 +5,8 @@
 ## Last updated
 - Date: 2026-11-21 (end of the first NFL Universe session)
 - Branches:
-  - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): all NFL Universe code. Not merged into `main`.
-  - `main`: the daily data refresh plus the project instructions and docs (no NFL Universe code).
+  - `main`: milestone 1 merged on Nov. 21, 2026 as one squash commit (`8bd0cff`), plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the integration branch's history.
+  - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
 ## Repository reality
@@ -50,10 +50,12 @@
   - where the daily refresh runs.
 
 ## Decisions waiting on the owner
-1. Merge `worktree-nfl-universe` into `main`? (The daily refresh would then also run the fabric snapshot, and the published page would become the command center.)
-2. Language-model provider and cost ceiling, or none (DEC-009).
-3. A keyed odds source (The Odds API free tier is the cheapest workable), or none.
-4. Where the server should run beyond this machine, if anywhere.
+1. Language-model provider and cost ceiling, or none (DEC-009).
+2. A keyed odds source (The Odds API free tier is the cheapest workable), or none.
+3. Where the server should run beyond this machine, if anywhere.
+
+## Effects of the merge to watch
+- The next daily refresh runs `scripts/fabric-snapshot.js` (needs network; never fails the refresh) and all four test suites, and the page it publishes opens on the command center. The published copy is static, so it shows the public snapshot with its age, never ESPN data.
 
 ## Next actions
 1. Watch one live game window with `npm start` open and confirm scores, the live dot, and kickoff and score events.

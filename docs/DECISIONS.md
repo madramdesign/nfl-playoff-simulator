@@ -103,3 +103,9 @@ Record significant decisions with date, status, context, options, decision, rati
 ### DEC-015 — Optional seed for the simulation engine
 - Date: 2026-11-21. Status: Accepted.
 - Decision: `simulate(picks, focus, n, liveProbs, now, watch, seed)`; leaving `seed` out keeps the fixed seed, so every existing caller gets identical results (tested). Independent batches for 100,000-season runs pass different seeds.
+
+### DEC-016 — Milestone 1 merged into `main` as one squash commit
+- Date: 2026-11-21. Status: Accepted (owner approved the merge).
+- Context: the integration branch's history includes, in one early commit, a test fixture built from ESPN responses; DEC-006 forbids committing ESPN-derived data where it may be published, and `main` is the branch that gets pushed.
+- Decision: squash-merge (`8bd0cff`) so `main` carries the final tree only; then merge `main` back into the integration branch so later merges have a common base.
+- Consequences: commit hashes quoted in the docs refer to the integration branch, which stays local. The early fixture remains in that local branch's history; do not push that branch as it is.
