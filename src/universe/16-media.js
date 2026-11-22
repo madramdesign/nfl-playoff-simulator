@@ -27,6 +27,24 @@ function playerFrameAttrs(src, title) {
 function audioAttrs(src, label) { return { controls: true, preload: "none", src: src, referrerpolicy: "no-referrer", "aria-label": label, "data-label": label }; }
 var NEW_TAB = " (opens in a new tab)";
 
+// ---- hosts that refuse outside media (pure parts) ----
+// Some places that show a copy of this page refuse images, players and audio from other sites (claude.ai's artifact
+// viewer does). The browser reports each refusal as a "securitypolicyviolation" event. The first one that names a
+// YouTube or podcast address switches the page to links: every video opens on YouTube and every episode on its own page.
+var MEDIA_HOST_RE = /^https?:\/\/([a-z0-9-]+\.)*(youtube\.com|youtube-nocookie\.com|ytimg\.com|omny\.fm|pdrl\.fm|podtrac\.com|claritaspod\.com)(?=[\/:?#]|$)/i;
+var MEDIA_DIRECTIVE_RE = /^(img-src|media-src|frame-src|child-src|default-src)(-elem)?$/;
+function isMediaBlock(e) {
+  if (!e || typeof e !== "object") return false;
+  var d = String(e.effectiveDirective || e.violatedDirective || "").split(" ")[0];
+  return MEDIA_DIRECTIVE_RE.test(d) && MEDIA_HOST_RE.test(String(e.blockedURI || e.blockedURL || ""));
+}
+// What a video does when chosen: "play" in the page's player, "link" to YouTube in a new tab, or "text" (no address).
+function videoAction(v, blocked) { return v.embed && !blocked ? "play" : v.url ? "link" : "text"; }
+// What an episode offers: "play" (an audio player), "page" (its episode page), "file" (its audio file in a new tab), "none".
+function podcastAction(p, blocked) { return p.audio && !blocked ? "play" : p.url ? "page" : p.audio ? "file" : "none"; }
+var BLOCKED_NOTE = "The site showing this page blocks video players and audio from other sites, so videos open on YouTube and episodes on their own page, each in a new tab.";
+function mediaBlocked() { return !!(store && store.get("mediaBlocked")); }
+
 // ---- normalising the payload's media block (pure) ----
 var MEDIA_KINDS = ["press", "highlights", "preview", "short", "video"];
 function mediaTeam(a) { return typeof a === "string" && TIDX[a] != null ? TIDX[a] : null; }
@@ -111,19 +129,44 @@ function fmtDuration(s) { if (s == null || s <= 0) return ""; var m = Math.round
 var mediaPanel = null;
 function mediaRefs() { return store.get("model") ? store.get("model").media : normMedia(null); }
 // One video: the thumbnail and title open the player when the embed address passed the allowlist; otherwise they are a
-// plain link to YouTube; with neither, the title is shown as text.
+// plain link to YouTube; with neither, the title is shown as text. Where the host blocks outside media, there is no
+// thumbnail and the title is the link.
 function videoItem(v, now, compact) {
-  var head = [v.thumb ? el("img", { src: v.thumb, alt: "", width: "160", height: "90", loading: "lazy", referrerpolicy: "no-referrer", class: "u-vthumb" }) : el("span", { class: "u-vthumb u-vnothumb", "aria-hidden": "true" }),
-    el("span", { class: "u-vtitle", text: v.title })];
-  var label = (v.embed ? "Play: " : "Watch on YouTube: ") + v.title + " (" + v.channel + ")" + (v.embed ? "" : NEW_TAB);
+  var blocked = mediaBlocked(), act = videoAction(v, blocked);
+  var head = blocked ? [el("span", { class: "u-vtitle", text: v.title }), act === "link" ? el("span", { class: "u-vout", "aria-hidden": "true", text: " ↗" }) : null]
+    : [v.thumb ? el("img", { src: v.thumb, alt: "", width: "160", height: "90", loading: "lazy", referrerpolicy: "no-referrer", class: "u-vthumb" }) : el("span", { class: "u-vthumb u-vnothumb", "aria-hidden": "true" }),
+      el("span", { class: "u-vtitle", text: v.title })];
+  var label = (act === "play" ? "Play: " : "Watch on YouTube: ") + v.title + " (" + v.channel + ")" + (act === "play" ? "" : NEW_TAB);
   var key = "v:" + v.videoId + (compact ? ":c" : "");
-  var main = v.embed ? el("button", { type: "button", class: "u-vmain", "data-fk": key, "aria-label": label, onclick: function () { openPlayer({ src: v.embed, url: v.url, title: v.title, channel: v.channel, key: key }); } }, head)
-    : v.url ? el("a", { class: "u-vmain", href: v.url, target: "_blank", rel: "noopener", "aria-label": label }, head)
+  var main = act === "play" ? el("button", { type: "button", class: "u-vmain", "data-fk": key, "aria-label": label, onclick: function () { openPlayer({ src: v.embed, url: v.url, title: v.title, channel: v.channel, key: key }); } }, head)
+    : act === "link" ? el("a", { class: "u-vmain", href: v.url, target: "_blank", rel: "noopener", "data-fk": key, "aria-label": label }, head)
     : el("div", { class: "u-vmain" }, head);
-  return el("li", { class: "u-vid" + (compact ? " is-compact" : "") }, [main,
+  return el("li", { class: "u-vid" + (compact ? " is-compact" : "") + (blocked ? " is-linkonly" : "") }, [main,
     el("div", { class: "u-vmeta" }, [el("span", { class: "u-vkind", text: v.kind === "press" ? "press" : v.kind === "short" ? "short" : v.kind }), el("span", { text: v.channel }),
       el("time", { datetime: new Date(v.ts).toISOString(), text: fmtRel(v.ts, now) }), v.teams.slice(0, 3).map(teamChip),
-      v.url && v.embed ? el("a", { href: v.url, target: "_blank", rel: "noopener", class: "u-vyt", text: "YouTube", "aria-label": "YouTube" + NEW_TAB }) : null])]);
+      v.url && act === "play" ? el("a", { href: v.url, target: "_blank", rel: "noopener", class: "u-vyt", text: "YouTube", "aria-label": "YouTube" + NEW_TAB }) : null])]);
+}
+// One episode's controls: the audio player, or links where the host blocks outside audio.
+function podcastControls(p, label, playing) {
+  var act = podcastAction(p, mediaBlocked());
+  if (act === "play") return [p.audio === playing ? el("p", { class: "u-note", text: "Playing in the bar above." }) : el("audio", audioAttrs(p.audio, label)),
+    p.url ? el("a", { href: p.url, target: "_blank", rel: "noopener", class: "u-podlink", text: "Episode page", "aria-label": "Episode page" + NEW_TAB }) : null];
+  if (act === "page") return [el("a", { href: p.url, target: "_blank", rel: "noopener", class: "u-btn u-small", text: "Listen on the episode page ↗", "aria-label": "Listen on the episode page: " + label + NEW_TAB })];
+  if (act === "file") return [el("a", { href: p.audio, target: "_blank", rel: "noopener noreferrer", class: "u-btn u-small", text: "Open the audio file ↗", "aria-label": "Open the audio file: " + label + NEW_TAB })];
+  return [el("p", { class: "u-note", text: "No playable audio address for this episode." })];
+}
+// Called when the host refuses outside media: a player already open loses its frame and keeps the YouTube link.
+function onMediaBlocked() {
+  var m = byId("uPlayer"), f = m && !m.hidden ? m.querySelector(".u-frame") : null;
+  if (f) f.parentNode.replaceChild(el("p", { class: "u-state u-warnline", text: "The site showing this page blocks YouTube's player. Use Watch on YouTube below; it opens in a new tab." }), f);
+}
+function watchMediaBlocks() {
+  if (!HAS_DOM || typeof document.addEventListener !== "function") return;
+  document.addEventListener("securitypolicyviolation", function (e) {
+    if (!isMediaBlock(e) || mediaBlocked()) return;
+    store.set({ mediaBlocked: true });
+    onMediaBlocked();
+  });
 }
 // A link to the channel's live page. Its wording never says the channel is live: YouTube shows that on the page.
 function liveButton(ch) {
@@ -182,6 +225,7 @@ function renderMedia() {
   }
   mediaPanel.render(function (body) {
     if (st.model.fixture) body.appendChild(el("p", { class: "u-warnline", text: "Fixture data: invented videos and episodes; the players will show YouTube's error for the fake ids." }));
+    if (st.mediaBlocked && tab !== "live") body.appendChild(el("p", { class: "u-note u-mblocked", text: BLOCKED_NOTE }));
     if (tab === "live") {
       var sel = st.team && TIDX[st.team] != null ? TIDX[st.team] : null;
       body.appendChild(el("p", { class: "u-note", text: "Each link opens the official channel's live page on YouTube in a new tab. YouTube shows a stream there only if the channel is streaming; this page cannot tell in advance and never marks a channel as live. Full NFL game broadcasts are not on these channels; each game card names its TV network." }));
@@ -199,12 +243,9 @@ function renderMedia() {
         var label = p.show + ": " + p.title;
         return el("li", { class: "u-pod" }, [
           el("div", { class: "u-podshow" }, [el("b", { text: p.show }), " · ", el("time", { datetime: new Date(p.ts).toISOString(), text: fmtRel(p.ts, now) }), p.durationSec ? " · " + fmtDuration(p.durationSec) : "", p.teams.slice(0, 3).map(teamChip)]),
-          el("div", { class: "u-podtitle", text: p.title }),
-          p.audio && p.audio === playing ? el("p", { class: "u-note", text: "Playing in the bar above." })
-            : p.audio ? el("audio", audioAttrs(p.audio, label)) : el("p", { class: "u-note", text: "No playable audio address for this episode." }),
-          p.url ? el("a", { href: p.url, target: "_blank", rel: "noopener", class: "u-podlink", text: "Episode page", "aria-label": "Episode page" + NEW_TAB }) : null]);
+          el("div", { class: "u-podtitle", text: p.title })].concat(podcastControls(p, label, playing)));
       })));
-      body.appendChild(el("p", { class: "u-note", text: "Pressing play loads the episode from the NFL's podcast host (Omny) through the measurement services its feed uses (Podtrac, Claritas, pdrl.fm)." }));
+      body.appendChild(el("p", { class: "u-note", text: mediaBlocked() ? "Episodes open on the NFL's podcast host (Omny)." : "Pressing play loads the episode from the NFL's podcast host (Omny) through the measurement services its feed uses (Podtrac, Claritas, pdrl.fm)." }));
     } else {
       var kinds = el("div", { class: "u-chips u-vkinds", role: "group", "aria-label": "Video type" });
       VIDEO_KINDS.forEach(function (k) { kinds.appendChild(el("button", { type: "button", class: "u-chipbtn", "data-fk": "vk:" + k[0], "aria-pressed": st.mediaKind === k[0] ? "true" : "false", text: k[1], onclick: function () { store.set({ mediaKind: k[0] }); lsSet({ mediaKind: k[0] }); } })); });
@@ -218,7 +259,7 @@ function renderMedia() {
     body.appendChild(mediaCredit());
   });
 }
-function mediaCredit() { return el("p", { class: "u-credit u-mcredit", text: "Video: YouTube · official channels. Podcasts: official NFL shows. Played in YouTube's own player or the feed's own audio file; nothing is copied." }); }
+function mediaCredit() { return el("p", { class: "u-credit u-mcredit", text: "Video: YouTube · official channels. Podcasts: official NFL shows. " + (mediaBlocked() ? "Opened on YouTube or the show's own page" : "Played in YouTube's own player or the feed's own audio file") + "; nothing is copied." }); }
 
 // ---- player dialog: built on demand, torn down on close so playback stops ----
 var playerLastFocus = null, playerKey = null;
@@ -290,6 +331,6 @@ function renderVideoCounts(c, g) {
   for (var k in n) badgeAt(c, g, +k, "s", "u-b-vid", c.detail || c.mode !== "geo" ? String(n[k]) : null, TEAMS[+k].name + ": " + n[k] + " video" + (n[k] > 1 ? "s" : "") + " " + RANGE_PHRASE[c.range] + " (official YouTube channels)");
 }
 
-Object.assign(NFLU, { safeEmbedSrc: safeEmbedSrc, safeThumbSrc: safeThumbSrc, safeAudioSrc: safeAudioSrc, safeYouTubeLink: safeYouTubeLink, safeHttpsLink: safeHttpsLink, normMedia: normMedia,
+Object.assign(NFLU, { isMediaBlock: isMediaBlock, videoAction: videoAction, podcastAction: podcastAction, safeEmbedSrc: safeEmbedSrc, safeThumbSrc: safeThumbSrc, safeAudioSrc: safeAudioSrc, safeYouTubeLink: safeYouTubeLink, safeHttpsLink: safeHttpsLink, normMedia: normMedia,
   PODCAST_AUDIO_RE: PODCAST_AUDIO_RE, playerFrameAttrs: playerFrameAttrs, audioAttrs: audioAttrs,
   filterVideos: filterVideos, filterPodcasts: filterPodcasts, teamVideos: teamVideos, gameVideos: gameVideos, channelOrder: channelOrder, videoCounts: videoCounts });

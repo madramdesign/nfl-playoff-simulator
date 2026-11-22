@@ -286,4 +286,20 @@ eq(U.filterVideos(NM.videos, "all", true, "season", now, ""), [], "and no videos
 eq(U.freshness(["youtube-official", "podcasts-nfl"], meta({ payload: noMedia }), now).label, "UNAVAILABLE", "the Media badge reads UNAVAILABLE without its sources");
 ok(U.freshness(["youtube-official", "podcasts-nfl"], meta(), now).label.startsWith("LIVE · 15m"), "and reflects them when present");
 
+// ---- hosts that refuse outside media (claude.ai's artifact viewer): refusals switch videos and episodes to links ----
+const cspv = (d, uri) => ({ effectiveDirective: d, blockedURI: uri });
+[cspv("img-src", "https://i.ytimg.com/vi/fxVideo0001/mqdefault.jpg"), cspv("img-src", "https://i.ytimg.com"), cspv("frame-src", "https://www.youtube-nocookie.com/embed/fxVideo0001"),
+  cspv("child-src", "https://www.youtube.com"), cspv("media-src", OMNY), cspv("media-src", "https://pdrl.fm/abcd/traffic.omny.fm/x"), cspv("media-src", "https://www.podtrac.com/pts/redirect.mp3/x"),
+  cspv("media-src", "https://claritaspod.com/measure/x"), { violatedDirective: "default-src 'self'", blockedURI: "https://i.ytimg.com/vi/x/mq.jpg" }, { effectiveDirective: "img-src", blockedURL: "https://i.ytimg.com/x" }]
+  .forEach((e) => ok(U.isMediaBlock(e) === true, "a refusal of " + (e.effectiveDirective || e.violatedDirective) + " for " + (e.blockedURI || e.blockedURL) + " switches media to links"));
+[cspv("img-src", "https://evil.example/x.png"), cspv("img-src", "https://ytimg.com.evil.example/x"), cspv("img-src", "https://notyoutube.com/x"), cspv("script-src", "https://www.youtube.com/iframe_api"),
+  cspv("connect-src", "https://i.ytimg.com/x"), cspv("img-src", "inline"), cspv("img-src", ""), {}, null, "img-src", cspv("style-src", "https://omny.fm/x")]
+  .forEach((e, k) => ok(U.isMediaBlock(e) === false, "refusal " + k + " (another host, another kind of resource, or malformed) changes nothing"));
+const vPlay = { embed: "https://www.youtube-nocookie.com/embed/fxVideo0001", url: "https://www.youtube.com/watch?v=fxVideo0001" };
+eq([U.videoAction(vPlay, false), U.videoAction(vPlay, true), U.videoAction({ embed: null, url: vPlay.url }, false), U.videoAction({ embed: vPlay.embed, url: null }, true), U.videoAction({}, false)],
+  ["play", "link", "link", "text", "text"], "videos play in the page unless the host blocks players; then they link to YouTube, or show as text with no link");
+const pPlay = { audio: OMNY, url: "https://omny.fm/shows/fixture/ep-1" };
+eq([U.podcastAction(pPlay, false), U.podcastAction(pPlay, true), U.podcastAction({ audio: OMNY, url: null }, true), U.podcastAction({ audio: null, url: pPlay.url }, false), U.podcastAction({}, true)],
+  ["play", "page", "file", "page", "none"], "episodes play in the page unless the host blocks audio; then the episode page, else the feed's own audio file");
+
 console.log("ok: command center logic passes (" + n + " checks)");

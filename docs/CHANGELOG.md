@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-21 (media links where players are blocked)
+- Where the host refuses outside media (the claude.ai artifact viewer), the Media panel, team and game panels switch to links: videos open on YouTube, episodes on their episode page, each in a new tab. Detected from the browser's own refusal reports; the normal page is unchanged. 23 new interface checks (197), each new rule shown to fail against deliberately broken code.
+
 ## 2026-11-21 (NFL Universe, milestone M8: media center)
 - Official YouTube channels of the NFL and all 32 teams (ids from Wikidata and research, each checked against the channel's own feed, with its evidence level), and six official NFL podcasts. Fabric sources `youtube-official` and `podcasts-nfl`; podcast feeds (up to 57 MB) are read only until the newest episodes arrive.
 - Media panel: latest videos (press conferences, highlights, previews, optional Shorts), "Live on YouTube" links for every official channel, podcast players; videos in team and game panels; a Video map layer. Click-to-load privacy-enhanced player; strict address allowlists on server and page.

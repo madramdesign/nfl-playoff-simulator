@@ -13,7 +13,7 @@
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.
 - No Sleeper code. The FantasyPros fetch has never run.
-- Tests: `npm test` runs four suites: engine and feed parser, 37 data-fabric tests, 4 MCP tests, 174 command-center checks. All pass on the integration branch, and the fabric and interface suites were each checked to fail against deliberately broken code.
+- Tests: `npm test` runs four suites: engine and feed parser, 37 data-fabric tests, 4 MCP tests, 197 command-center checks. All pass on the integration branch, and the fabric and interface suites were each checked to fail against deliberately broken code.
 
 ## Built this session (integration branch)
 - **Project operating system:** constitution in `CLAUDE.md`, `.claude/agents/` (12), `.claude/rules/` (6), and the living docs, all filled from evidence.
@@ -33,6 +33,7 @@
 - Media panel with latest videos, live-page links and podcast players; videos in team and game panels; Video map layer.
 - Checked in the browser: an official press conference played in the page; a podcast kept playing through panel redraws; YouTube's live-stream embed does not work, so live is a link (DEC-017).
 - Independent review: all findings fixed.
+- Published copy (claude.ai artifact): the viewer blocks outside images, players and audio, so the page now detects the refusal and shows videos and episodes as links that open on YouTube or the episode page. Merged into `main` on Nov. 21, 2026, so the daily republish keeps it; also published by hand as version 20. Not yet seen inside the real viewer (the browser pane was not signed in to claude.ai); checked in a local copy under the same kind of policy.
 - Ten team channel ids rest on directory listings plus feed content (ATL, CAR, CIN, CLE, GB, IND, MIN, NYJ, PHI, TB); a quick manual check from each team's website is worthwhile.
 
 ## Reviews
