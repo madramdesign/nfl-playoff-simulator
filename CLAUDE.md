@@ -94,7 +94,7 @@ These predate NFL Universe and remain binding.
 - News effects are computed, never typed in: `newsEffect` multiplies the line move since before the news by each team's conditional playoff gap for that game (`simulate(..., watch)`). No pre-news line means no estimate is shown.
 
 ## NFL Universe specifics
-Milestone 1 was merged into `main` on Nov. 21, 2026 (squash commit `8bd0cff`), so everything below exists on `main`.
+Milestone 1 (squash commit `8bd0cff`) and the M8 media center (`0523d28`) were merged into `main` on Nov. 21, 2026, so everything below exists on `main`. Media rules: `docs/MEDIA_ARCHITECTURE.md`.
 - Command-center code lives in `src/universe/*.js` and `*.css`; `scripts/build.py` inlines them into the page in file-name order inside one closure. `python3 scripts/build.py --reuse` re-renders the page without downloading data.
 - Canonical team entities and provider ids: `shared/teams.json` (index order matches `D.teams`). The `/api/universe` payload contract: `lib/contract.js`, described in `docs/DATA_MODEL.md`. Change either only through the orchestrator.
 - The data fabric (`lib/fabric/`) is the only code that calls external sources; the page reads `/api/universe` or the snapshot embedded at build (`D.fabric`).

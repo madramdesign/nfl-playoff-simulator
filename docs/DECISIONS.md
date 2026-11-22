@@ -108,7 +108,7 @@ Record significant decisions with date, status, context, options, decision, rati
 - Date: 2026-11-21. Status: Accepted (owner approved the merge).
 - Context: the integration branch's history includes, in one early commit, a test fixture built from ESPN responses; DEC-006 forbids committing ESPN-derived data where it may be published, and `main` is the branch that gets pushed.
 - Decision: squash-merge (`8bd0cff`) so `main` carries the final tree only; then merge `main` back into the integration branch so later merges have a common base.
-- Consequences: commit hashes quoted in the docs refer to the integration branch, which stays local. The early fixture remains in that local branch's history; do not push that branch as it is.
+- Consequences: commit hashes quoted in the docs refer to the integration branch, which stays local. The M8 media center was merged the same way (`0523d28`). The early fixture remains in that local branch's history; do not push that branch as it is.
 
 ### DEC-017 — Media: official channels only; live is a link, not an embed
 - Date: 2026-11-21. Status: Accepted.

@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-21 (end of the first NFL Universe session)
 - Branches:
-  - `main`: milestone 1 merged on Nov. 21, 2026 as one squash commit (`8bd0cff`), plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the integration branch's history.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit, plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the integration branch's history.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -28,7 +28,7 @@
 - **MCP server (`mcp/`):** 14 read-only tools over stdio.
 - **Server hardening:** localhost binding, Host check on the API, malformed-request handling, `<` escaped in embedded data.
 
-## Media center (M8), on the integration branch, not yet on `main`
+## Media center (M8), on `main` since Nov. 21 (`0523d28`)
 - Official YouTube channels of the NFL and all 32 teams (evidence level recorded per team in `shared/teams.json`), six official NFL podcasts.
 - Media panel with latest videos, live-page links and podcast players; videos in team and game panels; Video map layer.
 - Checked in the browser: an official press conference played in the page; a podcast kept playing through panel redraws; YouTube's live-stream embed does not work, so live is a link (DEC-017).
