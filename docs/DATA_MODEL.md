@@ -50,6 +50,8 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 
 **TeamInjuries**: `{burden, out, doubtful, questionable, ir, qbOut, players[{name, pos, status, type, returnDate, date, espnId}]}`. `burden` is a descriptive index (status weight times position weight, summed). It is not a model input: no injury factor has passed a backtest here yet.
 
+**Media** (optional): `{channels, videos, podcasts}` from official channels and podcasts; field list and rules in [MEDIA_ARCHITECTURE.md](MEDIA_ARCHITECTURE.md).
+
 **Public snapshot**: the same shape with only `public` sources, no `situation` or `winProb`, and odds and weather only from public sources. `validatePublicSnapshot` enforces it; the snapshot script refuses to write a file that fails.
 
 ## `/api/game/<espnId>` (version 1, local scope)

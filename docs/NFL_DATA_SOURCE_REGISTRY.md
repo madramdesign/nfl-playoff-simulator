@@ -64,6 +64,8 @@
 | Team websites | Press conference video | Links only | **Yes** to link | Nov. 21 (Patriots, Bills) |
 | Official NFL podcasts | NFL Daily, Good Morning Football, NFL: The Insiders, NFL News Hub, The NFL Report, NFL Game Previews | Public RSS on Omny (feed URLs in WS3 notes) | **Conditions**: list episodes and link or play the feed's own audio file; display terms not stated | Nov. 21: episodes in November |
 
+Wired in M8 (Nov. 21, 2026) as fabric sources `youtube-official` (the NFL's and all 32 teams' channel feeds, every 30 minutes) and `podcasts-nfl` (six shows, every 6 hours, reading only the start of each feed). Rules and evidence levels: `MEDIA_ARCHITECTURE.md`.
+
 No stream is proxied, downloaded or re-hosted. Live game broadcasts are not available from any authorized free source and are not planned.
 
 ## Verification checklist

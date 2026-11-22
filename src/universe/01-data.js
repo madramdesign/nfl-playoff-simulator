@@ -125,7 +125,7 @@ function buildModel(payload) {
   if (payload && payload.injuries) Object.keys(payload.injuries).forEach(function (a) { var t = payload.injuries[a]; if (TIDX[a] != null && t && typeof t === "object") inj[TIDX[a]] = t; });
   var gameByKey = dict();
   g.games.forEach(function (x) { gameByKey[x.key] = x; if (x.gid) gameByKey[x.gid] = x; if (x.id) gameByKey[x.id] = x; });
-  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs,
+  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload),
     generatedAt: payload ? Date.parse(payload.generatedAt) : null, fixture: !!(payload && payload._fixture), season: payload ? payload.season : null };
 }
 // Loose shape check for a payload from the network: the full contract lives in lib/contract.js (server side).

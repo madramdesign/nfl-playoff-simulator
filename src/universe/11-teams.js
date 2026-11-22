@@ -94,6 +94,7 @@ function renderTeamCenter(i, body) {
   body.appendChild(section("Injuries", injKids));
   var evs = (M ? M.events : []).filter(function (e) { return e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
   body.appendChild(section("News and transactions", evs.length ? el("ul", { class: "u-evlist" }, eventRows(evs, now).rows) : el("p", { class: "u-note", text: "No events for this team in the current data." })));
+  body.appendChild(teamMediaSection(i));
   var ng = nextGameOf(i, M);
   if (ng >= 0) {
     var G = GAMES[ng], x = (M && M.games.filter(function (g) { return g.gi === ng; })[0]) || mergeGame(ng, null), opp = G[2] === i ? G[3] : G[2], home = G[3] === i;

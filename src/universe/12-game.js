@@ -60,6 +60,7 @@ function renderGameDetail(key, body) {
         el("ul", { class: "u-list u-cols" }, eff.slice(0, 10).map(function (e) { return el("li", {}, [el("button", { type: "button", class: "u-tlink", "data-team": e[0], text: TEAMS[e[0]].a, onclick: function () { openTeam(e[0]); } }), " " + fmtSigned(e[1] * 100, 0)]); }))]));
     }
   }
+  var gm = gameMediaSection(x); if (gm) body.appendChild(gm);
   var live = el("div", { class: "u-gdetail" });
   body.appendChild(live);
   loadGameDetail(x, live);

@@ -27,6 +27,10 @@ Claude Code creates subagent worktrees from `main`. Every implementation agent f
 | NU-006 | Data fabric: adapters, breakers, cache, events, `/api/universe`, snapshot | P0 | Orchestrator | NU-004, plan approval | Real output passes `validateUniverse`; failure-mode tests pass | Done (`de5c239`): real output from both scopes passes the contract; 21 tests |
 | NU-007 | Command-center interface | P0 | Frontend | NU-004, plan approval | `npm test` passes; renders from fixture, live API and no server; phone width | Done, merged; interface review running |
 | NU-008 | MCP server | P1 | MCP | NU-006 | Protocol round-trip tests; read-only tools with source and age | Done, merged |
+| NU-010 | M8 media: contract, channel and podcast adapters | P1 | Orchestrator (data) | M1 | Real feeds pass the contract; failures named; tests fail on broken code | Done (`6ca8cb1`, `3cfc3b5`) |
+| NU-011 | M8 media: remaining 15 team channel ids | P1 | Researcher | none | Each id verified against the channel's own feed | Done; rechecked by the orchestrator |
+| NU-012 | M8 media: Media panel, click-to-load player, team and game video | P1 | Frontend | NU-010 contract | `npm test`; headless render; allowlisted embeds only | Done, merged; review fixes by the orchestrator |
+| NU-013 | M8 review and browser check of real playback | P1 | QA, orchestrator | NU-010 to NU-012 | Blocking findings fixed | Done |
 | NU-009 | Independent review of merged work | P1 | QA / red team | NU-006–008 | Blocking issues listed separately | Done: fabric and interface reviewed; all findings fixed |
 
 ## Questions from the paused frontend work (answered Nov. 21 when NU-007 restarted)

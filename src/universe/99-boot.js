@@ -17,14 +17,21 @@ function boot() {
   try { sm = savedSimMode(ROOT.localStorage.getItem("nfl-picks-2026")); } catch (e) { /* storage blocked */ }
   if (sm != null && sm !== MODE) setMode(sm);
   var fab = D.fabric && looksLikeUniverse(D.fabric) ? D.fabric : null;
+  var mtab = ["videos", "live", "podcasts"].indexOf(saved.mediaTab) >= 0 ? saved.mediaTab : "videos", mkind = VIDEO_KINDS.some(function (k) { return k[0] === saved.mediaKind; }) ? saved.mediaKind : "all";
   var chips = Array.isArray(saved.feedTypes) ? saved.feedTypes.filter(function (c) { return FEED_CHIPS.some(function (x) { return x[0] === c; }); }) : [];
   store = createStore(Object.assign(init, { search: "", feedTypes: chips, payload: fab, origin: fab ? "snapshot" : "none", fetchedAt: null, pollFails: 0, pollError: null,
+    mediaTab: mtab, mediaKind: mkind, mediaShorts: saved.mediaShorts === true,
     breaker: "closed", model: buildModel(fab), sim: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
 
   buildRail(byId("uRail"));
   buildMap(byId("uMap"));
   buildTabs(byId("uTabs"));
   buildFeedPanel(byId("uFeedHost"));
+  // the media host sits between the feed and health in the right column (one column and a "Media" tab on phones)
+  var mediaHost = el("div", { class: "u-host", id: "uMediaHost" }), hh = byId("uHealthHost");
+  hh.parentNode.insertBefore(mediaHost, hh);
+  buildMediaPanel(mediaHost);
+  buildPlayer(byId("uapp"));
   buildHealthPanel(byId("uHealthHost"));
   buildTeamsPanel(byId("uTeamsHost"));
   buildGamesPanel(byId("uGamesHost"));
@@ -39,8 +46,10 @@ function boot() {
   byId("uDrawer").querySelector(".u-x").addEventListener("click", function () { closeDrawer(); });
   byId("uBrief").addEventListener("click", function (e) { if (e.target === byId("uBrief")) closeBrief(); });
   document.addEventListener("keydown", trapBriefFocus);
+  document.addEventListener("keydown", function (e) { trapFocusIn(byId("uPlayer"), e); });
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
+    if (!byId("uPlayer").hidden) { closePlayer(); return; }
     if (!byId("uBrief").hidden) { closeBrief(); return; }
     if (!byId("uDrawer").hidden) closeDrawer();
   });
@@ -62,10 +71,11 @@ function boot() {
     if (has("mode", "layers", "timeRange", "sim", "simBusy", "simError", "deepProgress", "deepError", "payload", "origin")) renderRail();
     if (has("team", "game", "view") || (has("sim", "model", "pollFails") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
+    if (has("model", "timeRange", "search", "team", "mediaTab", "mediaKind", "mediaShorts", "payload")) renderMedia();
   });
 
   applyView(); renderRail(); renderTabs(); renderStatus();
-  drawMap(); renderFeed(); renderTicker(byId("uTicker")); renderGames(); renderTeamsPanel(); renderHealth(); refreshBadges(); renderDrawer();
+  drawMap(); renderFeed(); renderMedia(); renderTicker(byId("uTicker")); renderGames(); renderTeamsPanel(); renderHealth(); refreshBadges(); renderDrawer();
   requestBaseSim(true);
   startPolling();
   setInterval(function () { refreshBadges(); renderStatus(); }, 5000);

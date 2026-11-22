@@ -51,7 +51,7 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display
 .u-rail{order:2}
 .u-tabs{order:3;display:flex;gap:4px;border-bottom:1px solid var(--line)}
 .u-host{order:4;display:none;min-width:0}
-.u-body[data-tab="feed"] #uFeedHost,.u-body[data-tab="games"] #uGamesHost,.u-body[data-tab="teams"] #uTeamsHost,.u-body[data-tab="health"] #uHealthHost{display:block}
+.u-body[data-tab="feed"] #uFeedHost,.u-body[data-tab="media"] #uMediaHost,.u-body[data-tab="games"] #uGamesHost,.u-body[data-tab="teams"] #uTeamsHost,.u-body[data-tab="health"] #uHealthHost{display:block}
 .u-ticker{order:5}
 .u-foot{order:6}
 .u-tabs button{flex:1;font:600 13px var(--body);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:9px 4px;cursor:pointer}
@@ -72,10 +72,12 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display
   .u-mapbox{grid-area:map;height:auto;min-height:0}
   .u-tabs{display:none}
   .u-body[data-tab] .u-host{display:flex;flex-direction:column}
-  .u-body[data-tab] #uFeedHost,.u-body[data-tab] #uHealthHost,.u-body[data-tab] #uTeamsHost,.u-body[data-tab] #uGamesHost{display:flex}
-  #uFeedHost{flex:1 1 auto;min-height:0}
+  .u-body[data-tab] #uFeedHost,.u-body[data-tab] #uMediaHost,.u-body[data-tab] #uHealthHost,.u-body[data-tab] #uTeamsHost,.u-body[data-tab] #uGamesHost{display:flex}
+  #uMediaHost{flex:1 1 0;min-height:0}
+  #uMediaHost>.u-panel{flex:1 1 auto}
+  #uFeedHost{flex:1.2 1 0;min-height:0}
   #uFeedHost>.u-panel{flex:1 1 auto}
-  #uHealthHost{flex:0 1 auto;max-height:42%;min-height:0}
+  #uHealthHost{flex:0 1 auto;max-height:30%;min-height:0}
   #uHealthHost>.u-panel{flex:1 1 auto}
   #uTeamsHost{flex:0 0 auto;min-height:260px;max-height:70%}
   #uTeamsHost>.u-panel{flex:1 1 auto}
@@ -367,3 +369,45 @@ a.u-tk:hover{text-decoration:underline}
   .u-livedot{animation:none}
   .u-collapse span,.u-progress i{transition:none}
 }
+
+/* ---- media center (16-media.js) ---- */
+:root{--u-vid:#c4302b}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--u-vid:#ff6b5e}}
+:root[data-theme="dark"]{--u-vid:#ff6b5e}
+.u-mtabs{padding-bottom:6px}
+.u-vkinds{padding:0 0 6px}
+.u-vlist,.u-chlist,.u-podlist{list-style:none;margin:0;padding:0}
+.u-vid{padding:7px 0;border-bottom:1px solid var(--line)}
+.u-vid:last-child{border-bottom:0}
+.u-vmain{display:grid;grid-template-columns:112px 1fr;gap:9px;align-items:start;width:100%;text-align:left;background:none;border:0;padding:0;color:var(--ink);font:inherit;cursor:pointer;text-decoration:none}
+.u-vid.is-compact .u-vmain{grid-template-columns:96px 1fr}
+.u-vthumb{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:5px;background:var(--u-panel2);display:block}
+.u-vnothumb{border:1px dashed var(--line)}
+.u-vtitle{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-weight:500;overflow-wrap:anywhere}
+.u-vmain:hover .u-vtitle{text-decoration:underline}
+.u-vmeta{display:flex;flex-wrap:wrap;align-items:center;gap:3px 8px;font-size:11px;color:var(--muted);margin-top:4px}
+.u-vkind{font:600 9.5px var(--body);text-transform:uppercase;letter-spacing:.06em;border:1px solid var(--line);border-radius:3px;padding:0 4px}
+.u-vyt{color:var(--accent)}
+.u-chlist li{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--line)}
+.u-chname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u-nflchip{border-left-color:var(--u-nfc)}
+.u-pod{padding:8px 0;border-bottom:1px solid var(--line)}
+.u-podshow{font-size:11px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.u-podshow b{color:var(--ink)}
+.u-podtitle{font-weight:500;margin:2px 0 4px;overflow-wrap:anywhere}
+.u-pod audio{width:100%;height:32px}
+.u-podlink{font-size:11px;color:var(--accent)}
+.u-mcredit{margin-top:8px}
+.u-b-vid circle{fill:var(--u-vid)}
+.u-player .u-mbox{max-width:920px}
+.u-mhead h2.u-ptitle{font:700 18px/1.25 var(--body);letter-spacing:0;text-transform:none;margin:0;padding-right:8px}
+.u-frame{position:relative;width:100%;aspect-ratio:16/9;background:#000;border-radius:8px;overflow:hidden;margin:10px 0 6px}
+.u-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+.u-linkbtn{font:inherit;color:var(--u-accent,var(--accent));background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
+.u-linkbtn:focus-visible{outline:2px solid var(--u-accent,var(--accent));outline-offset:2px}
+
+/* media: now-playing bar and title clamps */
+.u-nowplaying{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--u-line,var(--line));background:var(--u-panel2,var(--card))}
+.u-nowplaying audio{max-width:100%;flex:1 1 220px}
+.u-vtitle,.u-podtitle{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}

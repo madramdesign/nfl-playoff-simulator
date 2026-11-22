@@ -155,6 +155,36 @@
    "fails": 0,
    "records": 10,
    "maxStaleSec": 900
+  },
+  "youtube-official": {
+   "id": "youtube-official",
+   "label": "Official NFL and team YouTube channels",
+   "tier": 1,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T19:15:00.000Z",
+   "lastError": null,
+   "ageSec": 900,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
+  },
+  "podcasts-nfl": {
+   "id": "podcasts-nfl",
+   "label": "Official NFL podcasts",
+   "tier": 1,
+   "scope": "public",
+   "status": "ok",
+   "breaker": "closed",
+   "lastOk": "2026-11-22T16:30:00.000Z",
+   "lastError": null,
+   "ageSec": 10800,
+   "latencyMs": 90,
+   "fails": 0,
+   "records": 10,
+   "maxStaleSec": 900
   }
  },
  "games": [
@@ -979,5 +1009,143 @@
    "kind": "placed_ir",
    "source": "espn-transactions"
   }
- ]
+ ],
+ "media": {
+  "channels": [
+   {
+    "team": null,
+    "name": "NFL",
+    "channelId": "UCDVYQ4Zhbm3S2dlz7P1GBDg",
+    "url": "https://www.youtube.com/channel/UCDVYQ4Zhbm3S2dlz7P1GBDg",
+    "liveUrl": "https://www.youtube.com/channel/UCDVYQ4Zhbm3S2dlz7P1GBDg/live"
+   },
+   {
+    "team": "BUF",
+    "name": "Buffalo Bills",
+    "channelId": "UCcEvCxUe2Sm5W6MliEUv0vg",
+    "url": "https://www.youtube.com/channel/UCcEvCxUe2Sm5W6MliEUv0vg",
+    "liveUrl": "https://www.youtube.com/channel/UCcEvCxUe2Sm5W6MliEUv0vg/live"
+   },
+   {
+    "team": "KC",
+    "name": "Kansas City Chiefs",
+    "channelId": "UC-hXefb6XBFSubWz6Ezf_lA",
+    "url": "https://www.youtube.com/channel/UC-hXefb6XBFSubWz6Ezf_lA",
+    "liveUrl": "https://www.youtube.com/channel/UC-hXefb6XBFSubWz6Ezf_lA/live"
+   }
+  ],
+  "videos": [
+   {
+    "id": "yt-fxVideo0001",
+    "videoId": "fxVideo0001",
+    "channelId": "UCcEvCxUe2Sm5W6MliEUv0vg",
+    "channel": "Buffalo Bills",
+    "team": "BUF",
+    "teams": [
+     "BUF",
+     "MIA"
+    ],
+    "kind": "press",
+    "title": "Fixture: Bills head coach press conference before Dolphins game",
+    "published": "2026-11-22T17:30:00.000Z",
+    "url": "https://www.youtube.com/watch?v=fxVideo0001",
+    "embedUrl": "https://www.youtube-nocookie.com/embed/fxVideo0001",
+    "thumb": "https://i.ytimg.com/vi/fxVideo0001/mqdefault.jpg",
+    "source": "youtube-official"
+   },
+   {
+    "id": "yt-fxVideo0002",
+    "videoId": "fxVideo0002",
+    "channelId": "UCDVYQ4Zhbm3S2dlz7P1GBDg",
+    "channel": "NFL",
+    "team": null,
+    "teams": [
+     "MIA",
+     "BUF"
+    ],
+    "kind": "highlights",
+    "title": "Fixture: Dolphins vs. Bills highlights | Week 12",
+    "published": "2026-11-22T19:00:00.000Z",
+    "url": "https://www.youtube.com/watch?v=fxVideo0002",
+    "embedUrl": "https://www.youtube-nocookie.com/embed/fxVideo0002",
+    "thumb": "https://i.ytimg.com/vi/fxVideo0002/mqdefault.jpg",
+    "source": "youtube-official"
+   },
+   {
+    "id": "yt-fxVideo0003",
+    "videoId": "fxVideo0003",
+    "channelId": "UC-hXefb6XBFSubWz6Ezf_lA",
+    "channel": "Kansas City Chiefs",
+    "team": "KC",
+    "teams": [
+     "KC"
+    ],
+    "kind": "short",
+    "title": "Fixture: practice clip #shorts",
+    "published": "2026-11-22T12:50:00.000Z",
+    "url": "https://www.youtube.com/watch?v=fxVideo0003",
+    "embedUrl": "https://www.youtube-nocookie.com/embed/fxVideo0003",
+    "thumb": "https://i.ytimg.com/vi/fxVideo0003/mqdefault.jpg",
+    "source": "youtube-official"
+   },
+   {
+    "id": "yt-fxVideo0004",
+    "videoId": "fxVideo0004",
+    "channelId": "UCDVYQ4Zhbm3S2dlz7P1GBDg",
+    "channel": "NFL",
+    "team": null,
+    "teams": [],
+    "kind": "preview",
+    "title": "Fixture: full week 12 game previews",
+    "published": "2026-11-21T18:30:00.000Z",
+    "url": "https://www.youtube.com/watch?v=fxVideo0004",
+    "embedUrl": "https://www.youtube-nocookie.com/embed/fxVideo0004",
+    "thumb": "https://i.ytimg.com/vi/fxVideo0004/mqdefault.jpg",
+    "source": "youtube-official"
+   },
+   {
+    "id": "yt-fxVideo0005",
+    "videoId": "fxVideo0005",
+    "channelId": "UC-hXefb6XBFSubWz6Ezf_lA",
+    "channel": "Kansas City Chiefs",
+    "team": "KC",
+    "teams": [
+     "KC"
+    ],
+    "kind": "video",
+    "title": "Fixture: Chiefs locker room after the win",
+    "published": "2026-11-20T19:10:00.000Z",
+    "url": "https://www.youtube.com/watch?v=fxVideo0005",
+    "embedUrl": "https://www.youtube-nocookie.com/embed/fxVideo0005",
+    "thumb": "https://i.ytimg.com/vi/fxVideo0005/mqdefault.jpg",
+    "source": "youtube-official"
+   }
+  ],
+  "podcasts": [
+   {
+    "id": "pod-1",
+    "show": "Fixture Daily (NFL)",
+    "title": "Fixture: Week 12 preview episode",
+    "published": "2026-11-22T14:30:00.000Z",
+    "url": "https://omny.fm/shows/fixture-daily/fixture-week-12-preview",
+    "audioUrl": "https://podtrac.com/pts/redirect.mp3/traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a1/audio.mp3?utm_source=Podcast",
+    "durationSec": 1800,
+    "teams": [],
+    "source": "podcasts-nfl"
+   },
+   {
+    "id": "pod-2",
+    "show": "Fixture Morning Show (NFL)",
+    "title": "Fixture: Giants quarterback news",
+    "published": "2026-11-22T04:30:00.000Z",
+    "url": null,
+    "audioUrl": "https://traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/00000000-0000-4000-8000-000000000002/00000000-0000-4000-8000-0000000000a2/audio.mp3",
+    "durationSec": null,
+    "teams": [
+     "NYG"
+    ],
+    "source": "podcasts-nfl"
+   }
+  ]
+ }
 }

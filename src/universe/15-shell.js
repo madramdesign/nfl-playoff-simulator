@@ -1,7 +1,7 @@
 // The shell: top bar, left rail (map mode, time range, layers, simulation), tabs on narrow screens, the detail drawer,
 // the view switch (command center / simulator) and the color theme.
 var MODE_LABELS = { geo: "Geographic", div: "Divisions", intel: "Intelligence" };
-var TAB_LABELS = [["feed", "Feed"], ["games", "Games"], ["teams", "Teams"], ["health", "Health"]];
+var TAB_LABELS = [["feed", "Feed"], ["media", "Media"], ["games", "Games"], ["teams", "Teams"], ["health", "Health"]];
 function prefersReduced() { try { return ROOT.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } }
 
 // ---- theme: the command center defaults to dark; the simulator keeps following the system unless a choice was made ----
@@ -24,7 +24,7 @@ function applyView() {
   byId("uBody").hidden = sim;
   var sv = byId("simView"); if (sv) sv.hidden = !sim;
   Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false"); });
-  if (sim) { closeDrawer(true); if (typeof ROOT.nflSimStart === "function") { ROOT.nflSimStart(); simStarted = true; } }
+  if (sim) { closePlayer(); closeDrawer(true); if (typeof ROOT.nflSimStart === "function") { ROOT.nflSimStart(); simStarted = true; } }
   else if (simStarted) {
     // the simulator may have changed the win-chance mode: rerun if it did (the key includes MODE) and redraw what shows it
     requestBaseSim(); renderRail(); renderGames(); renderTeamsPanel(); drawMapSoon();

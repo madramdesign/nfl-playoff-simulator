@@ -1,5 +1,5 @@
 {
- "_note": "Canonical team entities. Index i matches D.teams order in scripts/build.py (division order). Provider ids: nv nflverse, espnId/espnAbbr ESPN, fp FantasyPros, sleeper Sleeper. roof: open, dome, retractable or fixed (translucent fixed roof). aliases are matched against headlines; city names shared by two teams (New York, Los Angeles) are deliberately left out.",
+ "_note": "Canonical team entities. Index i matches D.teams order in scripts/build.py (division order). Provider ids: nv nflverse, espnId/espnAbbr ESPN, fp FantasyPros, sleeper Sleeper. roof: open, dome, retractable or fixed (translucent fixed roof). aliases are matched against headlines; city names shared by two teams (New York, Los Angeles) are deliberately left out. youtube: the team's official channel, verified against the channel's own feed (docs/MEDIA_ARCHITECTURE.md).",
  "teams": [
   {
    "i": 0,
@@ -26,7 +26,13 @@
     "Bills",
     "Buffalo",
     "Buffalo Bills"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCcEvCxUe2Sm5W6MliEUv0vg",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Buffalo Bills'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 1,
@@ -54,7 +60,13 @@
     "Fins",
     "Miami",
     "Miami Dolphins"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCHUSfEzpSRkUUsRkk_aJwDw",
+    "verified": "2026-11-21",
+    "via": "team website links the handle that maps to this id; feed author 'Miami Dolphins', 15 uploads 2026-11-18 to 2026-11-20",
+    "evidence": "team-site"
+   }
   },
   {
    "i": 2,
@@ -82,7 +94,13 @@
     "New England Patriots",
     "Patriots",
     "Pats"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCMm_V8YjmnZRhToXIqDYDuw",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'New England Patriots'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 3,
@@ -108,7 +126,13 @@
    "aliases": [
     "Jets",
     "New York Jets"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCROj9vBjc4ZW3AL4cd_BjHg",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/new_york_jets_youtube_channels/); feed author 'New York Jets', 15 uploads 2026-11-17 to 2026-11-21",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 4,
@@ -135,7 +159,13 @@
     "Baltimore",
     "Baltimore Ravens",
     "Ravens"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCbpj2JAUMb8G_oQQFPeGrhg",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Baltimore Ravens'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 5,
@@ -162,7 +192,13 @@
     "Bengals",
     "Cincinnati",
     "Cincinnati Bengals"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCnQUpSnJ39KsjZKbT0CprHQ",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/cincinnati_bengals_youtube_channels/); feed author 'Cincinnati Bengals', 15 uploads 2026-11-17 to 2026-11-20",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 6,
@@ -189,7 +225,13 @@
     "Browns",
     "Cleveland",
     "Cleveland Browns"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCQQQO7Kdo0cu9iEb19qOoYA",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/cleveland_browns_youtube_channels/); feed author 'Cleveland Browns', 15 uploads 2026-11-18 to 2026-11-21",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 7,
@@ -216,7 +258,13 @@
     "Pittsburgh",
     "Pittsburgh Steelers",
     "Steelers"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UChaRXjMDs4ppKfnTPE6Z89w",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Pittsburgh Steelers'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 8,
@@ -243,7 +291,13 @@
     "Houston",
     "Houston Texans",
     "Texans"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCa_FcpOBe8G6VAR18RYS-aA",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Houston Texans'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 9,
@@ -271,7 +325,13 @@
     "Indianapolis",
     "Indianapolis Colts",
     "Indy"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCyYn26HPC4HIedifGnNbjBw",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/indianapolis_youtube_channels/); feed author 'Indianapolis Colts', 15 uploads 2026-11-20 to 2026-11-20",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 10,
@@ -299,7 +359,13 @@
     "Jacksonville Jaguars",
     "Jags",
     "Jaguars"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCsGacW6z0GedR-Wv45SBRZg",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Jacksonville Jaguars'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 11,
@@ -326,7 +392,13 @@
     "Tennessee",
     "Tennessee Titans",
     "Titans"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCHBsqVkFraWvtNd1w0Qx4_g",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Tennessee Titans'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 12,
@@ -353,7 +425,13 @@
     "Broncos",
     "Denver",
     "Denver Broncos"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCDGdBexlDZA8T7hnweWWyow",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Denver Broncos'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 13,
@@ -380,7 +458,13 @@
     "Chiefs",
     "Kansas City",
     "Kansas City Chiefs"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UC-hXefb6XBFSubWz6Ezf_lA",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Kansas City Chiefs'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 14,
@@ -407,7 +491,13 @@
     "Las Vegas",
     "Las Vegas Raiders",
     "Raiders"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UC1es5fp8FEK1L0EgHjCvmtQ",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Raiders'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 15,
@@ -434,7 +524,13 @@
     "Bolts",
     "Chargers",
     "Los Angeles Chargers"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCUyz_gEY_N-KBU4zjt2s-uQ",
+    "verified": "2026-11-21",
+    "via": "team website links this channel id; feed author 'Los Angeles Chargers', 15 uploads 2026-11-19 to 2026-11-21",
+    "evidence": "team-site"
+   }
   },
   {
    "i": 16,
@@ -461,7 +557,13 @@
     "Cowboys",
     "Dallas",
     "Dallas Cowboys"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCC0BPKJxAyxjQoRTYbpW0FQ",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Dallas Cowboys'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 17,
@@ -487,7 +589,13 @@
    "aliases": [
     "Giants",
     "New York Giants"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCk2FqoG8dN5EAz5WU3A0D7A",
+    "verified": "2026-11-21",
+    "via": "team website links the handle that maps to this id; feed author 'New York Giants', 15 uploads 2026-11-20 to 2026-11-21",
+    "evidence": "team-site"
+   }
   },
   {
    "i": 18,
@@ -515,7 +623,13 @@
     "Philadelphia",
     "Philadelphia Eagles",
     "Philly"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCaogx6OHpsGg0zuGRKsjbtQ",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/philadelphia_eagles_youtube_channels/); feed author 'Philadelphia Eagles', 15 uploads 2026-11-08 to 2026-11-20",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 19,
@@ -542,7 +656,13 @@
     "Commanders",
     "Washington",
     "Washington Commanders"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UC2a0ENbCZqIO5C1fWXGXZXA",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Washington Commanders'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 20,
@@ -569,7 +689,13 @@
     "Bears",
     "Chicago",
     "Chicago Bears"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCP0Cdc6moLMyDJiO0s-yhbQ",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Chicago Bears'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 21,
@@ -596,7 +722,13 @@
     "Detroit",
     "Detroit Lions",
     "Lions"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCv5J06V-ESk5_1uriG65f3w",
+    "verified": "2026-11-21",
+    "via": "team website links the handle that maps to this id; feed author 'Detroit Lions', 15 uploads 2026-11-19 to 2026-11-21",
+    "evidence": "team-site"
+   }
   },
   {
    "i": 22,
@@ -623,7 +755,13 @@
     "Green Bay",
     "Green Bay Packers",
     "Packers"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCJtI-l6La0zniodFtSHYrBg",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/green_bay_packers_youtube_channels/); feed author 'Green Bay Packers', 15 uploads 2026-11-16 to 2026-11-21",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 23,
@@ -650,7 +788,13 @@
     "Minnesota",
     "Minnesota Vikings",
     "Vikings"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCcsw_KrB_wg5lQ5nXWR_LFA",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/minnesota_vikings_youtube_channels/); feed author 'Minnesota Vikings', 15 uploads 2026-11-19 to 2026-11-21",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 24,
@@ -677,7 +821,13 @@
     "Atlanta",
     "Atlanta Falcons",
     "Falcons"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCzjCfV3LHyarKbdb-2ScGZg",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/atlanta_falcons_youtube_channels/); feed author 'Atlanta Falcons', 15 uploads 2026-11-13 to 2026-11-18",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 25,
@@ -704,7 +854,13 @@
     "Carolina",
     "Carolina Panthers",
     "Panthers"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UC6vl4XAyO5mZLczhFC8MgpA",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/carolina_panthers_youtube_channels/); feed author 'Carolina Panthers', 15 uploads 2026-11-19 to 2026-11-21",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 26,
@@ -731,7 +887,13 @@
     "New Orleans",
     "New Orleans Saints",
     "Saints"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCwuddf1JrodMlc5fYpVlrQA",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'New Orleans Saints'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 27,
@@ -759,7 +921,13 @@
     "Bucs",
     "Tampa Bay",
     "Tampa Bay Buccaneers"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UC0Wwu7r1ybaaR09ANhudTzA",
+    "verified": "2026-11-21",
+    "via": "listed by channel directories (https://videos.feedspot.com/tampa_bay_buccaneers_youtube_channels/); feed author 'Tampa Bay Buccaneers', 15 uploads 2026-11-16 to 2026-11-21",
+    "evidence": "directory+feed"
+   }
   },
   {
    "i": 28,
@@ -786,7 +954,13 @@
     "Arizona",
     "Arizona Cardinals",
     "Cardinals"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCzNfiKcvNjLHljohEkO83Rg",
+    "verified": "2026-11-21",
+    "via": "team website links the handle that maps to this id; feed author 'Arizona Cardinals', 15 uploads 2026-11-19 to 2026-11-21",
+    "evidence": "team-site"
+   }
   },
   {
    "i": 29,
@@ -812,7 +986,13 @@
    "aliases": [
     "Los Angeles Rams",
     "Rams"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCyJ6yZdVUkBvt2vl4R03jcA",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Los Angeles Rams'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 30,
@@ -840,7 +1020,13 @@
     "Niners",
     "San Francisco",
     "San Francisco 49ers"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCeIOarQkwmGhimim9cDUTng",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'San Francisco 49ers'",
+    "evidence": "wikidata+feed"
+   }
   },
   {
    "i": 31,
@@ -867,7 +1053,13 @@
     "Seahawks",
     "Seattle",
     "Seattle Seahawks"
-   ]
+   ],
+   "youtube": {
+    "channelId": "UCzkFCRiMcOBeef8xcaqipmw",
+    "verified": "2026-11-21",
+    "via": "Wikidata P2397; feed author 'Seattle Seahawks'",
+    "evidence": "wikidata+feed"
+   }
   }
  ],
  "rivalries": [
@@ -903,5 +1095,13 @@
    "lat": 51.556,
    "lon": -0.2795
   }
- }
+ },
+ "leagueChannels": [
+  {
+   "name": "NFL",
+   "channelId": "UCDVYQ4Zhbm3S2dlz7P1GBDg",
+   "verified": "2026-11-21",
+   "via": "WS3 research; channel feed author 'NFL'"
+  }
+ ]
 }

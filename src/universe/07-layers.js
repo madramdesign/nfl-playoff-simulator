@@ -20,6 +20,7 @@ var LAYERS = [
   { id: "transactions", label: "Transactions", group: "Intelligence", defaultOn: false, modes: ALL_MODES, sourceIds: ["espn-transactions"], render: function (c, g) { renderCounts(c, g, ["transaction"], "tx", 3); } },
   { id: "news", label: "News", group: "Intelligence", defaultOn: true, modes: ALL_MODES, sourceIds: ["rss-*", "espn-news", "curated-news"], render: function (c, g) { renderCounts(c, g, ["news", "qb_change"], "news", 1); } },
   { id: "qb", label: "Quarterback status", group: "Intelligence", defaultOn: true, modes: ALL_MODES, sourceIds: [], render: renderQB },
+  { id: "video", label: "Video", group: "Intelligence", defaultOn: false, modes: ALL_MODES, sourceIds: ["youtube-official"], render: renderVideoCounts },
   { id: "breaking", label: "Breaking (pulse)", group: "Intelligence", defaultOn: true, modes: ALL_MODES, sourceIds: ["rss-*", "espn-*", "curated-news", "nflverse-*"], render: renderBreaking }
 ];
 var LAYER_IDS = LAYERS.map(function (l) { return l.id; });

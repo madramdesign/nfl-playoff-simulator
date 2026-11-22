@@ -182,7 +182,7 @@ function drawGameLink(c, g, x, cls) {
   g.appendChild(svgEl("path", attrs(arcPath(p, q, 0.12), true)));
   return curveMid(p, q, 0.12);
 }
-var BADGE_SLOTS = { ne: [0.75, -0.75], e: [1.15, 0.05], se: [0.75, 0.85], sw: [-0.8, 0.85], nw: [-0.85, -0.75] };
+var BADGE_SLOTS = { ne: [0.75, -0.75], e: [1.15, 0.05], se: [0.75, 0.85], sw: [-0.8, 0.85], nw: [-0.85, -0.75], s: [0, 1.2] };
 function badgeAt(c, g, i, slot, cls, text, tip, rad) {
   var p = c.pos[i], o = BADGE_SLOTS[slot] || BADGE_SLOTS.e, R = c.r + 5, x = p[0] + o[0] * R, y = p[1] + o[1] * R;
   var r = text ? Math.max(rad || 0, 4 + text.length * 2.4) : Math.min(rad || 3, 4);
@@ -335,7 +335,7 @@ function drawMap() {
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
-    events: searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), sel: { team: selTeam, game: st.game },
+    events: searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), query: q, sel: { team: selTeam, game: st.game },
     dim: function (i) { return !!match && !match[i]; }
   };
   drawBase(mode, po);

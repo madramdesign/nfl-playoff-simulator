@@ -129,5 +129,47 @@ Fixes for the independent review of the merged command center, after merging `wo
 - A fixture payload's in-progress game is still shown as in progress. The pill says FIXTURE, and the dev fixture needs that path.
 - The game detail's win-probability series and scoring plays still come only from the local `/api/game` endpoint.
 
+## M8 media center (Nov. 21, 2026)
+
+Built on the media contract (6ca8cb1); the new code is in `src/universe/16-media.js`.
+
+- **Media panel.**
+  - On desktop it sits in the right column, between the feed and health. On phones it is a "Media" tab.
+  - It has three parts:
+    - **Latest videos**: chips for All, Press conferences, Highlights and Previews, plus an "Include Shorts" chip (Shorts are hidden otherwise). Follows the time range and search. Each item shows the thumbnail, the exact title, the channel, the time and team chips.
+    - **Watch live**: the NFL first, then teams; a selected team's channel goes to the top. The text says YouTube's player shows whether a channel is streaming, and the page never claims one is.
+    - **Podcasts**: each episode has an `audio` element with `preload="none"` and an "Episode page" link when the feed gives one.
+  - Its badge follows the `youtube-official` and `podcasts-nfl` sources.
+  - The credit line reads "Video: YouTube · official channels".
+  - A payload with no `media` section gets a plain notice that the data is missing, which is not the same as no videos.
+- **Player.**
+  - Nothing loads until a click.
+  - It is a dialog that keeps keyboard focus inside and closes on Esc.
+  - It holds an `iframe` with the item's embed address, `referrerpolicy="strict-origin-when-cross-origin"`, the `allow` list, `allowfullscreen`, a title and no autoplay.
+  - A "Watch on YouTube" link always sits below it.
+  - Closing it removes the iframe, which stops playback.
+- **Connections.**
+  - The team drawer gets a Video section: the team's newest 6 videos plus its "Watch live" button.
+  - The game drawer shows videos from the last 7 days: those naming both teams first, then either team, newest 4.
+- **Map.** A "Video" layer (Intelligence group, off by default) shows a badge with each team's video count in the time range.
+- **Health panel.** On wide screens it now starts folded, to make room for Media. Its badge and the status pill still show the state, and clicking the pill opens it.
+- **Address allowlists.** These apply on top of `setAttrs`:
+  - Players only load `https://www.youtube(-nocookie).com/embed/<11-character id>` or `…/embed/live_stream?channel=UC…`. Anything else is refused, including query strings.
+  - Images only load from `https://i.ytimg.com/…`.
+  - Audio only plays from `https:` addresses with no user name or password in them.
+  - Links only go to YouTube watch or channel pages.
+  - An address that fails is not rendered; the YouTube link is shown instead. No address is ever built from a title.
+- **Tests.** `test/universe.test.js` now has 162 checks. The new ones cover:
+  - the type chips and Shorts filter;
+  - team and game matching;
+  - the time range for videos and podcasts;
+  - each allowlist, including other hosts, `javascript:`, `http:`, query strings and credentials;
+  - normalising a bad payload;
+  - a payload with no media.
+
+  I broke the built page 17 ways, one at a time. 16 of the breaks made the suite fail. The 17th only loosened the audio https pattern, which the URL protocol check behind it still enforces; loosening both checks together does make the suite fail.
+- **Headless checks.** Desktop, 375 px, the player open (YouTube shows "unavailable" for the fixture's fake ids, as expected), the team and game drawers, Esc removing the iframe, and `file:` with the embedded snapshot, which has no media yet.
+- **Expected console messages.** Thumbnails for the fake ids return 404, and Chrome warns that `allow` takes precedence over `allowfullscreen`.
+
 ## Ready for review?
 - Yes

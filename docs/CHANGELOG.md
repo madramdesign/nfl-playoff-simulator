@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-21 (NFL Universe, milestone M8: media center)
+- Official YouTube channels of the NFL and all 32 teams (ids from Wikidata and research, each checked against the channel's own feed, with its evidence level), and six official NFL podcasts. Fabric sources `youtube-official` and `podcasts-nfl`; podcast feeds (up to 57 MB) are read only until the newest episodes arrive.
+- Media panel: latest videos (press conferences, highlights, previews, optional Shorts), "Live on YouTube" links for every official channel, podcast players; videos in team and game panels; a Video map layer. Click-to-load privacy-enhanced player; strict address allowlists on server and page.
+- Browser check: an official press conference played in the page. YouTube's live-stream embed did not work, so live is a link to each channel's live page (DEC-017).
+- Independent review: 3 blocking and 11 non-blocking findings fixed (podcasts survive refreshes, "Live page" wording, outages reported, official-account-only podcast audio, deduplicated episodes, per-channel quotas, exact address checks, linear-time parsing, accessibility). 37 fabric tests, 174 interface checks.
+
 ## 2026-11-21 (NFL Universe, milestone 1)
 - Project operating system: constitution in `CLAUDE.md`, agent definitions and rules in `.claude/`, living documents in `docs/` (audit, World Monitor analysis, license decision, source registry with terms, architecture, dependency plan, decisions).
 - Contracts: `shared/teams.json` (canonical teams and provider ids), `lib/contract.js` (`/api/universe`, public snapshot, `/api/game`), synthetic fixtures from `test/fixtures/make-fixtures.js`.

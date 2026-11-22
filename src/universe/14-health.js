@@ -16,7 +16,10 @@ function statusSentence(meta, now) {
 function dataStatusText() { return statusSentence(storeMeta(), Date.now()); }
 NFLU.statusSentence = statusSentence;
 function buildHealthPanel(host) {
-  healthPanel = Panel({ id: "health", title: "System health", badge: function (now) { return overallFreshness(now); } });
+  // on wide screens the right column also holds the feed and media, so health starts folded; its badge and the status
+  // pill still show the state, and clicking the pill opens it
+  healthPanel = Panel({ id: "health", title: "System health", badge: function (now) { return overallFreshness(now); },
+    collapsed: function () { try { return ROOT.matchMedia("(min-width: 1100px)").matches; } catch (e) { return false; } } });
   healthPanel.loading();
   host.appendChild(healthPanel.root);
 }

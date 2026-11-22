@@ -217,4 +217,73 @@ const tk = U.tickerEvents(M.events, "7d", now);
 ok(tk.length > 0 && tk.length <= 12 && tk[0].id === te.id && tk.every((e, k, x) => k === 0 || x[k - 1].importance >= e.importance), "the ticker shows the top events by importance");
 
 
+// ---- media center (M8): expected lists come from the fixture's own fields ----
+const MD = M.media, SV = sample.media.videos;
+ok(MD.present && MD.channels.length === sample.media.channels.length && MD.videos.length === SV.length && MD.podcasts.length === sample.media.podcasts.length, "the media block is read in full");
+const byNewest = (list) => list.slice().sort((x, y) => Date.parse(y.published) - Date.parse(x.published)).map((v) => v.videoId);
+const vids = (kind, shorts, range, q) => U.filterVideos(MD.videos, kind, shorts, range, now, q || "").map((v) => v.videoId);
+eq(vids("all", false, "season"), byNewest(SV.filter((v) => v.kind !== "short")), "All: newest first, Shorts hidden");
+eq(vids("all", true, "season"), byNewest(SV), "Shorts appear only when chosen");
+ok(SV.some((v) => v.kind === "short") && vids("all", false, "season").length === SV.length - SV.filter((v) => v.kind === "short").length, "the fixture's Short is the one left out");
+["press", "highlights", "preview"].forEach((k) => eq(vids(k, true, "season"), byNewest(SV.filter((v) => v.kind === k)), "kind chip: " + k));
+ok(vids("press", false, "season").length === 1, "the press chip finds the fixture's press conference");
+eq(vids("all", false, "1h"), byNewest(SV.filter((v) => v.kind !== "short" && inRange({ ts: v.published }, H))), "videos respect the time range (1 hour)");
+eq(vids("all", true, "6h"), byNewest(SV.filter((v) => inRange({ ts: v.published }, 6 * H))), "videos respect the time range (6 hours)");
+ok(vids("all", false, "1h").length === 1, "exactly one non-Short video in the last hour");
+eq(vids("all", true, "season", "chiefs"), byNewest(SV.filter((v) => (v.teams || []).includes("KC") || /chiefs/i.test(v.title + v.channel))), "search matches team, title or channel");
+const tv = (a) => U.teamVideos(MD.videos, idx(a)).map((v) => v.videoId);
+eq(tv("BUF"), byNewest(SV.filter((v) => v.team === "BUF" || (v.teams || []).includes("BUF"))), "team videos: own channel or named in the title, newest first");
+ok(tv("BUF").length === 2 && tv("KC").length === 2 && tv("NYG").length === 0, "team matching on the fixture");
+eq(U.gameVideos(MD.videos, idx("MIA"), idx("BUF"), now).map((v) => v.videoId), byNewest(SV.filter((v) => (v.teams || []).includes("MIA") && (v.teams || []).includes("BUF"))), "game videos: both teams named");
+const syn = [{ videoId: "either-new", teams: [idx("DAL")], ts: now - H, tsMs: now - H }, { videoId: "both-old", teams: [idx("DAL"), idx("TEN")], ts: now - 5 * H, tsMs: now - 5 * H },
+  { videoId: "other", teams: [idx("SEA")], ts: now - H, tsMs: now - H }, { videoId: "too-old", teams: [idx("DAL"), idx("TEN")], ts: now - 8 * 24 * H, tsMs: now - 8 * 24 * H }];
+eq(U.gameVideos(syn, idx("TEN"), idx("DAL"), now).map((v) => v.videoId), ["both-old", "either-new"], "both teams first, then either; other teams and anything older than 7 days left out");
+eq(U.gameVideos(MD.videos, idx("MIA"), idx("BUF"), now + 8 * 24 * H), [], "nothing older than 7 days");
+eq(U.channelOrder(MD.channels, null).map((c) => c.team), [null, idx("BUF"), idx("KC")], "channels: NFL first, then teams");
+eq(U.channelOrder(MD.channels, idx("KC")).map((c) => c.team), [idx("KC"), null, idx("BUF")], "a selected team's channel goes first");
+const vc = U.videoCounts(U.filterVideos(MD.videos, "all", true, "season", now, ""));
+ok(vc[idx("BUF")] === 2 && vc[idx("MIA")] === 2 && vc[idx("KC")] === 2 && vc[idx("NYG")] === undefined, "map layer counts each team's videos");
+eq(U.filterPodcasts(MD.podcasts, "6h", now, "").map((p) => p.id), sample.media.podcasts.filter((p) => inRange({ ts: p.published }, 6 * H)).map((p) => p.id), "podcasts respect the time range");
+eq(U.filterPodcasts(MD.podcasts, "season", now, "giants").map((p) => p.id), ["pod-2"], "podcast search matches the team named");
+ok(U.LAYERS.some((l) => l.id === "video" && l.group === "Intelligence" && !l.defaultOn && l.sourceIds.includes("youtube-official")), "the Video map layer is registered, off by default");
+
+// ---- media allowlists: anything else is not rendered ----
+ok(U.safeEmbedSrc("https://www.youtube-nocookie.com/embed/fxVideo0001") && U.safeEmbedSrc("https://www.youtube.com/embed/fxVideo0001"), "YouTube video embeds (privacy-enhanced, standard) are accepted");
+ok(U.safeEmbedSrc("https://www.youtube.com/embed/live_stream?channel=UCDVYQ4Zhbm3S2dlz7P1GBDg") === null, "the live_stream embed is not used (it showed 'unavailable' in testing); live is a link");
+["javascript:alert(1)", "http://www.youtube.com/embed/fxVideo0001", "https://evil.example/embed/fxVideo0001", "https://www.youtube.com.evil.example/embed/fxVideo0001",
+  "https://www.youtube.com/embed/fxVideo0001?autoplay=1", "https://www.youtube.com/watch?v=fxVideo0001", "//www.youtube.com/embed/fxVideo0001", " https://www.youtube.com/embed/fxVideo0001",
+  "https://www.youtube.com/embed/live_stream?channel=x", "data:text/html,<script>", null, 42].forEach((u) => ok(U.safeEmbedSrc(u) === null, "player refuses " + String(u)));
+ok(U.safeThumbSrc("https://i.ytimg.com/vi/fxVideo0001/mqdefault.jpg") === "https://i.ytimg.com/vi/fxVideo0001/mqdefault.jpg", "YouTube thumbnails are accepted");
+["http://i.ytimg.com/vi/x/mq.jpg", "https://i.ytimg.com.evil.example/x.jpg", "https://img.youtube.com/vi/x/0.jpg", "javascript:alert(1)", "https://i.ytimg.com/vi/../../x.jpg", "https://i.ytimg.com/vi/x.jpg?y=1"].forEach((u) => ok(U.safeThumbSrc(u) === null, "image refuses " + u));
+const OMNY = "https://podtrac.com/pts/redirect.mp3/traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a1/audio.mp3?utm_source=Podcast";
+ok(U.safeAudioSrc(OMNY) === OMNY, "a clip of the NFL's Omny account is accepted");
+ok(U.PODCAST_AUDIO_RE.source === require(path.join(__dirname, "..", "lib", "contract.js")).PODCAST_AUDIO.source, "the page's audio rule is identical to the contract's");
+["https://example.com/fixture/pod1.mp3", "https://127.0.0.1:1/x.mp3", OMNY.replace("e73c998e-6e60-432f-8610-ae210140c5b1", "00000000-0000-0000-0000-000000000000"), OMNY + '"', OMNY.replace("https://", "https://evil.example/")].forEach((u) => ok(U.safeAudioSrc(u) === null, "audio refuses " + u.slice(0, 60)));
+ok(U.safeHttpsLink("https://omny.fm/shows/fixture/ep-1") && !U.safeHttpsLink("https://evil.example/ep") && !U.safeHttpsLink("https://omny.fm/shows/x?\"onclick"), "episode links: omny.fm show pages only");
+const FA = U.playerFrameAttrs("https://www.youtube-nocookie.com/embed/fxVideo0001", "T");
+ok(FA.referrerpolicy === "strict-origin-when-cross-origin" && !/autoplay/.test(FA.allow + FA.src) && FA.allowfullscreen === true && /YouTube player/.test(FA.title), "the video player sends a referrer and never autoplays");
+const AA = U.audioAttrs(OMNY, "Show: title");
+ok(AA.preload === "none" && AA.controls === true && !("autoplay" in AA) && AA.referrerpolicy === "no-referrer" && AA["data-label"] === "Show: title", "podcast audio: no preloading, no autoplay, no referrer");
+["http://example.com/a.mp3", "javascript:alert(1)", "data:audio/mp3;base64,AAAA", "https://user:pw@example.com/a.mp3", "https://example.com/a b.mp3", "ftp://example.com/a.mp3"].forEach((u) => ok(U.safeAudioSrc(u) === null, "audio refuses " + u));
+ok(U.safeYouTubeLink("https://www.youtube.com/watch?v=fxVideo0001") && U.safeYouTubeLink("https://www.youtube.com/channel/UCDVYQ4Zhbm3S2dlz7P1GBDg") && U.safeYouTubeLink("https://www.youtube.com/channel/UCDVYQ4Zhbm3S2dlz7P1GBDg/live") && !U.safeYouTubeLink("https://evil.example/watch?v=fxVideo0001") && !U.safeYouTubeLink("javascript:alert(1)") && !U.safeYouTubeLink("https://www.youtube.com/channel/UCDVYQ4Zhbm3S2dlz7P1GBDg/videos"), "YouTube links: watch, channel and channel live pages only");
+const MDc = U.buildModel(live).media.channels;
+ok(MDc.length >= 3 && MDc.every((c) => c.live === "https://www.youtube.com/channel/" + c.channelId + "/live"), "every channel links to its own live page");
+const swapM = JSON.parse(JSON.stringify(live)); swapM.media.channels[0].liveUrl = "https://www.youtube.com/channel/" + swapM.media.channels[1].channelId + "/live";
+ok(U.buildModel(swapM).media.channels.find((c) => c.channelId === swapM.media.channels[0].channelId).live === null, "a live link to another channel is dropped");
+const evilM = JSON.parse(JSON.stringify(live));
+Object.assign(evilM.media.videos[0], { embedUrl: "https://evil.example/embed/fxVideo0001", thumb: "http://i.ytimg.com/vi/x/mq.jpg" });
+evilM.media.podcasts[0].audioUrl = "javascript:alert(1)"; evilM.media.podcasts[0].url = "http://example.com/x";
+evilM.media.channels[0].liveUrl = "https://evil.example/live";
+evilM.media.videos.push(Object.assign({}, evilM.media.videos[1]), null, { title: "no date", videoId: "abcdefghijk" });
+const EM = U.buildModel(evilM).media, ev0 = EM.videos.find((v) => v.videoId === "fxVideo0001");
+ok(ev0.embed === null && ev0.thumb === null && ev0.url === "https://www.youtube.com/watch?v=fxVideo0001", "a bad embed or image address is dropped; the YouTube link stays");
+ok(EM.podcasts.find((p) => p.id === "pod-1").audio === null && EM.podcasts.find((p) => p.id === "pod-1").url === null, "a bad audio or episode address is dropped");
+ok(EM.channels.find((c) => c.team === null).live === null && EM.videos.length === SV.length, "bad live links dropped; duplicates and malformed videos skipped");
+const noMedia = JSON.parse(JSON.stringify(live)); delete noMedia.media; delete noMedia.sources["youtube-official"]; delete noMedia.sources["podcasts-nfl"];
+const NM = U.buildModel(noMedia).media;
+ok(NM.present === false && NM.channels.length === 0 && NM.videos.length === 0 && NM.podcasts.length === 0 && U.buildModel(null).media.present === false, "a payload without media gives an empty, marked media block");
+eq(U.filterVideos(NM.videos, "all", true, "season", now, ""), [], "and no videos");
+eq(U.freshness(["youtube-official", "podcasts-nfl"], meta({ payload: noMedia }), now).label, "UNAVAILABLE", "the Media badge reads UNAVAILABLE without its sources");
+ok(U.freshness(["youtube-official", "podcasts-nfl"], meta(), now).label.startsWith("LIVE · 15m"), "and reflects them when present");
+
 console.log("ok: command center logic passes (" + n + " checks)");

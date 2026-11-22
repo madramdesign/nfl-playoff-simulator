@@ -109,3 +109,9 @@ Record significant decisions with date, status, context, options, decision, rati
 - Context: the integration branch's history includes, in one early commit, a test fixture built from ESPN responses; DEC-006 forbids committing ESPN-derived data where it may be published, and `main` is the branch that gets pushed.
 - Decision: squash-merge (`8bd0cff`) so `main` carries the final tree only; then merge `main` back into the integration branch so later merges have a common base.
 - Consequences: commit hashes quoted in the docs refer to the integration branch, which stays local. The early fixture remains in that local branch's history; do not push that branch as it is.
+
+### DEC-017 — Media: official channels only; live is a link, not an embed
+- Date: 2026-11-21. Status: Accepted.
+- Context: M8 adds video and podcasts. Channel names are not unique on YouTube; YouTube's live-stream embed form showed "This video is unavailable" in testing even for a channel streaming all day.
+- Decision: channel ids come only from configuration (`shared/teams.json`), each with its evidence level; single videos play click-to-load in the privacy-enhanced player; a channel's live stream is a link to its live page on YouTube; podcasts play the feed's own audio file; nothing is downloaded or re-hosted; no game broadcasts.
+- Consequences: knowing whether a channel is live before opening it needs a YouTube Data API key (owner decision). Ten team channel ids rest on directory listings plus feed content and are worth a manual check from each team's website.

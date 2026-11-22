@@ -13,7 +13,7 @@
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.
 - No Sleeper code. The FantasyPros fetch has never run.
-- Tests: `npm test` runs four suites: engine and feed parser, 25 data-fabric tests, 4 MCP tests, 104 command-center checks. All pass on the integration branch, and the fabric and interface suites were each checked to fail against deliberately broken code.
+- Tests: `npm test` runs four suites: engine and feed parser, 37 data-fabric tests, 4 MCP tests, 174 command-center checks. All pass on the integration branch, and the fabric and interface suites were each checked to fail against deliberately broken code.
 
 ## Built this session (integration branch)
 - **Project operating system:** constitution in `CLAUDE.md`, `.claude/agents/` (12), `.claude/rules/` (6), and the living docs, all filled from evidence.
@@ -27,6 +27,13 @@
 - **Command center (`src/universe/`):** map (geographic, divisions, intelligence), 17 layers, URL state, time ranges, intelligence feed, games strip, ticker, team and game panels, system health, rule-based brief, simulation in a Web Worker (20,000 seasons, 100,000 on request).
 - **MCP server (`mcp/`):** 14 read-only tools over stdio.
 - **Server hardening:** localhost binding, Host check on the API, malformed-request handling, `<` escaped in embedded data.
+
+## Media center (M8), on the integration branch, not yet on `main`
+- Official YouTube channels of the NFL and all 32 teams (evidence level recorded per team in `shared/teams.json`), six official NFL podcasts.
+- Media panel with latest videos, live-page links and podcast players; videos in team and game panels; Video map layer.
+- Checked in the browser: an official press conference played in the page; a podcast kept playing through panel redraws; YouTube's live-stream embed does not work, so live is a link (DEC-017).
+- Independent review: all findings fixed.
+- Ten team channel ids rest on directory listings plus feed content (ATL, CAR, CIN, CLE, GB, IND, MIN, NYJ, PHI, TB); a quick manual check from each team's website is worthwhile.
 
 ## Reviews
 - **Data fabric:** independent review found 3 blocking and 9 non-blocking issues. All fixed; the tests now include negative cases checked against deliberately broken code.

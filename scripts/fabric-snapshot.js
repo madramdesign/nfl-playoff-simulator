@@ -11,6 +11,8 @@ const { ABBRS } = require(path.join(root, "lib", "fabric", "entities.js"));
 async function main() {
   const fabric = createFabric({ scopes: ["public"] });
   const u = await fabric.universe({ fresh: true });   // fetch every source now; never publish yesterday's cache as today's
+  // keep the page small: 3 videos and 1 Short per channel (the live server serves more)
+  if (u.media) u.media = require(path.join(root, "lib", "fabric", "adapters", "media.js")).snapshotMedia(u.media);
   const errs = validatePublicSnapshot(u, ABBRS);
   if (errs.length) { console.warn("fabric snapshot NOT written; contract problems:\n  " + errs.slice(0, 10).join("\n  ")); return; }
   const dir = path.join(root, "data", "fabric"), evDir = path.join(dir, "events");

@@ -12,6 +12,7 @@ const pub = require(path.join(root, "lib/fabric/adapters/public.js"));
 const espn = require(path.join(root, "lib/fabric/adapters/espn.js"));
 const { createSource, fetchWithRetry } = require(path.join(root, "lib/fabric/source.js"));
 const { createFabric } = require(path.join(root, "lib/fabric"));
+const media = require(path.join(root, "lib/fabric/adapters/media.js"));
 const T = ent.ABBRS;
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
@@ -69,6 +70,15 @@ const SUMMARY = { header: { competitions: [{ status: { period: 3, displayClock: 
   scoringPlays: [{ period: { number: 1 }, clock: { displayValue: "9:12" }, team: { abbreviation: "BUF" }, text: "Field goal", awayScore: 0, homeScore: 3 }],
   drives: { previous: [{ plays: [{ period: { number: 3 }, clock: { displayValue: "8:40" }, text: "Pass for 6", type: { text: "Pass" } }] }] },
   injuries: [{ team: { abbreviation: "MIA" }, injuries: [{ athlete: { displayName: "X", position: { abbreviation: "LB" } }, status: "Questionable" }] }] };
+const YT_ATOM = (author, ids) => '<?xml version="1.0"?><feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"><author><name>' + author + '</name></author>' +
+  ids.map(([id, title, when, short]) => '<entry><yt:videoId>' + id + '</yt:videoId><title>' + title + '</title><link rel="alternate" href="https://www.youtube.com/' + (short ? "shorts/" : "watch?v=") + id + '"/><published>' + when + '</published></entry>').join("") + '</feed>';
+const YT_NFL = YT_ATOM("NFL", [["aaaaaaaaaa1", "Dolphins vs. Bills Highlights | Week 11", "2026-11-21T15:00:00+00:00"], ["aaaaaaaaaa2", "Week 11 game previews", "2026-11-20T15:00:00+00:00"], ["bad id", "Broken entry", "2026-11-20T15:00:00+00:00"]]);
+const YT_TEAM = YT_ATOM("Buffalo Bills", [["bbbbbbbbbb1", "Sean McDermott Press Conference | Dolphins Week", "2026-11-21T14:00:00+00:00"], ["bbbbbbbbbb2", "Practice sights &amp; sounds", "2026-11-21T13:00:00+00:00", true], ["aaaaaaaaaa1", "Dolphins vs. Bills Highlights | Week 11", "2026-11-21T15:00:00+00:00"]]);
+const POD = (show, n) => '<?xml version="1.0"?><rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>' + show + '</title>' +
+  Array.from({ length: n }, (_, k) => '<item><title>Episode ' + k + ': Giants and Jets news</title><link>https://example.com/ep' + k + '</link><pubDate>Sat, 21 Nov 2026 0' + (k % 10) + ':00:00 +0000</pubDate>' +
+    '<enclosure url="https://podtrac.com/pts/redirect.mp3/traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/00000000-0000-4000-8000-00000000000' + (k % 2) + '/00000000-0000-4000-8000-0000000000' + String(10 + k).padStart(2, "0") + '/audio.mp3?utm_source=Podcast" type="audio/mpeg"/><itunes:duration>' + (k ? "00:30:00" : "1800") + '</itunes:duration><guid>g' + k + '</guid></item>').join("") +
+  '<item><title>Insecure</title><pubDate>Sat, 21 Nov 2026 00:00:00 +0000</pubDate><enclosure url="http://example.com/x.mp3"/></item>' +
+  '<item><title>Not the NFL account</title><pubDate>Sat, 21 Nov 2026 00:00:00 +0000</pubDate><enclosure url="https://traffic.omny.fm/d/clips/00000000-0000-0000-0000-000000000000/00000000-0000-4000-8000-000000000000/00000000-0000-4000-8000-0000000000ff/audio.mp3"/></item></channel></rss>';
 const meteo = (n, windMph) => Array.from({ length: n }, () => ({ hourly: { time: Array.from({ length: 216 }, (_, h) => new Date(Date.UTC(2026, 10, 21) + h * 3600000).toISOString().slice(0, 16)),
   temperature_2m: Array(216).fill(40), wind_speed_10m: Array(216).fill(windMph), wind_gusts_10m: Array(216).fill(windMph + 8), precipitation_probability: Array(216).fill(70),
   precipitation: Array(216).fill(0.1), snowfall: Array(216).fill(0) } }));
@@ -218,6 +228,8 @@ function fakeFetch(broken = new Set()) {
     if (host.endsWith("/injuries")) return body(ESPN_INJ);
     if (host.endsWith("/transactions")) return body(TX);
     if (host.endsWith("/summary")) return body(SUMMARY);
+    if (host.includes("youtube.com/feeds")) return body(null, url.includes("UCDVYQ4Zhbm3S2dlz7P1GBDg") ? YT_NFL : url.includes("UCcEvCxUe2Sm5W6MliEUv0vg") ? YT_TEAM : YT_ATOM("Other team", []));
+    if (host.includes("omnycontent")) return body(null, POD("Fixture show", 6));
     return { ok: false, status: 404, json: async () => ({}), text: async () => "" };
   };
 }
@@ -371,6 +383,140 @@ test("server routes answer, validate ids and refuse path tricks", async () => {
     r = await get("/%2e%2e/server.js"); assert.strictEqual(r.status, 404, "no files outside public/ (URL parsing removes the dots before the guard)");
     r = await get("/"); assert.strictEqual(r.status, 200); assert.ok(/text\/html/.test(r.type));
   } finally { await new Promise((ok) => srv.server.close(ok)); srv.setFabric(null); }
+});
+test("YouTube feeds: video ids checked, Shorts and press conferences recognised, teams matched", () => {
+  const c = { team: "BUF", name: "Buffalo Bills", channelId: "UCcEvCxUe2Sm5W6MliEUv0vg" };
+  const v = media.normalizeYoutubeFeed(YT_TEAM, c);
+  assert.strictEqual(v.length, 3);
+  assert.strictEqual(v[0].kind, "press"); assert.deepStrictEqual(v[0].teams.sort(), ["BUF", "MIA"]);
+  assert.strictEqual(v[1].kind, "short"); assert.strictEqual(v[1].title, "Practice sights & sounds");
+  assert.strictEqual(v[0].embedUrl, "https://www.youtube-nocookie.com/embed/bbbbbbbbbb1");
+  assert.strictEqual(media.normalizeYoutubeFeed(YT_NFL, { team: null, name: "NFL", channelId: "UCDVYQ4Zhbm3S2dlz7P1GBDg" }).length, 2, "malformed video id dropped");
+  assert.throws(() => media.normalizeYoutubeFeed("<html></html>", c), /not a YouTube feed/);
+  assert.strictEqual(media.videoKind("Head coach meets the media", false), "press");
+  assert.strictEqual(media.videoKind("Week 12 Highlights", false), "highlights");
+});
+test("podcast feeds: newest episodes only, https audio only, durations parsed", () => {
+  const e = media.normalizePodcastFeed(POD("Fixture show", 6), "Fixture show", 4);
+  assert.strictEqual(e.length, 4); assert.ok(e.every((x) => x.audioUrl.startsWith("https://")));
+  assert.strictEqual(e[0].durationSec, 1800); assert.strictEqual(e[1].durationSec, 1800);
+  assert.deepStrictEqual(e[0].teams.sort(), ["NYG", "NYJ"]);
+  assert.strictEqual(media.normalizePodcastFeed(POD("x", 0), "x").length, 0, "an insecure enclosure is skipped");
+});
+test("large feeds are read only until enough items have arrived", async () => {
+  let sent = 0, cancelled = false;
+  const chunk = new TextEncoder().encode("<item><title>t</title></item>".repeat(50));
+  const body = new ReadableStream({ pull(ctl) { if (sent >= 1000) return ctl.close(); sent++; ctl.enqueue(chunk); }, cancel() { cancelled = true; } });
+  const text = await media.readHead("https://example.com/huge.rss", { items: 4, fetchImpl: async () => ({ ok: true, status: 200, body }) });
+  assert.ok(cancelled, "download stopped"); assert.ok(sent < 10, "read " + sent + " of 1000 chunks"); assert.ok(text.split("</item>").length - 1 >= 4);
+});
+test("media block: deduplicated, valid, public, and one failing channel is only noted", async () => {
+  const f = createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["UCbpj2JAUMb8G_oQQFPeGrhg"])) });
+  const u = await f.universe();
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
+  assert.strictEqual(u.media.videos.filter((v) => v.videoId === "aaaaaaaaaa1").length, 1, "the same video from two channels appears once");
+  assert.ok(u.media.channels.length >= 18 && u.media.channels[0].name === "NFL");
+  assert.ok(u.media.podcasts.length > 0 && u.media.podcasts.length <= 30);
+  assert.strictEqual(u.sources["youtube-official"].status, "ok"); assert.ok(/Baltimore Ravens/.test(u.sources["youtube-official"].note || ""), "the failing channel is named");
+  const dead = createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["youtube.com/feeds", "omnycontent"])) });
+  const d = await dead.universe();
+  assert.strictEqual(d.sources["youtube-official"].status, "down"); assert.strictEqual(d.media.videos.length, 0);
+  assert.deepStrictEqual(C.validateUniverse(d, T), [], "no media still yields a valid payload");
+});
+test("the contract refuses media pointing anywhere but the providers", () => {
+  const u = JSON.parse(JSON.stringify(require(path.join(root, "test/fixtures/universe.sample.json"))));
+  const bad = (mut, why) => { const x = JSON.parse(JSON.stringify(u)); mut(x.media); assert.ok(C.validateUniverse(x, T).length > 0, why); };
+  bad((m) => { m.videos[0].embedUrl = "https://evil.example/embed/" + m.videos[0].videoId; }, "foreign embed host");
+  bad((m) => { m.videos[0].thumb = "http://i.ytimg.com/x.jpg"; }, "non-https image");
+  bad((m) => { m.channels[0].liveUrl = "javascript:alert(1)"; }, "script URL");
+  bad((m) => { m.channels[0].liveUrl = "https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx/live"; }, "live page of another channel");
+  bad((m) => { m.videos[0].videoId = "../../etc"; }, "malformed id");
+  bad((m) => { m.podcasts[0].audioUrl = "http://example.com/a.mp3"; }, "insecure audio");
+  bad((m) => { m.videos[1].videoId = m.videos[0].videoId; m.videos[1].url = m.videos[0].url; m.videos[1].embedUrl = m.videos[0].embedUrl; }, "duplicate video");
+});
+test("feed parsing survives bad entities and stays linear on unclosed tags", () => {
+  assert.strictEqual(util.decode("a&#99999999;b&#xD800;c&amp;d"), "a�b�c&d", "out-of-range references become U+FFFD");
+  const big = "<rss><channel>" + "<item><title>x".repeat(40000);
+  let t = Date.now(); util.parseRss(big); media.normalizePodcastFeed(big, "x"); media.normalizeYoutubeFeed("<feed>" + "<entry><yt:videoId>x".repeat(40000), { team: null, name: "N", channelId: "UCDVYQ4Zhbm3S2dlz7P1GBDg" });
+  assert.ok(Date.now() - t < 400, "40,000 unclosed items parsed in " + (Date.now() - t) + " ms");
+  const feed = YT_ATOM("Buffalo Bills", [["ccccccccccc", "A bad &#99999999; title", "2026-11-21T10:00:00+00:00"]]);
+  assert.strictEqual(media.normalizeYoutubeFeed(feed, { team: "BUF", name: "Buffalo Bills", channelId: "UCcEvCxUe2Sm5W6MliEUv0vg" }).length, 1, "one bad entity does not drop the feed");
+});
+test("only the configured channel's own entries are kept", () => {
+  const x = '<feed><entry><yt:videoId>ddddddddddd</yt:videoId><yt:channelId>UCaaaaaaaaaaaaaaaaaaaaaa</yt:channelId><title>Someone else</title><published>2026-11-21T10:00:00+00:00</published></entry>' +
+    '<entry><yt:videoId>eeeeeeeeeee</yt:videoId><yt:channelId>UCcEvCxUe2Sm5W6MliEUv0vg</yt:channelId><title>Ours</title><published>2026-11-21T10:00:00+00:00</published></entry></feed>';
+  assert.deepStrictEqual(media.normalizeYoutubeFeed(x, { team: "BUF", name: "Buffalo Bills", channelId: "UCcEvCxUe2Sm5W6MliEUv0vg" }).map((v) => v.videoId), ["eeeeeeeeeee"]);
+});
+test("video kinds and strict team matching on real-world titles", () => {
+  const k = media.videoKind;
+  assert.strictEqual(k("Dan Campbell meets with the media", false), "press");
+  assert.strictEqual(k("Locker room scrum after the win", false), "press");
+  assert.strictEqual(k("Official Postgame Show | Week 11", false), "video");
+  assert.strictEqual(k("Postgame Highlights vs. Raiders", false), "highlights");
+  assert.strictEqual(k("Highlights from the Podium Club", false), "highlights");
+  assert.strictEqual(k("Week 12 Game Preview + Predictions", false), "preview");
+  assert.strictEqual(k("Practice day #shorts", false), "short");
+  const strict = (t) => ent.teamsInText(t, { strict: true }).sort();
+  assert.deepStrictEqual(strict("Dallas Turner just ran you over"), []);
+  assert.deepStrictEqual(strict("Washington State hosts Indy 500 champion in Miami (OH)"), []);
+  assert.deepStrictEqual(strict("Bucs at Niners: what to watch"), ["SF", "TB"]);
+  assert.deepStrictEqual(strict("Giants vs. Jaguars"), ["JAX", "NYG"]);
+  assert.deepStrictEqual(ent.teamsInText("Dallas Cowboys news").sort(), ["DAL"], "the full name still matches");
+});
+test("podcast episodes: official account only, one copy per episode, credited to its own show", () => {
+  const ep = (show, program, clip, when) => ({ id: "pod-" + clip, show, title: "t " + clip, published: when, url: null, durationSec: null, teams: [], source: "podcasts-nfl", clip, native: null,
+    audioUrl: "https://traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/" + program + "/" + clip + "/audio.mp3" });
+  const P1 = "00000000-0000-4000-8000-000000000001", P2 = "00000000-0000-4000-8000-000000000002", C1 = "00000000-0000-4000-8000-0000000000c1";
+  const list = [Object.assign(ep("Show A", P2, C1, "2026-11-21T10:00:00Z"), { native: false }), Object.assign(ep("Show B", P2, C1, "2026-11-21T10:00:00Z"), { native: true }),
+    Object.assign(ep("Show A", P1, "00000000-0000-4000-8000-0000000000c2", "2026-11-21T12:00:00Z"), { native: true })];
+  const d = media.dedupeEpisodes(list);
+  assert.strictEqual(d.length, 2); assert.strictEqual(d.find((e) => e.id === "pod-" + C1).show, "Show B", "kept under its own show");
+  assert.ok(Date.parse(d[0].published) >= Date.parse(d[1].published), "newest first");
+  assert.ok(!("clip" in d[0]) && !("native" in d[0]), "helper fields removed");
+  const feed = POD("x", 3), prog = "00000000-0000-4000-8000-000000000000";
+  assert.ok(media.normalizePodcastFeed(feed, "x", 4, prog).every((e) => typeof e.native === "boolean"));
+  assert.strictEqual(media.officialAudio("https://traffic.omny.fm/d/clips/00000000-0000-0000-0000-000000000000/" + P1 + "/" + C1 + "/audio.mp3"), null, "another Omny account is refused");
+});
+test("per-channel quotas keep every channel; the snapshot keeps 3 videos and 1 Short each", () => {
+  const vids = [];
+  for (let c = 0; c < 3; c++) for (let n = 0; n < 40; n++) vids.push({ videoId: "v" + c + "_" + n, channelId: "ch" + c, kind: n % 4 === 0 ? "short" : "video", published: new Date(Date.UTC(2026, 10, 21) - (c === 2 ? 5 * 86400000 : 0) - n * 60000).toISOString() });
+  const q = media.quota(vids, { perChannel: 8, shorts: 3 });
+  for (let c = 0; c < 3; c++) assert.strictEqual(q.filter((v) => v.channelId === "ch" + c).length, 11, "channel " + c + " keeps 8 + 3 even when older");
+  assert.ok(q.every((v, k) => k === 0 || Date.parse(q[k - 1].published) >= Date.parse(v.published)), "newest first");
+  const s2 = media.snapshotMedia({ channels: [], videos: vids, podcasts: [] });
+  for (let c = 0; c < 3; c++) { const mine = s2.videos.filter((v) => v.channelId === "ch" + c); assert.strictEqual(mine.length, 4); assert.strictEqual(mine.filter((v) => v.kind === "short").length, 1); }
+});
+test("the contract accepts only exact provider addresses and listed channels; cleanMedia drops the rest", () => {
+  const u = JSON.parse(JSON.stringify(require(path.join(root, "test/fixtures/universe.sample.json"))));
+  const bad = (mut, why) => { const x = JSON.parse(JSON.stringify(u)); mut(x.media); assert.ok(C.validateUniverse(x, T).length > 0, why); return x; };
+  const v0 = u.media.videos[0];
+  bad((m) => { m.videos[0].url = "https://www.youtube.com/redirect?q=https://evil.example&v=" + v0.videoId; }, "redirect link ending in the id");
+  bad((m) => { m.channels[0].url = "https://www.youtube.com/redirect?q=evil"; }, "any youtube.com path as channel url");
+  bad((m) => { m.videos[0].channelId = "UCaaaaaaaaaaaaaaaaaaaaaa"; }, "a video from an unlisted channel");
+  bad((m) => { m.videos[0].thumb = "https://i.ytimg.com/vi/" + v0.videoId + "/x.jpg?\"onerror"; }, "thumbnail with extra characters");
+  bad((m) => { m.podcasts[0].audioUrl = "https://evil.example/a.mp3"; }, "audio on another host");
+  bad((m) => { m.podcasts[0].audioUrl = "https://127.0.0.1:1/x"; }, "audio on a local address");
+  bad((m) => { m.podcasts[0].url = "https://evil.example/ep"; }, "episode page on another host");
+  bad((m) => { m.videos[0].title = "x".repeat(600); }, "absurdly long title");
+  const dirty = JSON.parse(JSON.stringify(u.media));
+  dirty.videos.push(Object.assign({}, dirty.videos[0]), Object.assign({}, dirty.videos[1], { videoId: "zzzzzzzzzzz", url: "https://evil.example/" }));
+  dirty.podcasts.push(Object.assign({}, dirty.podcasts[0], { audioUrl: "javascript:alert(1)" }));
+  const clean = C.cleanMedia(dirty);
+  assert.strictEqual(clean.videos.length, u.media.videos.length); assert.strictEqual(clean.podcasts.length, u.media.podcasts.length);
+  const pubBad = JSON.parse(JSON.stringify(require(path.join(root, "test/fixtures/universe.public.json"))));
+  pubBad.sources["youtube-official"].scope = "local";
+  assert.ok(C.validatePublicSnapshot(pubBad, T).some((e) => /media\.videos/.test(e)), "public snapshot refuses media from a local source");
+});
+test("the pool never runs more than n at once and stops after an error; a stalled feed times out", async () => {
+  let live = 0, peak = 0, started = 0;
+  await media.pool([1, 2, 3, 4, 5, 6, 7, 8], 3, async () => { live++; peak = Math.max(peak, live); await new Promise((r) => setTimeout(r, 5)); live--; });
+  assert.strictEqual(peak, 3);
+  await assert.rejects(media.pool([1, 2, 3, 4, 5, 6, 7, 8], 2, async (x) => { started++; if (x === 1) throw new Error("boom"); await new Promise((r) => setTimeout(r, 5)); }), /boom/);
+  assert.ok(started <= 3, "started " + started + " tasks after a failure");
+  const stalled = { ok: true, status: 200, body: new ReadableStream({ pull() { return new Promise(() => {}); } }) };
+  const t = Date.now();
+  await assert.rejects(media.readHead("https://example.com/slow.rss", { timeoutMs: 60, fetchImpl: async () => stalled }), /timeout after 60 ms/);
+  assert.ok(Date.now() - t < 1000);
 });
 test("synthetic fixtures satisfy the contracts", () => {
   assert.deepStrictEqual(C.validateUniverse(require(path.join(root, "test/fixtures/universe.sample.json")), T), []);

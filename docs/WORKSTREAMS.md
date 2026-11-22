@@ -30,6 +30,14 @@ Each write-capable stream has its own git worktree and branch, owns a fixed set 
 | WS4 | MCP server | ai-engineer | own worktree and branch | `mcp/**`, `test/mcp.test.js`, `docs/MCP_ARCHITECTURE.md` | `lib/fabric` exports, engine | protocol round-trip tests | Done, merged |
 | WS5 | Review | qa + red-team (read-only) | none | nothing | merged branch | | Done |
 
+## Milestone M8 streams (media center)
+
+| ID | Stream | Agent | Worktree / branch | Owns (writes) | Interface | Status |
+|---|---|---|---|---|---|---|
+| WS6 | Media data | orchestrator | integration branch | `lib/fabric/adapters/media.js`, media parts of `lib/contract.js` and `lib/fabric/index.js`, `shared/teams.json` (`youtube`), `docs/MEDIA_ARCHITECTURE.md` | contract `media` block | Done, reviewed |
+| WS7 | Channel id research | researcher (read-only) | none | nothing | | Done |
+| WS8 | Media interface | frontend | own worktree and branch | `src/universe/**`, `test/universe.test.js` | contract `media` block, fixtures | Done, merged, reviewed |
+
 ## Ordering
 
 ```

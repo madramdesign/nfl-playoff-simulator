@@ -86,8 +86,37 @@ const transactions = [
   { date: ago(300), team: "PHI", text: "Fixture: signed WR Fixture Receiver to the practice squad", kind: "signed", source: "espn-transactions" },
   { date: ago(420), team: "DET", text: "Fixture: placed DE Fixture Edge on injured reserve", kind: "placed_ir", source: "espn-transactions" },
 ];
+// media: real official channel ids (public facts), invented videos and episodes
+sources["youtube-official"] = src("youtube-official", "Official NFL and team YouTube channels", 1, "public", "ok", 900);
+sources["podcasts-nfl"] = src("podcasts-nfl", "Official NFL podcasts", 1, "public", "ok", 3 * 3600);
+const ch = (team, name, channelId) => ({ team, name, channelId, url: "https://www.youtube.com/channel/" + channelId, liveUrl: "https://www.youtube.com/channel/" + channelId + "/live" });
+const channels = [ch(null, "NFL", "UCDVYQ4Zhbm3S2dlz7P1GBDg"), ch("BUF", "Buffalo Bills", "UCcEvCxUe2Sm5W6MliEUv0vg"), ch("KC", "Kansas City Chiefs", "UC-hXefb6XBFSubWz6Ezf_lA")];
+const vid = (n, channel, team, teams, kind, title, minAgo) => {
+  const videoId = "fxVideo" + String(n).padStart(4, "0");
+  return { id: "yt-" + videoId, videoId, channelId: channel.channelId, channel: channel.name, team, teams, kind, title, published: ago(minAgo),
+    url: "https://www.youtube.com/watch?v=" + videoId, embedUrl: "https://www.youtube-nocookie.com/embed/" + videoId, thumb: "https://i.ytimg.com/vi/" + videoId + "/mqdefault.jpg", source: "youtube-official" };
+};
+const media = {
+  channels,
+  videos: [
+    vid(1, channels[1], "BUF", ["BUF", "MIA"], "press", "Fixture: Bills head coach press conference before Dolphins game", 120),
+    vid(2, channels[0], null, ["MIA", "BUF"], "highlights", "Fixture: Dolphins vs. Bills highlights | Week 12", 30),
+    vid(3, channels[2], "KC", ["KC"], "short", "Fixture: practice clip #shorts", 400),
+    vid(4, channels[0], null, [], "preview", "Fixture: full week 12 game previews", 1500),
+    vid(5, channels[2], "KC", ["KC"], "video", "Fixture: Chiefs locker room after the win", 2900),
+  ],
+  podcasts: [
+    // real address shape (NFL Omny account, measurement redirect), invented show and episode ids
+    { id: "pod-1", show: "Fixture Daily (NFL)", title: "Fixture: Week 12 preview episode", published: ago(300), url: "https://omny.fm/shows/fixture-daily/fixture-week-12-preview",
+      audioUrl: "https://podtrac.com/pts/redirect.mp3/traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/00000000-0000-4000-8000-000000000001/00000000-0000-4000-8000-0000000000a1/audio.mp3?utm_source=Podcast",
+      durationSec: 1800, teams: [], source: "podcasts-nfl" },
+    { id: "pod-2", show: "Fixture Morning Show (NFL)", title: "Fixture: Giants quarterback news", published: ago(900), url: null,
+      audioUrl: "https://traffic.omny.fm/d/clips/e73c998e-6e60-432f-8610-ae210140c5b1/00000000-0000-4000-8000-000000000002/00000000-0000-4000-8000-0000000000a2/audio.mp3",
+      durationSec: null, teams: ["NYG"], source: "podcasts-nfl" },
+  ],
+};
 const note = "Synthetic fixture: real matchups, invented data. For development and tests only.";
-const full = { v: 1, _fixture: note, generatedAt: GEN, season: 2026, week: 12, seasonType: "regular", sources, games, events, injuries, transactions };
+const full = { v: 1, _fixture: note, generatedAt: GEN, season: 2026, week: 12, seasonType: "regular", sources, games, events, injuries, transactions, media };
 
 // Public variant: what a committed snapshot may contain (public sources only, no live state).
 const pubSources = Object.fromEntries(Object.entries(sources).filter(([, s]) => s.scope === "public"));
@@ -96,7 +125,7 @@ const pub = { v: 1, _fixture: note + " Public-only variant.", generatedAt: GEN, 
     odds: g.odds && pubSources[g.odds.source] ? g.odds : null, awayScore: g.state === "post" ? g.awayScore : 0, homeScore: g.state === "post" ? g.homeScore : 0 })),
   events: events.filter((e) => pubSources[e.source]),
   injuries: Object.fromEntries(Object.entries(injuries).map(([a, t]) => [a, Object.assign({}, t, { players: t.players.filter((p) => pubSources[p.source]) })]).filter(([, t]) => t.players.length)),
-  transactions: [] };
+  transactions: [], media };
 
 const detail = { v: 1, id: "fx-1", generatedAt: GEN, source: "espn-scoreboard", scope: "local", _fixture: note,
   header: { away: "MIA", home: "BUF", state: "in", period: 3, clock: "8:03", awayScore: 10, homeScore: 17 },

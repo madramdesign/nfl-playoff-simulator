@@ -20,7 +20,8 @@ function keepFocus(container, fn) {
   for (var i = 0; i < cands.length; i++) if (focusKey(cands[i]) === key) { try { cands[i].focus({ preventScroll: true }); } catch (e) { cands[i].focus(); } return; }
 }
 function Panel(o) {
-  var saved = lsGet().collapsed || {}, collapsed = !!saved[o.id];
+  // a panel the viewer has never toggled starts as o.collapsed says (a function, so it can depend on the screen width)
+  var saved = lsGet().collapsed || {}, collapsed = Object.prototype.hasOwnProperty.call(saved, o.id) ? !!saved[o.id] : !!(o.collapsed && o.collapsed());
   var badge = el("span", { class: "u-badge", "data-state": "loading", text: "…" });
   var btn = el("button", { type: "button", class: "u-collapse", "aria-expanded": collapsed ? "false" : "true", "aria-controls": "u-pb-" + o.id, title: "Collapse or expand" }, [el("span", { "aria-hidden": "true", text: "▾" })]);
   var tools = el("div", { class: "u-ptools" });
@@ -31,7 +32,7 @@ function Panel(o) {
   btn.addEventListener("click", function () {
     var c = !root.classList.contains("is-collapsed");
     root.classList.toggle("is-collapsed", c); btn.setAttribute("aria-expanded", c ? "false" : "true");
-    var s = lsGet().collapsed || {}; if (c) s[o.id] = 1; else delete s[o.id]; lsSet({ collapsed: s });
+    var s = lsGet().collapsed || {}; s[o.id] = c ? 1 : 0; lsSet({ collapsed: s });
   });
   function setState(s) { p.state = s; root.setAttribute("data-state", s); }
   p.render = function (fn) {
