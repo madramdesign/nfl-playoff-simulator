@@ -32,6 +32,7 @@ Claude Code creates subagent worktrees from `main`. Every implementation agent f
 | NU-012 | M8 media: Media panel, click-to-load player, team and game video | P1 | Frontend | NU-010 contract | `npm test`; headless render; allowlisted embeds only | Done, merged; review fixes by the orchestrator |
 | NU-013 | M8 review and browser check of real playback | P1 | QA, orchestrator | NU-010 to NU-012 | Blocking findings fixed | Done |
 | NU-009 | Independent review of merged work | P1 | QA / red team | NU-006–008 | Blocking issues listed separately | Done: fabric and interface reviewed; all findings fixed |
+| NU-014 | Feature research and roadmap (five read-only research streams, Nov. 23) | P1 | Orchestrator + researchers | none | `FEATURE_RESEARCH.md`, `FEATURE_BACKLOG.md`, `FEATURE_ROADMAP.md` | Done (docs only); implementation follows `FEATURE_ROADMAP.md` Phase 1 |
 
 ## Questions from the paused frontend work (answered Nov. 21 when NU-007 restarted)
 | From | Question | Proposed answer |
