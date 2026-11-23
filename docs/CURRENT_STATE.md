@@ -14,6 +14,11 @@
 - Fix: both suites now pin the engine's season data to `test/fixtures/engine-data.js` (the Nov. 22 build; `NFLU_ENGINE_DATA` for the MCP server). See `test/fixtures/README.md`. `test/run.js` still runs on the current data.
 - Checked: `npm test` passes on the committed Nov. 22 data and on a fresh Nov. 23 build. The fresh build was not committed (five sources were unreachable from the cloud container), so the data on `main` is still Nov. 22 until the scheduled refresh runs with this fix merged.
 
+## Nov. 23, 2026: public hosting prepared (branch `claude/kind-bohr-75erpe`)
+- `render.yaml` plus server guards for public hosting (DEC-018): `/api/live` is off without the local scope, per-client API request cap, Render hostname allowed automatically. Tests added in `test/fabric.test.js`.
+- Checked: `npm test` passes; the server was started with the hosted settings in the cloud container and served the page, `/api/universe` (public sources only), 404 on `/api/live` and 403 for a foreign Host.
+- Not done: the deploy itself. It needs the owner's Render sign-in. Not verified on Render.
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.

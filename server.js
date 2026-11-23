@@ -49,8 +49,9 @@ const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", "
 // NFL Universe data fabric (lib/fabric): public sources plus ESPN, which is for local use only (docs/DECISIONS.md DEC-006).
 // FABRIC_SCOPES=public serves public sources only.
 let fabric = null;
+const scopes = () => (process.env.FABRIC_SCOPES || "public,local").split(",").map((s) => s.trim());
 function getFabric() {
-  if (!fabric) fabric = require("./lib/fabric").createFabric({ scopes: (process.env.FABRIC_SCOPES || "public,local").split(",").map((s) => s.trim()) });
+  if (!fabric) fabric = require("./lib/fabric").createFabric({ scopes: scopes() });
   return fabric;
 }
 function sendJson(res, status, obj) {
@@ -78,11 +79,28 @@ async function fabricRoute(url, res) {
 
 // API answers only requests addressed to this machine by name, so a web page cannot reach local-only data through the
 // owner's browser with a rebound DNS name. ALLOWED_HOSTS=name1,name2 adds names (for example a LAN address with HOST=0.0.0.0).
-const ALLOWED_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"].concat((process.env.ALLOWED_HOSTS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)));
+// On Render the service's own public name (RENDER_EXTERNAL_HOSTNAME) is added automatically.
+const ALLOWED_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"].concat(((process.env.ALLOWED_HOSTS || "") + "," + (process.env.RENDER_EXTERNAL_HOSTNAME || "")).split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)));
 function hostAllowed(req) {
   const h = String(req.headers.host || "").toLowerCase();
   const name = h.startsWith("[") ? h.slice(0, h.indexOf("]") + 1) : h.split(":")[0];
   return ALLOWED_HOSTS.has(name);
+}
+
+// A per-client cap on API requests for when the server is reachable from the internet. Upstream sources are already
+// protected by the fabric's caches; this keeps one client from tying up the process. RATE_LIMIT is requests a minute
+// (0 turns it off). Behind a host's proxy the client is the last X-Forwarded-For entry, the one the proxy itself added.
+const hits = new Map();
+function rateLimited(req) {
+  const max = Number(process.env.RATE_LIMIT === undefined ? 240 : process.env.RATE_LIMIT);
+  if (!(max > 0)) return false;
+  const fwd = String(req.headers["x-forwarded-for"] || "").split(",").map((x) => x.trim()).filter(Boolean);
+  const who = (process.env.TRUST_PROXY === "1" && fwd.length ? fwd[fwd.length - 1] : req.socket.remoteAddress) || "?";
+  const now = Date.now();
+  if (hits.size > 5000) for (const [k, v] of hits) if (now - v.at >= 60000) hits.delete(k);
+  let h = hits.get(who);
+  if (!h || now - h.at >= 60000) { h = { at: now, n: 0 }; hits.set(who, h); }
+  return ++h.n > max;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -90,6 +108,9 @@ const server = http.createServer(async (req, res) => {
     let url;
     try { url = new URL(req.url, "http://localhost"); } catch (_) { res.writeHead(400); return res.end("Bad request"); }
     if (url.pathname.startsWith("/api/") && !hostAllowed(req)) return sendJson(res, 403, { error: "host not allowed" });
+    if (url.pathname.startsWith("/api/") && rateLimited(req)) { res.writeHead(429, { "content-type": "application/json; charset=utf-8", "retry-after": "60" }); return res.end('{"error":"too many requests"}'); }
+    // /api/live reads ESPN's scoreboard, which is for local use only (DEC-006): off unless the local scope is on.
+    if (url.pathname === "/api/live" && !scopes().includes("local")) return sendJson(res, 404, { error: "live scores are not available on this server" });
     if (url.pathname === "/api/live") {
       const body = JSON.stringify(await liveGames());
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
@@ -109,7 +130,7 @@ function serveStatic(url, res) {
   if (!file.startsWith(path.join(__dirname, "public"))) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end("Not found"); }
-    res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream" });
+    res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream", "x-content-type-options": "nosniff", "cache-control": "no-cache" });
     res.end(data);
   });
 }

@@ -115,3 +115,11 @@ Record significant decisions with date, status, context, options, decision, rati
 - Context: M8 adds video and podcasts. Channel names are not unique on YouTube; YouTube's live-stream embed form showed "This video is unavailable" in testing even for a channel streaming all day.
 - Decision: channel ids come only from configuration (`shared/teams.json`), each with its evidence level; single videos play click-to-load in the privacy-enhanced player; a channel's live stream is a link to its live page on YouTube; podcasts play the feed's own audio file; nothing is downloaded or re-hosted; no game broadcasts.
 - Consequences: knowing whether a channel is live before opening it needs a YouTube Data API key (owner decision). Ten team channel ids rest on directory listings plus feed content and are worth a manual check from each team's website.
+
+### DEC-018 — Public hosting of the server on Render, public sources only
+- Date: 2026-11-23. Status: Accepted by the owner ("host it where you can do it for me"); the deploy itself needs the owner's Render sign-in.
+- Context: the published page is a static file rebuilt once a day. The owner asked for a dynamic site. `server.js` has no dependencies and is configured by environment variables. DEC-006 limits ESPN's JSON endpoints to personal, local use.
+- Options considered: (1) public host with public sources only; (2) private host with ESPN on; (3) a licensed live feed.
+- Decision: option 1, on Render's free web service plan through `render.yaml`. `FABRIC_SCOPES=public`; `/api/live` answers 404 without the local scope; API requests are capped per client (`RATE_LIMIT`, default 240 a minute); the service's own hostname is allowed automatically (`RENDER_EXTERNAL_HOSTNAME`).
+- Checked on Nov. 23, 2026 (render.com docs): free web services have 512 MB of memory, no persistent disk, 750 instance hours a month per workspace, and spin down after 15 minutes without traffic (about a minute to wake).
+- Consequences: no live scores, same-day injuries or transactions on the hosted site. The fabric's cache and first-seen event times are lost at each spin-down or redeploy, so `seenAt` on the hosted site restarts then; the committed daily event record is unaffected. Each push to `main` (including the daily refresh) redeploys. Revisit option 3 if live scores are wanted publicly.

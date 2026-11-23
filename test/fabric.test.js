@@ -382,7 +382,15 @@ test("server routes answer, validate ids and refuse path tricks", async () => {
     r = await get("/api/nothing"); assert.strictEqual(r.status, 404);
     r = await get("/%2e%2e/server.js"); assert.strictEqual(r.status, 404, "no files outside public/ (URL parsing removes the dots before the guard)");
     r = await get("/"); assert.strictEqual(r.status, 200); assert.ok(/text\/html/.test(r.type));
-  } finally { await new Promise((ok) => srv.server.close(ok)); srv.setFabric(null); }
+    // public hosting: no ESPN scoreboard without the local scope, and a per-client request cap
+    process.env.FABRIC_SCOPES = "public";
+    r = await get("/api/live"); assert.strictEqual(r.status, 404, "/api/live is off without the local scope");
+    process.env.RATE_LIMIT = "3";
+    const codes = [];
+    for (let i = 0; i < 300; i++) { codes.push((await get("/api/health")).status); if (codes[i] === 429) break; }
+    assert.strictEqual(codes[codes.length - 1], 429, "the request cap answers 429");
+    r = await get("/"); assert.strictEqual(r.status, 200, "the page itself is not rate limited");
+  } finally { delete process.env.FABRIC_SCOPES; delete process.env.RATE_LIMIT; await new Promise((ok) => srv.server.close(ok)); srv.setFabric(null); }
 });
 test("YouTube feeds: video ids checked, Shorts and press conferences recognised, teams matched", () => {
   const c = { team: "BUF", name: "Buffalo Bills", channelId: "UCcEvCxUe2Sm5W6MliEUv0vg" };
