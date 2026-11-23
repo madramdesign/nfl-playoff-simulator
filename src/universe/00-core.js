@@ -112,7 +112,7 @@ function filterByTime(items, range, now) {
 // ---- URL state ----
 var VIEWS = ["universe", "sim"];
 var MAP_MODES = ["geo", "div", "intel"];
-var URL_KEYS = ["view", "mode", "layers", "timeRange", "focus", "team", "game"];
+var URL_KEYS = ["view", "mode", "layers", "timeRange", "focus", "team", "game", "asOf"];   // asOf: [S-C time machine]
 var GAME_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 var LAYER_ID_RE = /^[a-z][a-z0-9-]{0,23}$/;
 
@@ -153,6 +153,8 @@ function sanitizeState(raw, allow) {
     if (allow.focus ? allow.focus.indexOf(f) >= 0 : /^[A-Z]{2,3}(-[A-Z]{4,5})?$/.test(f)) out.focus = f;
   }
   if (typeof raw.game === "string" && GAME_ID_RE.test(raw.game)) out.game = raw.game;
+  // [S-C time machine] replay time: strict ISO minute in UTC, never in the future (parseAsOf, 18-history.js; allow.now for tests)
+  if (raw.asOf != null) { var ao = parseAsOf(raw.asOf, allow.now); if (ao) out.asOf = ao; }
   return out;
 }
 function parseUrlState(search, allow) { return sanitizeState(parseQuery(search), allow); }
