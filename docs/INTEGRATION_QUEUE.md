@@ -29,5 +29,5 @@
 | 1 | S-A tiebreakers | `worktree-agent-a46ce6d7bb3789620` (`9d22ae8`) | diff read by the orchestrator; `npm test` after merge | yes, Nov. 23 |
 | 2 | S-B calibration | `worktree-agent-a71a23f748c18a6f0` (`8e8fe41`) | diff read by the orchestrator; `npm test` after merge | yes, Nov. 23 |
 | 3 | S-D intelligence depth | agent worktree | pending | no |
-| 4 | S-C time machine | agent worktree | pending | no |
+| 4 | S-C time machine | `worktree-agent-aad54c9f774786bcb` (`552d48f`) | shared-file diffs read by the orchestrator; `npm test` and a browser check after merge | yes, Nov. 23 (before S-D, which was still running) |
 
