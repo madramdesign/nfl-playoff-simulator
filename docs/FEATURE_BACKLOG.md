@@ -19,7 +19,7 @@
 
 ## FEATURE-F01 — Snapshot carry-forward and refresh health
 
-Status: Ready
+Status: Parts 1 and 2 done (Nov. 23, `lib/fabric/carry.js`, `scripts/fabric-snapshot.js`, `data/fabric/runs.json`); parts 3 (backup workflow) and 4 (notification) open
 Priority: P0 · Score 79.2 · Size S
 Category: Reliability / Automation
 Tag: EXISTING—IMPROVE (`scripts/fabric-snapshot.js`)

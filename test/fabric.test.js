@@ -460,6 +460,70 @@ test("each new source can fail alone", async () => {
   assert.ok(noDepth.injuries.NYG.depthAsOf === null && noDepth.injuries.NYG.players.every((x) => x.starterSource !== "depth chart"), "no depth chart: the older starter rules apply");
   assert.strictEqual(noDepth.injuries.NYG.players.find((x) => x.name === "Fixture Passer").starter, true, "the last starting quarterback is still known");
 });
+test("daily snapshot: a failed source keeps yesterday's part, shown stale with its true age (F01)", async () => {
+  const { carryForward, MAX_AGE_DAYS } = require(path.join(root, "lib/fabric/carry.js"));
+  // the second run two hours later, while the fixture's games are still ahead (so weather is still requested)
+  const t0 = Date.parse("2026-11-22T09:37:00Z"), t1 = t0 + 2 * 3600000, DOWN = new Set(["yahoo", "espn.com/espn/rss", "open-meteo", "youtube.com/feeds", "omnycontent", "api.sleeper.app"]);
+  const prev = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t0, fetchImpl: fakeFetch() }).universe({ fresh: true });
+  const next = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t1, fetchImpl: fakeFetch(DOWN) }).universe({ fresh: true });
+  const ids = ["rss-yahoo", "rss-espn", "open-meteo", "youtube-official", "podcasts-nfl", "sleeper-trending"];
+  assert.ok(ids.every((id) => next.sources[id].status === "down") && !next.fantasy && !next.events.some((e) => e.source === "rss-yahoo"),
+    "the failing run lost those sources: " + JSON.stringify(ids.map((id) => id + " " + next.sources[id].status)) + " fantasy " + !!next.fantasy);
+  const before = JSON.stringify(next);
+  const { u, carried, tooOld } = carryForward(prev, next, t1);
+  assert.strictEqual(JSON.stringify(next), before, "the run's own payload is not changed");
+  assert.deepStrictEqual(carried.slice().sort(), ids.slice().sort());
+  assert.deepStrictEqual(tooOld, []);
+  for (const id of ids) {
+    const s = u.sources[id];
+    assert.ok(s.status === "stale" && s.lastOk === prev.sources[id].lastOk && s.ageSec === 7200 && s.carriedFrom === prev.generatedAt, id + ": stale, original lastOk, true age");
+  }
+  assert.ok(u.events.some((e) => e.source === "rss-yahoo") && u.events.some((e) => e.source === "open-meteo"), "headlines and weather flags carried");
+  assert.ok(u.games.some((g) => g.weather && g.weather.source === "open-meteo"), "game weather carried");
+  assert.ok(u.media.videos.length === prev.media.videos.length && u.media.podcasts.length === prev.media.podcasts.length, "videos and episodes carried");
+  assert.deepStrictEqual(u.fantasy, prev.fantasy, "fantasy trends carried");
+  assert.ok(u.sources["nflverse-games"].status === "ok" && u.generatedAt === next.generatedAt, "working sources and the run's own time are untouched");
+  const k = u.events.findIndex((e) => e.data.beforeWatch);
+  assert.ok(k < 0 || u.events.slice(k).every((e) => e.data.beforeWatch), "carried events keep the feed's order");
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), [], "still a valid public snapshot");
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  // too old: nothing carried, the source stays down
+  const late = carryForward(prev, next, t0 + (MAX_AGE_DAYS + 1) * 86400000);
+  assert.deepStrictEqual(late.carried, []);
+  assert.deepStrictEqual(late.tooOld.slice().sort(), ids.slice().sort());
+  assert.ok(ids.every((id) => late.u.sources[id].status === "down") && !late.u.fantasy, "too old to carry: shown as down");
+  // nothing to carry from, or nothing to carry
+  assert.deepStrictEqual(carryForward(null, next, t1).carried, []);
+  assert.deepStrictEqual(carryForward(prev, prev, t1).carried, [], "a run with every source working carries nothing");
+  const badPrev = JSON.parse(JSON.stringify(prev)); badPrev.sources["rss-yahoo"].status = "down"; badPrev.sources["sleeper-trending"].scope = "local";
+  const partial = carryForward(badPrev, next, t1).carried;
+  assert.ok(!partial.includes("rss-yahoo") && !partial.includes("sleeper-trending") && partial.includes("rss-espn"), "never from a source that was itself down, never from a local source");
+});
+test("the snapshot script keeps yesterday's data through a failed run and reports it", async () => {
+  const os = require("os"), fs = require("fs");
+  const { writeSnapshot } = require(path.join(root, "scripts/fabric-snapshot.js"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-snap-")), quiet = () => {};
+  try {
+    const t0 = Date.parse("2026-11-22T09:37:00Z"), t1 = t0 + 2 * 3600000;
+    const fab = (t, broken) => createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t, fetchImpl: fakeFetch(broken) });
+    const r0 = await writeSnapshot({ fabric: fab(t0), dir, now: () => t0, log: quiet, warn: quiet });
+    assert.ok(r0 && r0.carried.length === 0 && r0.down.length === 0, "a good run carries nothing");
+    const good = JSON.parse(fs.readFileSync(path.join(dir, "latest.json"), "utf8"));
+    const r1 = await writeSnapshot({ fabric: fab(t1, new Set(["yahoo", "espn.com/espn/rss", "youtube.com/feeds"])), dir, now: () => t1, log: quiet, warn: quiet });
+    const snap = JSON.parse(fs.readFileSync(path.join(dir, "latest.json"), "utf8"));
+    assert.deepStrictEqual(r1.carried.slice().sort(), ["rss-espn", "rss-yahoo", "youtube-official"]);
+    assert.ok(snap.sources["rss-yahoo"].status === "stale" && snap.sources["rss-yahoo"].lastOk === good.sources["rss-yahoo"].lastOk, "published as stale with its old time");
+    assert.ok(snap.events.some((e) => e.source === "rss-yahoo") && snap.media.videos.length === good.media.videos.length, "headlines and videos kept");
+    assert.deepStrictEqual(C.validatePublicSnapshot(snap, T), []);
+    const runs = JSON.parse(fs.readFileSync(path.join(dir, "runs.json"), "utf8"));
+    assert.ok(runs.length === 2 && runs[1].carried.length === 3 && runs[1].stale.includes("rss-yahoo") && runs[1].at === new Date(t1).toISOString(), "both runs reported, the second with what it carried");
+    const day = JSON.parse(fs.readFileSync(path.join(dir, "events", "2026-11-22.json"), "utf8"));
+    assert.ok(day.events.length > 0 && day.events.length === new Set(day.events.map((e) => e.id)).size, "the day's event record has no duplicates after the second run");
+    fs.writeFileSync(path.join(dir, "runs.json"), "not json");
+    await writeSnapshot({ fabric: fab(t1), dir, now: () => t1, log: quiet, warn: quiet });
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "runs.json"), "utf8")).length, 1, "a broken run report is started again, not a reason to fail");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("the contract checks the fantasy block", () => {
   const ok = { v: 1, generatedAt: "2026-11-22T00:00:00Z", season: 2026, week: 11, seasonType: "regular", sources: { "sleeper-trending": { id: "sleeper-trending", label: "x", tier: 2, scope: "public", status: "ok", breaker: "closed", lastOk: null, lastError: null, ageSec: 0, latencyMs: 1, fails: 0, records: 1, maxStaleSec: 1 } },
     games: [], events: [], injuries: {}, transactions: [], fantasy: { source: "sleeper-trending", lookbackHours: 24, week: 11, adds: [{ name: "A", team: "NYG", pos: "QB", count: 5, sleeperId: "1" }], drops: [], unmatched: { adds: 0, drops: 0 } } };

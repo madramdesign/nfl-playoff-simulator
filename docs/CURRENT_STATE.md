@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -129,13 +129,19 @@
 ## Nov. 23, 2026: feature research (docs only, no code changed)
 - New living documents: `FEATURE_RESEARCH.md` (baseline, competitors, open-source, technology and data research, scoring of 39 candidates, top 20, top 5, rejected ideas), `FEATURE_BACKLOG.md` (one entry per candidate), `FEATURE_ROADMAP.md` (P0–P2 and order).
 - Found while researching:
-  - The Nov. 23 refresh published a degraded public snapshot. Open-Meteo, both RSS feeds, YouTube and podcasts all failed with `fetch failed`, and the run overwrote the previous good data. There is no event file for Nov. 22. Backlog F01.
+  - The Nov. 23 refresh published a degraded public snapshot. Open-Meteo, both RSS feeds, YouTube and podcasts all failed with `fetch failed`, and the run overwrote the previous good data. There is no event file for Nov. 22. Backlog F01, fixed on Nov. 23 (see below).
+
+## Nov. 23 (on `main`): the snapshot keeps a failed source's data (F01, parts 1 and 2)
+- `lib/fabric/carry.js`: in the daily snapshot, a public source that fails for the whole run keeps its part of the previous published snapshot (headlines, weather, injuries, games, videos, episodes, fantasy trends), reported `stale` with its original `lastOk`, its true age and `carriedFrom`. Never from a local source, never older than 7 days; sources that only shape other parts (depth charts, the roster crosswalk) are not carried, and their parts fall back to the older rules.
+- `scripts/fabric-snapshot.js` keeps a report of its last 60 runs in `data/fabric/runs.json` (ok, stale, down, carried, events added) and logs what it carried. The daily refresh must commit `data/fabric/runs.json` along with `latest.json` and the event file for the report to survive between runs.
+- Checked: 2 new fabric tests (the merge, and the script end to end in a temporary folder), five deliberately broken versions each caught; a real run with Yahoo's feed made to fail kept 47 Yahoo headlines, shown stale.
+- Not done: F01 parts 3 (a public-only GitHub Actions backup refresh) and 4 (telling the owner when two or more sources fail).
   - Small robustness and security fixes, listed in backlog F31.
   - The "Model" feed filter can never show anything: nothing emits `model` or `playoff_move` events (F22).
 
 ## Next actions
 1. Confirm the heartbeat during a real game (kickoff and score events without the "~" estimate mark) and follow a game through to its final.
-2. Then Phase 1 of `FEATURE_ROADMAP.md`, starting with F01 (snapshot carry-forward) and F31. Then P0 differentiators F02, F04, F05 and F08 within M4 and M5 of `MASTER_PLAN.md`.
+2. Then Phase 1 of `FEATURE_ROADMAP.md`: the rest of F01 (backup workflow, notification) and F31. Then P0 differentiators F02, F04, F05 and F08 within M4 and M5 of `MASTER_PLAN.md`.
 
 ## Commands actually run (this session)
 | Command | Result |

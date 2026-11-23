@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-23 (daily snapshot keeps a failed source's data: F01)
+- A public source that fails for a whole snapshot run keeps its part of the previous published snapshot, reported stale with its original time and true age, instead of vanishing from the published page (as weather, headlines, YouTube and podcasts did on Nov. 23). Never from a local source, never older than 7 days.
+- The snapshot script keeps a report of its last 60 runs in `data/fabric/runs.json` and logs what it carried.
+
 ## 2026-11-23 (new sources: depth charts, player crosswalk, Sleeper trends)
 - Three free, keyless sources wired into the data fabric, all public scope: nflverse depth charts (`nflverse-depth`, the newest snapshot per team from an 80 MB season file, every 12 hours), nflverse weekly rosters (`nflverse-rosters`, the player crosswalk across nflverse, ESPN and Sleeper ids) and Sleeper's trending players (`sleeper-trending`, 24-hour adds and drops, hourly).
 - Injured players are now marked starter or backup from their team's current depth chart, matched by player id (142 of 143 on Nov. 23); the descriptive injury burden uses it. The page labels each injured player and says where the label comes from.
