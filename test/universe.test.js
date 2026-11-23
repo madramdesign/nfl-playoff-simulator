@@ -444,5 +444,174 @@ eq([U.podcastAction(pPlay, false), U.podcastAction(pPlay, true), U.podcastAction
   eq(U.feedEmptyText([], "24h", "", U.replayRangePhrase("24h", "Nov 22, 1:00 PM")), "No events in the 24 hours before Nov 22, 1:00 PM.", "the feed's empty message is worded from the replay time");
   eq(U.feedEmptyText([], "24h", ""), "No events in the last 24 hours.", "and unchanged otherwise");
 }
+// ==== S-D intelligence depth (src/universe/17-watch.js): watchlist alerts, what changed, conflicting reports. Self-contained block. ====
+{
+  const W = U.WATCH, T0 = Date.parse("2026-11-23T12:00:00Z"), MIN = 60e3, DAY = 24 * H, iBUF = idx("BUF"), iNYG = idx("NYG"), iKC = idx("KC");
+  let seq = 0;
+  const mk = (o) => Object.assign({ id: "t-" + (++seq), type: "news", ts: T0, seen: T0 + MIN, teams: [iBUF], title: "Item " + seq, url: null, publisher: "Pub", importance: 80, dateOnly: false, origin: "feed" }, o);
+  const watching = (...abbrs) => U.sanitizeWatch({ since: T0, teams: abbrs.map((a) => ({ a, at: T0 })) });
+  const base = watching("BUF");
+
+  // -- first visit: the baseline is "now" and nothing alerts, then or later, for what was already there --
+  const fresh = U.toggleWatch(U.emptyWatch(), "BUF", T0 - 10 * MIN), firstEvs = [mk({ seen: T0 - MIN }), mk({ seen: T0 + MIN })];
+  const first = U.planAlerts(firstEvs, fresh, T0, {});
+  eq([first.fired.length, first.merged.length, first.state.alerts.length, first.state.since], [0, 0, 0, T0], "first visit: the baseline becomes now and nothing alerts");
+  eq(U.planAlerts(firstEvs, first.state, T0 + 5 * MIN, {}).fired.length, 0, "and what was on the page at the first visit never alerts afterwards");
+  eq(U.planAlerts([mk({ seen: T0 - MIN })], base, T0 + MIN, {}).state, base, "an item first seen before the baseline is ignored and leaves the state untouched");
+
+  // -- dedupe: once per event id, also after a reload --
+  const e1 = mk({ title: "Bills place tackle on injured reserve", type: "transaction", importance: null });
+  const r1 = U.planAlerts([e1], base, T0 + 2 * MIN, {});
+  eq([r1.fired.length, r1.fired[0].team, r1.fired[0].count, r1.fired[0].title, r1.fired[0].read], [1, "BUF", 1, e1.title, false], "a new item for a watched team raises one alert carrying the source's own headline");
+  const r2 = U.planAlerts([e1], r1.state, T0 + 30 * MIN, {});
+  ok(r2.fired.length === 0 && r2.merged.length === 0 && r2.state === r1.state, "the same event id never alerts twice");
+  const reloaded = U.sanitizeWatch(JSON.parse(JSON.stringify(r1.state)));
+  eq(reloaded, r1.state, "the stored state survives a save and reload unchanged");
+  eq(U.planAlerts([e1], reloaded, T0 + DAY, {}).fired.length, 0, "and the event stays silent after a reload");
+  eq([U.unreadCount(r1.state), U.unreadCount(U.markRead(r1.state, r1.fired[0].id)), U.unreadCount(U.markRead(r1.state, "nope")), U.clearAlerts(r1.state).alerts.length], [1, 0, 1, 0], "unread count, mark read and clear");
+  eq(U.alertText(r1.fired[0]).head, "New for the Bills: transaction", "a single alert names the team and the kind");
+
+  // -- cooldown: a burst for one team is one alert that says how many --
+  const burst = [mk({ importance: 72 }), mk({ type: "injury", importance: 30, title: "Lead by type alone" }), mk({ type: "qb_change", importance: 91, title: "Most important item" })];
+  const b1 = U.planAlerts(burst, base, T0 + 2 * MIN, {});
+  eq([b1.fired.length, b1.fired[0].count, b1.fired[0].title, b1.state.alerts.length], [1, 3, "Most important item", 1], "three items for one team in one pass collapse into one alert led by the most important");
+  eq(U.alertText(b1.fired[0]).head, "3 new items for the Bills", "and the alert says how many");
+  const b2 = U.planAlerts(burst.concat([mk({ type: "injury", importance: 20 })]), U.markRead(b1.state, null), T0 + 7 * MIN, {});
+  eq([b2.fired.length, b2.merged.length, b2.state.alerts.length, b2.state.alerts[0].count, b2.state.alerts[0].read, b2.state.alerts[0].title], [0, 1, 1, 4, false, "Most important item"], "inside the cooldown a later item joins the same alert (count 4, unread again) without a new toast");
+  const b3 = U.planAlerts([mk({ type: "injury" })], b2.state, T0 + 2 * MIN + W.COOLDOWN_MS, {});
+  eq([b3.fired.length, b3.state.alerts.length, b3.state.alerts[0].count], [1, 2, 1], "after the cooldown the next item raises a new alert");
+  const two = U.planAlerts([mk({ teams: [iBUF, iKC] }), mk({ teams: [iKC] }), mk({ teams: [iNYG] })], watching("BUF", "KC"), T0 + 2 * MIN, {});
+  eq(two.fired.map((a) => [a.team, a.count]), [["BUF", 1], ["KC", 1]], "the cooldown is per team; an item tagged with two watched teams fires once; an unwatched team stays silent");
+
+  // -- importance and type rules --
+  eq([mk({ importance: W.MIN_IMPORTANCE - 1 }), mk({ importance: W.MIN_IMPORTANCE }), mk({ importance: null }), mk({ type: "game", importance: 45 }), mk({ type: "injury", importance: 5 }),
+    mk({ type: "transaction", importance: null }), mk({ type: "qb_change", importance: null }), mk({ type: "weather", importance: 99 })].map(U.alertWorthy),
+  [false, true, false, false, true, true, true, true], "injuries, quarterback changes and transactions always count; anything else needs the breaking score");
+  ok(W.MIN_IMPORTANCE === U.BREAKING_MIN && W.TYPES.join() === "injury,qb_change,transaction", "the threshold is the feed's own breaking score");
+  const quiet = U.planAlerts([mk({ importance: 40 }), mk({ type: "game", importance: 45 })], base, T0 + 2 * MIN, {});
+  eq([quiet.fired.length, quiet.state.seen.length], [0, 2], "low-importance news raises nothing but is remembered as seen");
+
+  // -- watching starts when the star is set; stale items stay silent --
+  const eKC = mk({ teams: [iKC], type: "injury" }), unw = U.planAlerts([eKC], base, T0 + 2 * MIN, {});
+  const starred = U.toggleWatch(unw.state, "KC", T0 + 3 * MIN);
+  eq([unw.fired.length, U.planAlerts([eKC], starred, T0 + 4 * MIN, {}).fired.length], [0, 0], "an item seen before its team was starred does not alert once it is");
+  eq(U.planAlerts([mk({ teams: [iKC], type: "injury", seen: T0 + 2 * MIN })], U.toggleWatch(base, "KC", T0 + 3 * MIN), T0 + 4 * MIN, {}).fired.length, 0, "nor does an unseen item first seen before the star");
+  eq(U.planAlerts([mk({ teams: [iKC], type: "injury", seen: T0 + 5 * MIN })], starred, T0 + 6 * MIN, {}).fired.map((a) => a.team), ["KC"], "one first seen after the star does");
+  ok(U.isWatched(starred, "KC") && !U.isWatched(U.toggleWatch(starred, "KC", T0), "KC") && U.toggleWatch(base, "XXX", T0) === base, "toggling stars and unstars; an unknown team is ignored");
+  eq(U.planAlerts([mk({ type: "injury", ts: T0 - W.MAX_AGE_MS - H })], base, T0 + 2 * MIN, {}).fired.length, 0, "an item that happened more than a week ago is stale and does not alert, even when newly seen");
+
+  // -- fixture data never alerts (and the same data without the fixture mark would) --
+  const old = U.sanitizeWatch({ since: Date.parse("2026-11-20T00:00:00Z"), teams: [{ a: "NYG", at: Date.parse("2026-11-20T00:00:00Z") }] });
+  const fx = U.planAlerts(MF.events, old, now, { fixture: MF.fixture });
+  ok(MF.fixture === true && fx.fired.length === 0 && fx.state === old, "fixture data raises no alert and is not remembered");
+  const nfx = U.planAlerts(M.events, old, now, { fixture: M.fixture });
+  ok(M.fixture === false && nfx.fired.length === 1 && nfx.fired[0].team === "NYG" && nfx.fired[0].title === "Fixture QB One (QB) listed Out", "the same items without the fixture mark alert, led by the most important");
+
+  // -- the seen set is bounded, and what leaves it cannot alert again --
+  const many = []; for (let k = 0; k < W.SEEN_CAP + 100; k++) many.push(mk({ id: "bulk-" + k, type: "injury", seen: T0 + (k + 1) * 1000, ts: T0 }));
+  const big = U.planAlerts(many, base, T0 + H, {});
+  eq([big.state.seen.length, big.state.since, big.fired.length, big.fired[0].count], [W.SEEN_CAP, T0 + 100 * 1000, 1, W.SEEN_CAP + 100], "the seen set is capped; the baseline moves up to the newest id dropped");
+  const again = U.planAlerts(many, big.state, T0 + 2 * H, {});
+  ok(again.fired.length === 0 && again.merged.length === 0 && again.state === big.state, "ids dropped from the bounded set never alert again");
+  let cap = base; for (let k = 0; k < W.ALERT_CAP + 5; k++) cap = U.planAlerts([mk({ type: "injury", seen: T0 + H + k })], cap, T0 + H + k * (W.COOLDOWN_MS + 1), {}).state;
+  eq(cap.alerts.length, W.ALERT_CAP, "the alert list is bounded too");
+
+  // -- the page's own dated news: keyed by link (its ids are list positions), counted through the end of its day --
+  const pg = (id) => mk({ id, origin: "page", url: "https://example.com/story", type: "qb_change", importance: null, dateOnly: true, ts: Date.parse("2026-11-23T00:00:00Z"), seen: Date.parse("2026-11-23T00:00:00Z") });
+  const pg1 = U.planAlerts([pg("page-news-0")], base, T0 + MIN, {});
+  eq([pg1.fired.length, U.planAlerts([pg("page-news-1")], pg1.state, T0 + H, {}).fired.length], [1, 0], "a curated item dated today alerts once, and not again when its list position changes");
+
+  // -- stored state is untrusted --
+  eq(U.sanitizeWatch("x"), U.emptyWatch(), "garbage becomes an empty watchlist");
+  const dirty = U.sanitizeWatch({ since: "soon", teams: [{ a: "BUF", at: 1 }, { a: "BUF", at: 2 }, { a: "constructor" }, { a: "XXX" }, null], seen: [["a", 1], ["a", 2], ["b", "x"], "c", ["d".repeat(999), 3]], cool: { BUF: 5, KC: 6, __proto__: 7 },
+    alerts: [{ team: "BUF", at: 9, title: "t", url: "javascript:alert(1)", type: "bogus", count: -3 }, { team: "XXX", at: 9, title: "t" }, { team: "BUF", at: 9 }, null] });
+  eq(dirty, { teams: [{ a: "BUF", at: 1 }], since: null, seen: [["a", 1]], cool: { BUF: 5 }, alerts: [{ id: "a9-BUF", team: "BUF", at: 9, count: 1, type: "news", title: "t", url: null, publisher: "", imp: null, ts: null, dateOnly: false, read: false }] },
+    "unknown teams, duplicates, bad shapes and unsafe links are dropped from stored state");
+
+  // -- visits --
+  const poRec = { at: now - 3 * H, mode: 2, n: 10000, v: E.TM.map(() => 0.5) };
+  eq(U.rollVisit(undefined, now), { last: now, prev: null, po: null, prevPo: null }, "a first visit has no earlier visit");
+  eq(U.rollVisit({ last: now - 3 * H, po: poRec }, now), { last: now, prev: now - 3 * H, po: null, prevPo: poRec }, "coming back later makes the previous visit the baseline and keeps its simulation");
+  eq(U.rollVisit({ last: now - 5 * MIN, prev: 123, po: poRec, prevPo: null }, now), { last: now, prev: 123, po: poRec, prevPo: null }, "a reload within the same visit keeps the earlier baseline");
+  eq(U.rollVisit({ last: now + DAY, po: { at: 1, mode: 7, v: [] } }, now).prev, null, "a time from the future or a malformed record is not trusted");
+
+  // -- what changed: grouping by type, in the window and the focus --
+  const liveMetaWC = { has: true, origin: "live", generatedAt: now, fetchedAt: now, fails: 0, fixture: false };
+  const wc = (o) => U.whatChanged(Object.assign({ win: "24h", now, visit: { prev: null }, events: M.events, focus: null, meta: liveMetaWC, sim: null, prev: E.D.prev, history: E.D.history }, o));
+  const in24 = M.events.filter((e) => e.ts >= now - DAY && e.ts <= now + 5 * MIN), c24 = wc({});
+  const countBy = (list) => { const o = {}; list.forEach((e) => { o[e.type] = (o[e.type] || 0) + 1; }); return o; };
+  ok(in24.length > 3 && c24.events.state === "ok" && c24.events.total === in24.length, "24 hours: every event in the window is counted (" + in24.length + ")");
+  eq(Object.fromEntries(c24.events.groups.map((g) => [g.type, g.count])), countBy(in24), "and grouped by type with the right counts");
+  const order = ["qb_change", "injury", "transaction", "news", "odds_move", "game", "weather", "playoff_move", "model"];
+  ok(c24.events.groups.every((g, k, a) => k === 0 || order.indexOf(a[k - 1].type) < order.indexOf(g.type)) && c24.events.groups.every((g) => g.top.length === Math.min(3, g.count) && g.top.every((e, k) => k === 0 || (g.top[k - 1].importance || -1) >= (e.importance || -1))),
+    "groups come in a fixed order, each with its three most important items");
+  eq([c24.scope.label, c24.scope.level, c24.since], ["NFL", "league", now - DAY], "no focus is labelled NFL");
+  const cNYG = wc({ focus: "NYG" }), expNYG = in24.filter((e) => e.teams.includes(iNYG));
+  eq([cNYG.scope.label, cNYG.scope.level, cNYG.events.total], ["New York Giants", "team", expNYG.length], "a focus narrows the events and is labelled");
+  eq(Object.fromEntries(cNYG.events.groups.map((g) => [g.type, g.count])), countBy(U.focusEvents(in24, U.focusSet("NYG"))), "by the same rule as the rest of the page (focusEvents)");
+  const cAFC = wc({ focus: "AFC", win: "7d" });
+  ok(cAFC.scope.label === "AFC" && cAFC.events.total === U.focusEvents(M.events.filter((e) => e.ts >= now - 7 * DAY && e.ts <= now + 5 * MIN), U.focusSet("AFC")).length && cAFC.events.total < wc({ win: "7d" }).events.total, "a conference focus with the 7-day window composes the same way");
+
+  // -- what changed: no dated data is said, not shown as zero --
+  const cFirst = wc({ win: "visit", sim: { po: E.D.prev.playoffs, mode: 2, n: 1 } });
+  eq([cFirst.since, cFirst.events.state, cFirst.events.total, cFirst.forecast.state, cFirst.forecast.why], [null, "no-baseline", 0, "no-baseline", "first-visit"], "since my last visit with no earlier visit: nothing to compare with, for events and forecast alike");
+  const vPrev = now - 2 * H, cVisit = wc({ win: "visit", visit: { prev: vPrev } });
+  eq(cVisit.events.total, M.events.filter((e) => (e.dateOnly ? e.seen + DAY - 1 : e.seen) > vPrev).length, "since my last visit counts what was first seen after it");
+  ok(cVisit.events.total > 0 && cVisit.events.total < M.events.length, "which is some of the events, not all");
+  const snapMeta = (age) => ({ has: true, origin: "snapshot", generatedAt: now - age, fetchedAt: null, fails: 0, fixture: false });
+  eq([wc({ events: [], meta: snapMeta(3 * DAY) }).events.state, wc({ events: [], meta: snapMeta(2 * H) }).events.state, wc({ events: [], meta: snapMeta(2 * H) }).events.partial, wc({ events: [] }).events.state, wc({ events: [], meta: { has: false } }).events.state],
+    ["not-covered", "none", true, "none", "no-feed"], "an empty window reads: snapshot older than the window, covered up to the snapshot, nothing new (live), or no feed at all");
+  ok(wc({ meta: snapMeta(2 * H) }).events.state === "ok" && wc({ meta: snapMeta(2 * H) }).events.partial === true && c24.events.partial === false, "a snapshot inside the window is marked as covering only part of it");
+  eq(wc({ meta: Object.assign({}, liveMetaWC, { fixture: true }) }).fixture, true, "fixture data is carried through for the label");
+
+  // -- what changed: playoff movement against a dated forecast --
+  ok(E.D.prev && E.D.prev.date === "2026-11-21" && E.D.history && E.D.history.po.length >= 2, "the pinned data carries a saved forecast dated Nov. 21 and a weekly history");
+  const poNow = E.D.prev.playoffs.slice(); poNow[iNYG] = Math.max(0, poNow[iNYG] - 0.1); poNow[iKC] += poNow[iKC] > 0.5 ? -0.01 : 0.01;
+  const simNow = { po: poNow, mode: 2, n: 10000 }, f24 = wc({ sim: simNow }).forecast;
+  eq([f24.state, f24.baseline.kind, f24.baseline.rel, f24.moved, f24.movers.map((m) => m.team), f24.noise, f24.modeDiffers], ["ok", "saved", "start", 2, [iNYG, iKC], false, false], "24 hours: compared with the forecast saved the day the window starts; the movers are exactly the teams that moved");
+  ok(Math.abs(f24.movers[0].delta + 0.1) < 1e-9 && f24.movers[0].from === E.D.prev.playoffs[iNYG], "with the saved and current values");
+  const fKC = wc({ sim: simNow, focus: "KC" }).forecast;
+  eq([fKC.movers.map((m) => m.team), fKC.noise], [[iKC], true], "the focus narrows the movers; a one-point move is flagged as simulation noise");
+  eq(wc({ sim: simNow, focus: "BUF" }).forecast.movers, [], "a team that did not move is not listed");
+  const f7 = wc({ sim: simNow, win: "7d" });
+  eq([f7.forecast.state, f7.forecast.baseline.rel], ["ok", "inside"], "7 days: the saved forecast is from inside the window, and says so");
+  const Hh = E.D.history, hk = Hh.po.length; let hBest = -1, hMax = 0;
+  for (let t = 0; t < E.TM.length; t++) { const d = Math.abs(Hh.po[hk - 1][t] - Hh.po[hk - 2][t]); if (d > hMax) { hMax = d; hBest = t; } }
+  eq([f7.weekly.week, f7.weekly.prevWeek, f7.weekly.movers[0].team], [Hh.weeks[hk - 1], Hh.weeks[hk - 2], hBest], "7 days also lists the last weekly step, recomputed here from the history");
+  ok(wc({ sim: simNow }).weekly === null && wc({ sim: simNow, win: "7d", history: null }).weekly === null, "the weekly step is not offered for other windows or without a history");
+  const fV = wc({ sim: simNow, win: "visit", visit: { prev: now - H } }).forecast;
+  eq([fV.state, fV.why, fV.baseline.kind], ["no-baseline", "too-far", "saved"], "a visit an hour ago: the day-old saved forecast is too far from the window, so no movement is claimed");
+  const vPo = { at: now - H - 5 * MIN, mode: 2, n: 10000, v: E.D.prev.playoffs.slice() };
+  const fV2 = wc({ sim: simNow, win: "visit", visit: { prev: now - H, prevPo: vPo } }).forecast;
+  eq([fV2.state, fV2.baseline.kind, fV2.baseline.rel, fV2.movers[0].team], ["ok", "visit", "start", iNYG], "with the simulation kept from that visit, the comparison is against it");
+  eq(wc({ sim: simNow, win: "visit", visit: { prev: now - H, prevPo: Object.assign({}, vPo, { mode: 1 }) } }).forecast.state, "no-baseline", "a kept simulation in another win-chance mode is not compared");
+  eq([wc({ sim: simNow, prev: null }).forecast, wc({}).forecast, wc({ sim: simNow, prev: { date: "bad", playoffs: [] } }).forecast], [{ state: "no-baseline", why: "none" }, { state: "waiting" }, { state: "no-baseline", why: "none" }],
+    "no dated forecast on the page, or no simulation yet, is stated rather than shown as no movement");
+  const older = U.pickBaseline([{ kind: "saved", lo: now - 3 * DAY, hi: now - 2 * DAY, dateOnly: true, po: [], mode: 2 }], now - DAY, now);
+  eq([older.rel, older.tooFar, U.pickBaseline([], now - DAY, now), U.pickBaseline([older], null, now)], ["older", false, null, null], "a forecast from before the window is used and marked older; none, or no window start, gives nothing");
+
+  // -- conflicting injury reports: both kept, neither chosen --
+  const two2 = JSON.parse(JSON.stringify(live)), corner = two2.injuries.NYG.players.find((p) => p.name === "Fixture Corner");
+  corner.also = { source: "nflverse-injuries", status: "Questionable", practice: "Limited Participation in Practice", week: 12 }; corner.disagree = true;   // exactly what lib/fabric/index.js writes
+  const v2 = U.injuryReports(corner, two2.sources);
+  eq(v2, { name: "Fixture Corner", pos: "CB", agree: false, reports: [{ source: "espn-injuries", publisher: "ESPN", status: "Out", detail: "Hamstring" },
+    { source: "nflverse-injuries", publisher: "nflverse", status: "Questionable", detail: "week 12 report · practice: Limited Participation in Practice" }] }, "a disagreeing injury keeps both reports, each with its publisher and status");
+  ok(Object.keys(v2).sort().join() === "agree,name,pos,reports" && v2.reports.length === 2 && v2.reports[0].status !== v2.reports[1].status, "and no field picks a winner or merges the two statuses");
+  const same = Object.assign({}, corner, { disagree: undefined, also: Object.assign({}, corner.also, { status: "Out" }) });
+  ok(U.injuryReports(same, two2.sources).agree === true && U.injuryReports(two2.injuries.NYG.players[0], two2.sources) === null && U.injuryReports({ name: "x", also: "nflverse" }, {}) === null && U.injuryReports(null) === null,
+    "matching reports are marked as agreeing; one report alone, or a malformed second one, gives no comparison");
+  eq(U.injuryReports({ name: "x", source: "mystery-src", status: "Out", also: {} }, {}).reports.map((r) => [r.publisher, r.status]), [["mystery-src", "Out"], ["unnamed source", "status not given"]], "a missing publisher or status is said, not guessed");
+  eq(U.injuryCompareSummary(two2.injuries.NYG, two2.sources), { sources: ["nflverse", "ESPN"], comparable: true, both: 1, differ: 1 }, "team summary: two sources, one player in both, one differing");
+  const pubTeam = Object.keys(pubLive.injuries)[0];
+  eq(U.injuryCompareSummary(pubLive.injuries[pubTeam], pubLive.sources), { sources: ["nflverse"], comparable: false, both: 0, differ: 0 }, "public data has one injury source: nothing to compare, and it says so");
+  eq(U.injuryCompareSummary({ players: [{ name: "x" }, null] }, null), { sources: [], comparable: false, both: 0, differ: 0 }, "no named source at all is handled");
+  two2.events.push({ id: "inj-conflict", type: "injury", subtype: "Out", ts: new Date(now - H).toISOString(), seenAt: new Date(now - H).toISOString(), teams: ["NYG"], players: [{ name: "Fixture Corner", pos: "CB" }],
+    title: "Fixture Corner (CB) listed Out (nflverse's week 12 report: Questionable)", url: null, source: "espn-injuries", publisher: "ESPN", importance: 40, confidence: 0.6, sourceCount: 2,
+    sources: [{ publisher: "ESPN", url: null }, { publisher: "nflverse", url: null }], gameId: null, data: { status: "Out", starter: true, disagree: true, other: corner.also } });
+  const M2 = U.buildModel(two2), ce = U.eventReports(M2.events.find((e) => e.id === "inj-conflict"), two2.sources);
+  eq([ce.agree, ce.reports.map((r) => [r.publisher, r.status]), ce.name], [false, [["ESPN", "Out"], ["nflverse", "Questionable"]], "Fixture Corner"], "the feed's injury event carries the same two reports side by side");
+  ok(U.eventReports(M.events.find((e) => e.id === "fx-ev-1"), live.sources) === null && U.eventReports(M.events.find((e) => e.type === "news"), live.sources) === null, "an event with one report has no comparison");
+}
+// ==== end S-D ====
 
 console.log("ok: command center logic passes (" + n + " checks)");

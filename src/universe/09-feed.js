@@ -41,6 +41,7 @@ function eventRow(e, now) {
       e.teams.slice(0, 4).map(teamChip), e.teams.length > 4 ? el("span", { class: "u-more", text: "+" + (e.teams.length - 4) }) : null]),
     title,
     el("div", { class: "u-ev-meta" }, meta),
+    eventConflictNode(e),   // S-D: both injury reports side by side when sources differ (17-watch.js)
     e.importance != null ? el("div", { class: "u-imp", title: "Importance " + Math.round(e.importance) + " of 100 (a rule score from the feed, not a judgment)" }, [el("i", { style: { width: Math.round(e.importance) + "%" } })]) : null
   ]);
 }

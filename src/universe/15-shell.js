@@ -1,7 +1,7 @@
 // The shell: top bar, left rail (map mode, time range, layers, simulation), tabs on narrow screens, the detail drawer,
 // the view switch (command center / simulator) and the color theme.
 var MODE_LABELS = { geo: "Geographic", div: "Divisions", intel: "Intelligence" };
-var TAB_LABELS = [["feed", "Feed"], ["media", "Media"], ["games", "Games"], ["teams", "Teams"], ["health", "Health"]];
+var TAB_LABELS = [["feed", "Feed"], ["media", "Media"], ["games", "Games"], ["teams", "Teams"], ["health", "Health"], ["changes", "Changes" /* S-D: What changed (17-watch.js) */]];
 function prefersReduced() { try { return ROOT.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } }
 
 // ---- theme: the command center defaults to dark; the simulator keeps following the system unless a choice was made ----

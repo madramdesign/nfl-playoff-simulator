@@ -83,6 +83,7 @@ function boot() {
 
   applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus(); renderHistory();   // renderHistory: [S-C time machine]
   drawMap(); renderFeed(); renderMedia(); renderTicker(byId("uTicker")); renderGames(); renderTeamsPanel(); renderHealth(); refreshBadges(); renderDrawer();
+  bootWatch();   // S-D: watchlist alerts and the "What changed" panel (17-watch.js)
   requestBaseSim(true);
   startPolling();
   setInterval(function () { refreshBadges(); renderStatus(); }, 5000);
