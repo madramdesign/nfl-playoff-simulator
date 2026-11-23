@@ -1,7 +1,7 @@
 // The shell: top bar, left rail (map mode, time range, layers, simulation), tabs on narrow screens, the detail drawer,
 // the view switch (command center / simulator) and the color theme.
 var MODE_LABELS = { geo: "Geographic", div: "Divisions", intel: "Intelligence" };
-var TAB_LABELS = [["feed", "Feed"], ["media", "Media"], ["games", "Games"], ["teams", "Teams"], ["health", "Health"]];
+var TAB_LABELS = [["feed", "Feed"], ["media", "Media"], ["games", "Games"], ["teams", "Teams"], ["health", "Health"], ["changes", "Changes" /* S-D: What changed (17-watch.js) */]];
 function prefersReduced() { try { return ROOT.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) { return false; } }
 
 // ---- theme: the command center defaults to dark; the simulator keeps following the system unless a choice was made ----
@@ -93,6 +93,7 @@ function renderFocusBar() {
     if (f.level === "team") host.appendChild(el("button", { type: "button", class: "u-btn u-fopen", "data-fk": "focus-open", "data-focus-open": f.team, text: "Team center" }));
   });
   host.classList.toggle("is-on", f.level !== "league");
+  var ask = byId("uAsk"); if (ask) ask.textContent = f.level === "league" ? "What is happening in the NFL?" : "What is happening with " + (f.level === "team" ? "the " + TEAMS[f.team].nick : "the " + f.label) + "?";
 }
 
 // ---- left rail ----
@@ -106,7 +107,6 @@ function buildRail(host) {
   [["Network", "Team network view: planned for a later phase"], ["Schedule", "Schedule view: planned for a later phase"]].forEach(function (x) { modes.appendChild(el("button", { type: "button", disabled: true, title: x[1], text: x[0] + " · soon" })); });
   var range = el("select", { id: "uRange", "aria-label": "Time range" });
   TIME_RANGES.forEach(function (r) { range.appendChild(el("option", { value: r, text: RANGE_LABEL[r] })); });
-  range.appendChild(el("option", { value: "history", disabled: true, title: "Replaying the feed as it stood at an earlier time needs the dated event archive; planned for a later phase", text: "History (later phase)" }));
   range.addEventListener("change", function () { if (TIME_RANGES.indexOf(range.value) >= 0) store.set({ timeRange: range.value }); });
   var layers = el("div", { class: "u-layers" });
   LAYER_GROUPS.forEach(function (gname) {
@@ -126,7 +126,7 @@ function buildRail(host) {
   host.appendChild(toggle);
   host.appendChild(el("div", { class: "u-railbody" }, [
     el("h3", { text: "Map" }), modes,
-    el("h3", {}, [el("label", { for: "uRange", text: "Time range" })]), range,
+    el("h3", {}, [el("label", { for: "uRange", text: "Time range" })]), range, historyControl(),   // [S-C time machine] 18-history.js
     el("h3", { text: "Layers" }), layers,
     el("h3", { text: "Simulation" }), simBox]));
 }
@@ -199,6 +199,6 @@ function renderTabs() {
 function renderFooter(host) {
   clearNode(host);
   host.appendChild(el("p", {}, ["Schedule, results and betting lines: nflverse. ", D.qbCredit ? "Quarterback values: nfelo (nfeloapp.com). " : "", "Weather: ",
-    el("a", { href: "https://open-meteo.com/", target: "_blank", rel: "noopener", text: "Open-Meteo" }), ". Headlines link to their publishers and are shown as published. ",
+    el("a", { href: "https://open-meteo.com/", target: "_blank", rel: "noopener", text: "Open-Meteo" }), ", or the ", el("a", { href: "https://www.weather.gov/", target: "_blank", rel: "noopener", text: "National Weather Service" }), " when it has no forecast. Headlines link to their publishers and are shown as published. ",
     "Injury burden, weather flags and news importance are descriptions, not part of the forecast. An independent fan project, not affiliated with the NFL, any team or any publisher."]));
 }

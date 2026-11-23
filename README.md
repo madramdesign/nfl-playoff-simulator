@@ -26,7 +26,7 @@ The bar under the top of the command center narrows everything to one scope: the
 
 ## NFL Universe data fabric
 
-`server.js` also serves the NFL Universe data layer (`lib/fabric/`), which gathers schedule and lines (nflverse), the weekly injury report (nflverse), game-day weather (Open-Meteo), headlines (ESPN and Yahoo RSS), the curated items in `data/news.json`, and, on your own machine only, ESPN's live scoreboard, news, injuries and transactions.
+`server.js` also serves the NFL Universe data layer (`lib/fabric/`), which gathers schedule and lines (nflverse), the weekly injury report (nflverse), game-day weather (Open-Meteo, with the National Weather Service as backup), headlines (ESPN and Yahoo RSS), the curated items in `data/news.json`, and, on your own machine only, ESPN's live scoreboard, news, injuries and transactions.
 
 | Endpoint | What it returns |
 |---|---|
@@ -72,7 +72,7 @@ This downloads the nflverse games file (schedule, final scores, spreads and mone
 - **Games with a posted moneyline:** the line with the bookmaker's margin removed.
 - **Games without a line yet:** an even blend of two ratings, plus home-field advantage. The market rating is fitted to this season's point spreads, weighted toward recent weeks. The results rating is opponent-adjusted scoring margin (80%) and opponent-adjusted EPA margin (20%), from the nflverse weekly team stats.
 - **Backtest:** `python3 scripts/backtest.py <games.csv> <folder of team_week_YYYY.csv>` (needs numpy) replays 2021-2025 and reports how well each rating predicted games two or more weeks ahead. The blend weights and the 0.8 shrink on rating gaps come from it.
-- **Tiebreakers:** the NFL procedure through strength of schedule, then simulated scores for the points steps (combined points rankings and net points). Net points in common or conference games and net touchdowns are skipped before the coin flip.
+- **Tiebreakers:** the NFL procedure through strength of schedule, then simulated scores for the points steps: combined points rankings in the conference and the league, net points in common games (division ties) or conference games (wild-card ties), then net points in all games. Games already played count with their real scores; the rest use the simulated ones. Net touchdowns is skipped before the coin flip, because there is no touchdown data or touchdown model.
 - **Also simulated:** the playoff bracket through the Super Bowl, and the full first-round draft order. Traded first-round picks are listed in `data/pick_owners.json`; edit that file by hand when a pick changes hands.
 - **Odds by week:** `npm run build` replays each completed week through the page's own engine (needs Node) to chart how every team's playoff chance has moved.
 - **Luck:** fumbles lost above the league-average share are taken out of scoring margin before rating teams. A quarterback-change discount and a return-touchdown discount were tested in `scripts/backtest_adjustments.py` and left out because they did not improve predictions.
@@ -102,6 +102,7 @@ Start with `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` for what exis
 | `scripts/history.js` | Runs the engine on past weeks for the odds-by-week chart. |
 | `scripts/backtest.py`, `scripts/backtest_adjustments.py` | Replays 2021-2025 to choose rating weights (need numpy). |
 | `scripts/evaluate.py` | Backtest, calibration, analogs and narrative tests; writes `data/model_report.json`. |
+| `scripts/calibration.py` | Scores this season's saved forecasts (`data/snapshots/`) against results: `npm run calibration`. See `docs/CALIBRATION.md`. |
 | `docs/` | Audit, research, models, backtesting, red team, roadmap, changelog. |
 | `test/run.js` | Checks for the engine and the feed parser (`npm test`); also runs `test/fabric.test.js`. |
 | `lib/contract.js`, `lib/fabric/` | NFL Universe data contract and data fabric. |

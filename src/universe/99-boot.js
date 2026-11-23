@@ -5,7 +5,7 @@ var URL_DEFAULTS = { view: "universe", mode: "geo", layers: DEFAULT_LAYERS, time
 function initialState(search, saved) {
   var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS, focus: FOCUS.ids };
   var s = sanitizeState({ mode: saved.mode, layers: saved.layers, timeRange: saved.timeRange }, allow), u = parseUrlState(search, allow);
-  var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, focus: null, team: null, game: null }, s, u);
+  var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, focus: null, team: null, game: null, asOf: null }, s, u);   // asOf: [S-C time machine]
   if (st.mode === "geo" && !HAS_GEO) st.mode = "div";
   if (st.team && st.game) st.game = null;
   return st;
@@ -28,6 +28,7 @@ function boot() {
   buildMap(byId("uMap"));
   buildTabs(byId("uTabs"));
   buildFocusBar(byId("uFocus"));
+  buildHistory();   // [S-C time machine] the replay banner (18-history.js)
   buildFeedPanel(byId("uFeedHost"));
   // the media host sits between the feed and health in the right column (one column and a "Media" tab on phones)
   var mediaHost = el("div", { class: "u-host", id: "uMediaHost" }), hh = byId("uHealthHost");
@@ -74,11 +75,15 @@ function boot() {
     if (has("mode", "layers", "timeRange", "sim", "simBusy", "simError", "deepProgress", "deepError", "payload", "origin")) renderRail();
     if (has("team", "game", "view") || (has("sim", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
+    // [S-C time machine] a new replay time redraws only what is replayed: the feed, the ticker and the map's badges
+    if (has("asOf")) { writeUrlSoon(st, URL_DEFAULTS); drawMapSoon(); renderFeed(); renderTicker(byId("uTicker")); }
+    if (has("asOf", "model", "payload", "view")) renderHistory();
     if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
   });
 
-  applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus();
+  applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus(); renderHistory();   // renderHistory: [S-C time machine]
   drawMap(); renderFeed(); renderMedia(); renderTicker(byId("uTicker")); renderGames(); renderTeamsPanel(); renderHealth(); refreshBadges(); renderDrawer();
+  bootWatch();   // S-D: watchlist alerts and the "What changed" panel (17-watch.js)
   requestBaseSim(true);
   startPolling();
   setInterval(function () { refreshBadges(); renderStatus(); }, 5000);

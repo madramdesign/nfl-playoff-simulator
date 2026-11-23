@@ -7,7 +7,7 @@ var MODE_NAMES = ["Sportsbooks", "Results", "Blend"];
 // sources: optional map to read labels from (defaults to the current payload's).
 function sourceLabel(id, sources) {
   var S = sources || (store && store.get("payload") ? store.get("payload").sources : null), s = id && hasOwn(S, id) ? S[id] : null;
-  return s && typeof s.label === "string" ? s.label : id === "open-meteo" ? "Open-Meteo" : id || "unknown source";
+  return s && typeof s.label === "string" ? s.label : id === "open-meteo" ? "Open-Meteo" : id === "nws" ? "National Weather Service" : id || "unknown source";
 }
 // Is this in-progress game live on this page right now (see gameIsLive in 01-data.js)?
 function isLiveGame(x) { return !!store && gameIsLive(x, store.get("model"), liveMeta(), Date.now()); }
@@ -82,6 +82,7 @@ function weatherText(w) {
 // DEC-013: a visible credit beside weather; Open-Meteo requires the link.
 function weatherCredit(srcId) {
   if (srcId === "open-meteo") return el("span", { class: "u-credit" }, ["Weather: ", el("a", { href: "https://open-meteo.com/", target: "_blank", rel: "noopener", text: "Open-Meteo" })]);
+  if (srcId === "nws") return el("span", { class: "u-credit" }, ["Weather: ", el("a", { href: "https://www.weather.gov/", target: "_blank", rel: "noopener", text: "National Weather Service" })]);
   return el("span", { class: "u-credit", text: "Weather: " + sourceLabel(srcId) });
 }
 
@@ -231,7 +232,8 @@ function fitFocus() {
   if (!pts.length) { view.k = 1; view.tx = 0; view.ty = 0; drawMapSoon(); return; }
   var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   pts.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
-  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), 1, f.level === "team" ? 3 : 4);
+  // never below the zoom at which team labels appear, so a focused division is always labelled
+  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), DETAIL_K, f.level === "team" ? 3 : 4);
   view.k = k; view.tx = MAP_W / 2 - (x0 + x1) / 2 * k; view.ty = MAP_H / 2 - (y0 + y1) / 2 * k; clampView(); drawMapSoon();
 }
 function zoomAt(x, y, f) {
@@ -346,7 +348,8 @@ function drawMap() {
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
-    events: focusEvents(searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), fset), query: q, sel: { team: selTeam, game: st.game },
+    // [S-C time machine] event badges follow the replay (18-history.js); ctx.now stays the real now for games and lines
+    events: focusEvents(searchEvents(filterByTime(feedSource(st), st.timeRange, feedNow(st)), q), fset), phrase: rangePhrase(st), query: q, sel: { team: selTeam, game: st.game },
     dim: function (i) { return (!!match && !match[i]) || (!!fset && !fset[i]); }
   };
   drawBase(mode, po);
@@ -374,7 +377,7 @@ function drawLegend(mode, st) {
   if (on("playoff")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-ring" }), "Ring: playoff chance"));
   if (on("live") || on("upcoming") || on("final")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-link" }), "Line: away to home this week; red is live"));
   if (on("injuries") || on("news") || on("qb") || on("transactions")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-badges" }), "Badges: injuries, news, transactions, QB (descriptive)"));
-  if (on("weather")) L.appendChild(el("div", { class: "u-lgrow" }, [el("span", { class: "u-lsw u-lsw-wx" }), weatherCredit("open-meteo")]));
+  if (on("weather")) L.appendChild(el("div", { class: "u-lgrow" }, [el("span", { class: "u-lsw u-lsw-wx" }), weatherCredit((st.model && st.model.games.map(function (x) { return x.weather && x.weather.source; }).filter(Boolean)[0]) || "open-meteo")]));
   if (mode === "geo") L.appendChild(el("div", { class: "u-lgrow u-lgnote", text: view.k >= DETAIL_K ? "Zoomed in: team labels and counts" : "Zoom in for team labels and counts" }));
 }
 function searchTeams(q) {

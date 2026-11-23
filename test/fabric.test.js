@@ -143,6 +143,23 @@ test("weather picks the kickoff hour and flags wind and rain", () => {
   const any = w[targets[0].id]; assert.deepStrictEqual(any.flags, ["wind", "rain"]); assert.strictEqual(any.source, "open-meteo");
   assert.throws(() => pub.normalizeWeather(meteo(1, 5), targets), /expected/);
 });
+const NWS_POINT = { properties: { forecastHourly: "https://api.weather.gov/gridpoints/OKX/30,46/forecast/hourly" } };
+const nwsHourly = (kickoff, over = {}) => ({ properties: { periods: [-2, -1, 0, 1, 2].map((h) => Object.assign({ startTime: new Date(Date.parse(kickoff) + h * 3600000).toISOString().replace(".000Z", "+00:00"),
+  temperature: 40 + h, temperatureUnit: "F", windSpeed: "5 mph", probabilityOfPrecipitation: { value: 10 }, shortForecast: "Sunny" }, h === 0 ? over : {})) } });
+test("National Weather Service forecast: kickoff hour, wind ranges, snow wording, bad shapes", () => {
+  const t = { id: "g1", kickoff: "2026-11-29T18:00:00Z", roof: "outdoors" };
+  let w = pub.normalizeNws(nwsHourly(t.kickoff, { temperature: 20, windSpeed: "10 to 20 mph", probabilityOfPrecipitation: { value: 70 }, shortForecast: "Snow Showers Likely" }), t);
+  assert.strictEqual(w.source, "nws"); assert.strictEqual(w.tempF, 20); assert.strictEqual(w.windMph, 20, "the higher figure of a range");
+  assert.deepStrictEqual(w.flags, ["wind", "rain", "snow", "cold"]); assert.strictEqual(w.gustMph, null); assert.strictEqual(w.snowIn, null, "no amounts are invented");
+  w = pub.normalizeNws(nwsHourly(t.kickoff, { temperature: 0, temperatureUnit: "C", windSpeed: "", probabilityOfPrecipitation: { value: null } }), t);
+  assert.strictEqual(w.tempF, 32); assert.strictEqual(w.windMph, null); assert.strictEqual(w.precipProb, null); assert.deepStrictEqual(w.flags, []);
+  assert.strictEqual(pub.normalizeNws(nwsHourly("2026-12-20T18:00:00Z"), t), null, "no forecast hour near kickoff means no forecast");
+  assert.strictEqual(pub.normalizeNws(nwsHourly(t.kickoff), Object.assign({}, t, { roof: "retractable" })).summary, "Retractable roof: may be closed");
+  assert.throws(() => pub.normalizeNws({ properties: {} }, t), /no forecast periods/);
+  assert.strictEqual(pub.nwsHourlyUrl(NWS_POINT), NWS_POINT.properties.forecastHourly);
+  assert.throws(() => pub.nwsHourlyUrl({ properties: { forecastHourly: "https://evil.example/gridpoints/OKX/30,46/forecast/hourly" } }), /no hourly forecast address/, "only an api.weather.gov address is followed");
+  assert.throws(() => pub.nwsHourlyUrl({}), /no hourly forecast address/);
+});
 
 // ---------- ESPN adapters (local scope) ----------
 test("ESPN scoreboard: live state, possession, open and current lines", () => {
@@ -222,6 +239,8 @@ function fakeFetch(broken = new Set()) {
     if (host.includes("nfldata")) return body(null, GAMES_CSV);
     if (host.includes("injuries_")) return body(null, INJ_CSV);
     if (host.includes("open-meteo")) { const n = new URL(url).searchParams.get("latitude").split(",").length; return body(n === 1 ? meteo(1, 9)[0] : meteo(n, 9)); }
+    if (host.startsWith("api.weather.gov/points/")) return host.includes("51.") ? { ok: false, status: 404, json: async () => ({}), text: async () => "" } : body(NWS_POINT);
+    if (host.startsWith("api.weather.gov/gridpoints/")) return body(nwsHourly("2026-11-22T18:00:00Z", { windSpeed: "22 mph", shortForecast: "Windy" }));
     if (host.includes("yahoo") || host.includes("espn.com/espn/rss")) return body(null, RSS);
     if (host.endsWith("/scoreboard")) return body(SB);
     if (host.endsWith("/news")) return body(NEWS);
@@ -240,6 +259,22 @@ test("public fabric output passes the public-snapshot contract", async () => {
   assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
   assert.ok(!Object.keys(u.sources).some((id) => id.startsWith("espn-")), "no ESPN JSON sources in public scope");
   assert.ok(u.events.some((e) => e.type === "weather"), "flagged weather becomes an event");
+  assert.ok(u.games.some((g) => g.weather) && u.games.every((g) => !g.weather || g.weather.source === "open-meteo"), "Open-Meteo is used while it answers");
+  assert.strictEqual(u.sources.nws.status, "ok"); assert.strictEqual(u.sources.nws.records, 0); assert.ok(/Not requested/.test(u.sources.nws.note), "the backup is not asked when it is not needed");
+});
+test("weather falls back to the National Weather Service when Open-Meteo refuses", async () => {
+  const seen = [];
+  const base = fakeFetch(new Set(["open-meteo"]));
+  const f = createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: async (url, o) => { seen.push(url); return base(url, o); } });
+  const u = await f.universe();
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
+  assert.strictEqual(u.sources["open-meteo"].status, "down", "the refused source is still reported down");
+  assert.strictEqual(u.sources.nws.status, "ok"); assert.ok(u.sources.nws.records >= 1 && /Backup for/.test(u.sources.nws.note));
+  const wx = u.games.filter((g) => g.weather);
+  assert.ok(wx.length >= 1 && wx.every((g) => g.weather.source === "nws" && !g.venue.indoor), "outdoor games carry the backup forecast, named as such");
+  const ev = u.events.find((e) => e.type === "weather");
+  assert.ok(ev && ev.source === "nws" && ev.publisher === "National Weather Service" && ev.sources[0].url === "https://www.weather.gov/", "weather events credit the source that gave them");
+  assert.ok(seen.filter((x) => x.includes("api.weather.gov")).every((x) => /^https:\/\/api\.weather\.gov\/(points|gridpoints)\//.test(x)), "only the two documented addresses are called");
 });
 test("full fabric merges ESPN onto nflverse and flags injury disagreement", async () => {
   const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch() });
@@ -352,7 +387,7 @@ test("everything down still yields a valid, empty, honest payload", async () => 
   const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: async () => { throw new Error("offline"); } });
   const u = await f.universe();
   assert.deepStrictEqual(C.validateUniverse(u, T), []);
-  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo"].includes(s.id));
+  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws"].includes(s.id));
   assert.ok(net.length >= 8 && net.every((s) => s.status === "down"), "every network source reports down");
   assert.strictEqual(u.sources["open-meteo"].records, 0); assert.ok(/unavailable/i.test(u.sources["open-meteo"].note || ""), "weather says why it has nothing");
   assert.strictEqual(u.sources["curated-news"].status, "ok", "the local file still reads"); assert.strictEqual(u.games.length, 0);
@@ -530,6 +565,76 @@ test("synthetic fixtures satisfy the contracts", () => {
   assert.deepStrictEqual(C.validateUniverse(require(path.join(root, "test/fixtures/universe.sample.json")), T), []);
   assert.deepStrictEqual(C.validatePublicSnapshot(require(path.join(root, "test/fixtures/universe.public.json")), T), []);
   assert.deepStrictEqual(C.validateGameDetail(require(path.join(root, "test/fixtures/game.sample.json")), T), []);
+});
+
+// ---- [S-C time machine] the event archive embedded in the page (scripts/event-archive.js); synthetic events only ----
+const arch = require(path.join(root, "scripts/event-archive.js"));
+const archEv = (id, seenAt, extra) => Object.assign({ id, type: "news", subtype: null, ts: "2026-11-20T12:00:00.000Z", seenAt, teams: ["NYG"], players: [], title: "Synthetic " + id, url: "https://example.test/" + id,
+  source: "rss-yahoo", publisher: "Fixture", importance: 40, confidence: 0.7, sourceCount: 1, sources: [{ publisher: "Fixture", url: "https://example.test/" + id }], gameId: null, data: {} }, extra || {});
+const archFile = (day, events) => ({ name: day + ".json", text: JSON.stringify({ date: day, recordedAt: day + "T20:00:00.000Z", events }) });
+const ARCH_PUBLIC = new Set(["rss-yahoo", "rss-espn", "nflverse-games", "curated-news"]);
+test("event archive: public sources only, bad events left out, duplicates keep the earliest first sighting", () => {
+  const files = [
+    archFile("2026-11-10", [archEv("too-old", "2026-11-10T15:00:00.000Z")]),
+    archFile("2026-11-21", [archEv("a", "2026-11-21T16:00:00.000Z"), archEv("dup", "2026-11-21T16:30:00.000Z", { title: "First sighting" }), archEv("local", "2026-11-21T16:00:00.000Z", { source: "espn-news" }),
+      archEv("local-other", "2026-11-21T16:00:00.000Z", { data: { other: { source: "espn-injuries" } } }), archEv("bad-url", "2026-11-21T16:00:00.000Z", { url: "javascript:alert(1)" }),
+      archEv("bad-team", "2026-11-21T16:00:00.000Z", { teams: ["XXX"] }), archEv("bad-seen", "not a time"), archEv("bad-type", "2026-11-21T16:00:00.000Z", { type: "rumor" }), null, { id: "no-title", seenAt: "2026-11-21T16:00:00.000Z" }]),
+    archFile("2026-11-23", [archEv("dup", "2026-11-23T10:00:00.000Z", { title: "Seen again" }), archEv("same", "2026-11-23T11:00:00.000Z"), archEv("changed", "2026-11-23T11:30:00.000Z"),
+      archEv("rich", "2026-11-23T12:00:00.000Z", { sourceCount: 2, sources: [{ publisher: "A", url: "https://example.test/a" }, { publisher: "B", url: "https://example.test/b" }], players: [{ name: "Fixture Passer", pos: "QB", extra: 1 }], gameId: "900000004", data: { flags: ["x"] } })]),
+    { name: "2026-11-22.json", text: "{ not json" }, { name: "../../etc/passwd", text: "{}" }, { name: "2026-11-24.json", text: JSON.stringify({ events: [archEv("tomorrow", "2026-11-24T01:00:00.000Z")] }) }, null,
+  ];
+  const latestEvents = [archEv("same", "2026-11-23T17:00:00.000Z"), archEv("changed", "2026-11-23T17:00:00.000Z", { importance: 55 })];
+  const { archive: a, report: r } = arch.buildEventArchive(files, { today: "2026-11-23", publicSources: ARCH_PUBLIC, abbrs: T, latestEvents });
+  assert.deepStrictEqual(a.events.map((e) => e.id), ["a", "dup", "same", "changed", "rich"]);
+  assert.deepStrictEqual(a.files, ["2026-11-21", "2026-11-23"]);
+  assert.deepStrictEqual(r.skippedFiles, ["2026-11-22"]);
+  assert.deepStrictEqual([r.invalid, r.nonPublic, r.duplicates, r.trimmed, r.refs], [6, 2, 1, 0, 1]);
+  const by = Object.fromEntries(a.events.map((e) => [e.id, e]));
+  assert.strictEqual(by.dup.seenAt, "2026-11-21T16:30:00.000Z"); assert.strictEqual(by.dup.title, "First sighting");
+  assert.deepStrictEqual(by.same, { id: "same", seenAt: "2026-11-23T11:00:00.000Z" }, "identical to the snapshot: stored as a reference with the archive's own first-seen time");
+  assert.strictEqual(by.changed.title, "Synthetic changed"); assert.strictEqual(by.changed.importance, 40, "an event the snapshot has since revised keeps its body as first recorded");
+  assert.deepStrictEqual(Object.keys(by.a).sort(), ["confidence", "id", "importance", "publisher", "seenAt", "source", "teams", "title", "ts", "type", "url"], "empty fields are left out");
+  assert.deepStrictEqual(by.rich.players, [{ name: "Fixture Passer", pos: "QB" }]); assert.strictEqual(by.rich.sources.length, 2); assert.strictEqual(by.rich.gameId, "900000004");
+  assert.strictEqual(a.from, "2026-11-21T16:00:00.000Z"); assert.strictEqual(a.to, "2026-11-23T12:00:00.000Z");
+  assert.ok(!JSON.stringify(a).includes("espn"), "nothing from a local source reaches the archive");
+  assert.deepStrictEqual(arch.validateEventArchive(a, ARCH_PUBLIC, T), []);
+  const empty = arch.buildEventArchive([], { today: "2026-11-23", publicSources: ARCH_PUBLIC, abbrs: T });
+  assert.deepStrictEqual([empty.archive.events, empty.archive.from], [[], null]); assert.deepStrictEqual(arch.validateEventArchive(empty.archive, ARCH_PUBLIC, T), []);
+});
+test("event archive: bounded in days and bytes; the check refuses local data, duplicates and oversize", () => {
+  const day = (d) => "2026-11-" + String(d).padStart(2, "0");
+  const files = []; for (let d = 10; d <= 23; d++) files.push(archFile(day(d), Array.from({ length: 30 }, (_, k) => archEv("e" + d + "-" + k, day(d) + "T" + String(10 + (k % 10)) + ":00:00.000Z"))));
+  const opts = { today: "2026-11-23", publicSources: ARCH_PUBLIC, abbrs: T };
+  const week = arch.buildEventArchive(files, opts);
+  assert.strictEqual(arch.ARCHIVE_DAYS, 7); assert.deepStrictEqual(week.archive.files, [17, 18, 19, 20, 21, 22, 23].map(day)); assert.strictEqual(week.archive.events.length, 210);
+  assert.ok(week.report.bytes <= arch.ARCHIVE_MAX_BYTES && week.report.trimmed === 0);
+  const small = arch.buildEventArchive(files, Object.assign({ maxBytes: 20000 }, opts)), sa = small.archive;
+  assert.ok(Buffer.byteLength(JSON.stringify(sa)) <= 20000, "never larger than the cap");
+  assert.ok(sa.events.length > 0 && sa.events.length % 30 === 0 && small.report.trimmed === 210 - sa.events.length, "whole oldest days are dropped first");
+  assert.ok(sa.from > day(17) + "T23" && sa.events.every((e) => e.seenAt >= sa.from) && sa.to === week.archive.to, "the newest days are kept and `from` moves forward to say where the archive now begins");
+  const tiny = arch.buildEventArchive(files, Object.assign({ maxBytes: 3000 }, opts)).archive;
+  assert.ok(Buffer.byteLength(JSON.stringify(tiny)) <= 3000 && tiny.events.length > 0 && tiny.events.length < 30 && tiny.events.every((e) => e.seenAt >= tiny.from), "a single day over the cap loses its oldest events");
+  assert.deepStrictEqual(arch.validateEventArchive(sa, ARCH_PUBLIC, T, 20000), []);
+  const bad = (f) => { const c = JSON.parse(JSON.stringify(sa)); f(c); return arch.validateEventArchive(c, ARCH_PUBLIC, T, 20000).length > 0; };
+  assert.ok(bad((c) => { c.events[1].source = "espn-news"; }), "a local source");
+  assert.ok(bad((c) => { c.events[1].data = { other: { source: "espn-injuries" } }; }), "local data inside an event");
+  assert.ok(bad((c) => { c.events[1].id = c.events[0].id; }), "a duplicate id");
+  assert.ok(bad((c) => { c.events[1].url = "http://example.test/x"; }), "a link that is not https");
+  assert.ok(bad((c) => { c.events[1] = { id: "ref", seenAt: c.events[1].seenAt, importance: 99 }; }), "a reference carrying more than id and seenAt");
+  assert.ok(bad((c) => { c.from = "2026-11-25T00:00:00.000Z"; }), "a wrong start time");
+  assert.ok(bad((c) => { c.events[1].title = "x".repeat(21000); }), "an oversize archive");
+  assert.deepStrictEqual(arch.validateEventArchive(null), ["not an event archive"]); assert.deepStrictEqual(arch.validateEventArchive({ v: 2, events: [] }), ["not an event archive"]);
+});
+test("event archive: the committed event files build a valid archive within the page budget", () => {
+  const fsx = require("fs"), dir = path.join(root, "data/fabric/events");
+  const names = fsx.existsSync(dir) ? fsx.readdirSync(dir).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort() : [];
+  if (!names.length) return;   // a checkout with no record yet: nothing to check
+  const pubIds = new Set(Object.keys(createFabric({ scopes: ["public"], cacheDir: null }).sources)), localIds = Object.keys(createFabric({ scopes: ["local"], cacheDir: null }).sources);
+  const files = names.map((name) => ({ name, text: fsx.readFileSync(path.join(dir, name), "utf8") }));
+  const { archive: a, report: r } = arch.buildEventArchive(files, { today: names[names.length - 1].slice(0, 10), publicSources: pubIds, abbrs: T });
+  assert.deepStrictEqual(arch.validateEventArchive(a, pubIds, T), []);
+  assert.ok(a.events.length > 0 && r.bytes <= arch.ARCHIVE_MAX_BYTES && r.nonPublic === 0, JSON.stringify(r));
+  assert.ok(localIds.length > 0 && a.events.every((e) => !localIds.includes(e.source)), "no local-scope source in the real record");
 });
 
 (async () => {

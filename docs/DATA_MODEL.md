@@ -19,6 +19,16 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 1. **`D`**, built by `scripts/build.py`: schedule, results, lines, ratings, history, news, report (see `DATA_SOURCES.md`). Since this pass it also carries `D.fabric`, the last fabric snapshot (`data/fabric/latest.json`), so the static page has injuries, transactions and headlines as of the build.
 2. **`GET /api/universe`**, served by `server.js` when it runs: the same shape as `D.fabric`, live. The page polls it and falls back to `D.fabric` when it is missing. A static copy of the page has no server, so it shows the snapshot with its age.
 
+3. **`D.eventArchive`** (time machine, stream S-C), built by `scripts/event-archive.js` and embedded by `scripts/build.py`: the last 7 days of `data/fabric/events/*.json`, public sources only, at most 200,000 bytes (the oldest first-seen day is dropped first when it does not fit). Shape: `{v: 1, days, maxBytes, files: [YYYY-MM-DD], from, to, events: [...]}`, events ordered by `seenAt`; `from` and `to` are the earliest and latest `seenAt`. An entry is either an event with empty fields left out, or `{id, seenAt}` alone when the event is identical to the one with that id in `D.fabric` (the page reads the body from there). `validateEventArchive` checks it at build; a failing archive is not embedded. It is not part of the `/api/universe` contract.
+
+## Replay (`?asOf=`)
+
+`asOf` is page state: a UTC minute such as `2026-11-22T18:00Z`, or absent for now. Anything malformed or in the future is dropped. Rules (`src/universe/18-history.js`, tested in `test/universe.test.js`):
+- At `asOf = T` an item is shown only if `seenAt <= T`. Its `ts` is never enough. Time ranges count back from `T`.
+- History is the archive, the embedded snapshot and the current payload merged by event id; the record with the earliest `seenAt` wins whole, so a headline or source count revised later does not leak back.
+- Items with no first-seen time (the page's dated-only curated news) are left out and counted in the banner.
+- Only the feed, the ticker and the map's news, transaction and breaking badges are replayed. Scores, lines, injuries, the simulation and everything else stay current, because no dated copies of them exist; the banner says so.
+
 ## `/api/universe` (version 1)
 
 ```
@@ -48,7 +58,7 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 - `title` is a source headline or a sentence the fabric writes from structured fields. No article text is stored.
 - `importance` and `confidence` are rules, not judgments. Planned formula (adapted from World Monitor's published weighting): importance = 0.55 headline severity + 0.20 source tier + 0.15 corroboration (distinct publishers, capped at 5) + 0.10 recency (linear decay over 24 hours); confidence = the best source's tier value plus 0.04 per further independent publisher. The final rules and their tests arrive with milestone M1.
 
-**TeamInjuries**: `{burden, out, doubtful, questionable, ir, qbOut, players[{name, pos, status, type, returnDate, date, espnId}]}`. `burden` is a descriptive index (status weight times position weight, summed). It is not a model input: no injury factor has passed a backtest here yet.
+**TeamInjuries**: `{burden, out, doubtful, questionable, ir, qbOut, players[{name, pos, status, type, returnDate, date, espnId}]}`. Each player also carries `source` (the report the listed status came from). When a second source lists the same player, `also` holds its report as `{source, status, practice, week}`, and `disagree: true` marks the two statuses differing (injured reserve against out does not count). An `injury` event repeats this as `data.disagree` and `data.other`. The second report has only a week number, no time or link, so the two cannot be dated against each other; the page shows both side by side and picks no winner. `burden` is a descriptive index (status weight times position weight, summed). It is not a model input: no injury factor has passed a backtest here yet.
 
 **Media** (optional): `{channels, videos, podcasts}` from official channels and podcasts; field list and rules in [MEDIA_ARCHITECTURE.md](MEDIA_ARCHITECTURE.md).
 

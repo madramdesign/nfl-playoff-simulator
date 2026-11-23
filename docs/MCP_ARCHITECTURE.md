@@ -112,7 +112,7 @@ Engine game ids follow nflverse (`2026_12_NYG_IND`; the Rams are `LA` there). `r
 - Forecasts use the engine data as of its build. Games finished since then are simulated as open; `get_games` flags them with the pick that would apply the result in `run_simulation`. Live scores of games in progress are not applied to simulations.
 - No disk cache: the first call after start fetches every source (a few seconds, up to `NFLU_TIMEOUT_MS`), and the server cannot reuse the local web server's `.cache/fabric` answers. A read-only cache option in `lib/fabric/source.js` would allow that.
 - While the first load is still running, `get_source_health` shows sources that have not answered yet as `down` (the fabric's status for "tried, no data yet").
-- Standings are ordered by win percentage and net points for display; only `seedsIfSeasonEndedToday` applies tiebreakers, with the engine's known gaps (three rare steps skipped).
+- Standings are ordered by win percentage and net points for display; only `seedsIfSeasonEndedToday` applies tiebreakers, with the engine's known gaps (one rare step skipped: net touchdowns).
 - `hours` filters count back from the payload's `generatedAt`, not from the wall clock (the same in live use; it keeps fixture tests stable).
 - In fixture mode with `NFLU_SCOPES=public`, games whose state came from a local source are dropped, since the fixture cannot say what a public source would have shown.
 - No resources, prompts, subscriptions, pagination or progress notifications. Ties cannot be picked (an engine limit).

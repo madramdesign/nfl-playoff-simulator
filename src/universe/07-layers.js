@@ -11,7 +11,7 @@ var LAYERS = [
   { id: "live", label: "Live games", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["espn-scoreboard"], render: function (c, g) { renderGameLinks(c, g, "in"); } },
   { id: "odds", label: "Line movement", group: "Games", defaultOn: false, modes: LINK_MODES, sourceIds: ["espn-scoreboard", "nflverse-games"], render: renderOdds },
   { id: "disagree", label: "Model disagreement", group: "Model", defaultOn: false, modes: LINK_MODES, sourceIds: [], render: renderDisagree },
-  { id: "weather", label: "Weather flags", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["open-meteo"], render: renderWeather },
+  { id: "weather", label: "Weather flags", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["open-meteo", "nws"], render: renderWeather },
   { id: "playoff", label: "Playoff odds (ring)", group: "Model", defaultOn: true, modes: ["geo", "div"], sourceIds: [], render: renderPlayoffRing },
   { id: "teams", label: "Teams (colored by power)", group: "Teams", defaultOn: true, modes: ALL_MODES, sourceIds: [], render: renderTeams },
   { id: "superbowl", label: "Super Bowl odds", group: "Model", defaultOn: false, modes: ALL_MODES, sourceIds: [], render: renderSuperBowl },
@@ -126,15 +126,45 @@ function renderPlayoffRing(c, g) {
     if (v > 0.004) g.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: r, class: "u-ring" + (c.dim(i) ? " is-dim" : ""), "stroke-dasharray": (C * v).toFixed(2) + " " + C.toFixed(2), transform: "rotate(-90 " + p[0].toFixed(1) + " " + p[1].toFixed(1) + ")" }));
   });
 }
+// Pure: where each team's label goes so that labels do not sit on each other or on a neighbor's dot (the Northeast is
+// crowded). pts: [x, y] per team; r: dot radius; names: label text per team; skip(i): teams with no label; pad: room
+// kept around every dot for its count badges, which sit in a ring just outside it.
+// Each label tries eight spots around its dot, right first, and takes the one that overlaps the least.
+function placeLabels(pts, r, names, skip, pad) {
+  r += pad || 0;
+  var H = 10, placed = [], out = [];
+  var dots = pts.map(function (p, i) { return p && !(skip && skip(i)) ? [p[0] - r, p[1] - r, p[0] + r, p[1] + r] : null; });
+  var hit = function (a, b) { return Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1])); };
+  pts.forEach(function (p, i) {
+    if (!p || (skip && skip(i))) { out[i] = null; return; }
+    var w = 6.4 * String(names[i]).length, g = r + 3, d = r * 0.75 + 2;
+    // [text x, baseline y, anchor, box left]
+    var cands = [[p[0] + g, p[1] + 4, "start", p[0] + g], [p[0] - g, p[1] + 4, "end", p[0] - g - w], [p[0], p[1] - g - 1, "middle", p[0] - w / 2], [p[0], p[1] + g + H - 1, "middle", p[0] - w / 2],
+      [p[0] + d, p[1] - d, "start", p[0] + d], [p[0] + d, p[1] + d + H - 2, "start", p[0] + d], [p[0] - d, p[1] - d, "end", p[0] - d - w], [p[0] - d, p[1] + d + H - 2, "end", p[0] - d - w]];
+    var best = null, bestCost = Infinity, bestBox = null;
+    for (var k = 0; k < cands.length && bestCost > 0; k++) {
+      var c = cands[k], box = [c[3], c[1] - H + 1, c[3] + w, c[1] + 2], cost = 0;
+      placed.forEach(function (b) { cost += hit(box, b); });
+      dots.forEach(function (b, j) { if (b && j !== i) cost += hit(box, b); });
+      if (cost < bestCost) { best = c; bestCost = cost; bestBox = box; }
+    }
+    placed.push(bestBox);
+    out[i] = { x: best[0], y: best[1], anchor: best[2], box: bestBox, overlap: bestCost };
+  });
+  return out;
+}
+NFLU.placeLabels = placeLabels;
+var LABEL_PAD = 10;   // the badge ring: 5 out from the dot plus a badge radius
 function renderTeams(c, g) {
+  var showLabs = (c.mode !== "geo" || c.detail) && c.mode !== "div";
+  var labs = showLabs ? placeLabels(c.pos, c.r, TEAMS.map(function (t) { return t.a; }), null, LABEL_PAD) : [];
   TEAMS.forEach(function (t, i) {
     var p = c.pos[i], pw = teamPower(i), fill = c.mode === "intel" ? momentumColor(momentumOf(i)) : powerColor(pw);
     var po = c.po ? fmtPct(c.po[i]) : "simulating";
     var label = t.name + ": power " + fmtSigned(pw) + " points, playoff chance " + po + (c.mode === "intel" ? ", momentum " + (momentumOf(i) == null ? "n/a" : fmtSigned(momentumOf(i) * 100, 0) + " points") : "");
     var node = svgEl("g", { class: "u-node" + (c.sel.team === i ? " is-sel" : "") + (c.dim(i) ? " is-dim" : ""), tabindex: "0", role: "button", "aria-label": label, "data-team": i, "data-tip": label });
     node.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: c.r, class: "u-dot", style: "fill:" + fill }));
-    var showLab = c.mode !== "geo" || c.detail;
-    if (showLab && c.mode !== "div") node.appendChild(svgEl("text", { x: p[0] + c.r + 3, y: p[1] + 4, class: "u-nodelab", text: t.a }));
+    if (labs[i]) node.appendChild(svgEl("text", { x: labs[i].x, y: labs[i].y, "text-anchor": labs[i].anchor, class: "u-nodelab", text: t.a }));
     g.appendChild(node);
   });
 }
@@ -166,7 +196,7 @@ function renderInjuries(c, g) {
 function renderCounts(c, g, types, cls, slot) {
   var n = {};
   c.events.forEach(function (e) { if (types.indexOf(e.type) < 0) return; e.teams.forEach(function (t) { n[t] = (n[t] || 0) + 1; }); });
-  for (var k in n) badgeAt(c, g, +k, ["e", "se", "sw"][slot - 1] || "e", "u-b-" + cls, c.detail || c.mode !== "geo" ? String(n[k]) : null, TEAMS[+k].name + ": " + n[k] + " " + (cls === "tx" ? "transaction" : "news item") + (n[k] > 1 ? "s" : "") + " " + RANGE_PHRASE[c.range]);
+  for (var k in n) badgeAt(c, g, +k, ["e", "se", "sw"][slot - 1] || "e", "u-b-" + cls, c.detail || c.mode !== "geo" ? String(n[k]) : null, TEAMS[+k].name + ": " + n[k] + " " + (cls === "tx" ? "transaction" : "news item") + (n[k] > 1 ? "s" : "") + " " + (c.phrase || RANGE_PHRASE[c.range]));   // c.phrase: [S-C time machine]
 }
 function renderQB(c, g) {
   TEAMS.forEach(function (t, i) {

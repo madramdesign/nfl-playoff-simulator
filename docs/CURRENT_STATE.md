@@ -3,7 +3,7 @@
 > Update this file at the beginning and end of every substantial work session. Do not invent progress.
 
 ## Last updated
-- Date: 2026-11-21 (end of the first NFL Universe session)
+- Date: 2026-11-23 (cloud session: refresh fix, hosting prep, focus, weather backup, tiebreakers, calibration, time machine, intelligence depth; newest entries first below)
 - Branches:
   - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit, plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the integration branch's history.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
@@ -23,6 +23,37 @@
 - New `src/universe/05-focus.js` and a focus bar under the top bar: NFL, then conference, division and team. The choice is in the URL (`?focus=AFC`, `AFC-EAST`, `NYG`) and narrows the map (teams outside are dimmed; the geographic map frames a division or team), the feed, the ticker, this week's games, the teams panel and media. Items with no team tag are left out while a focus is on. The team center has a "Focus on this team" button.
 - Not narrowed by focus: the "What is happening in the NFL?" brief, system health and the simulator view.
 - Checked: `npm test` (217 command-center checks, 20 of them new) and a browser run at desktop and phone widths against the local server.
+
+## Nov. 23, 2026: weather and the cloud refresh fixed (branch `claude/kind-bohr-75erpe`)
+- Cause and fix in DEC-019: hosts allowed on the cloud environment, the refresh now goes through the proxy, and `nws` (National Weather Service) backs up Open-Meteo.
+- Checked: `npm test` (39 fabric tests, 3 new); `npm run refresh` in the cloud container: nflverse, both RSS feeds, curated news, YouTube (127 videos), podcasts (18) and `nws` all ok; Open-Meteo down with "answered 429"; the one unfinished outdoor game carries a National Weather Service forecast.
+- Not checked: the backup with several games at once (only one outdoor game was left this week), an international game, and the scheduled task's own next run.
+- Where the daily refresh runs is now known: the cloud scheduled task "NFL simulator daily refresh", 4:35 a.m. Eastern, in the Default cloud environment.
+
+## Nov. 23, 2026: focus follow-ups (branch `claude/kind-bohr-75erpe`)
+- The brief ("What is happening...") now answers for the focus: every ranked line is looked for inside it, and the button and title name the scope.
+- Map labels no longer sit on each other or on count badges (`placeLabels` in `07-layers.js`); a focused division is always zoomed far enough to be labelled.
+- Checked: `npm test` (227 command-center checks) and a browser look at the NFC East.
+- Four streams dispatched to agents in worktrees: see `docs/AGENT_COORDINATION.md`.
+
+## Nov. 23, 2026: tiebreakers and calibration merged (branch `claude/kind-bohr-75erpe`)
+- S-A: net points in common games (division ties) and in conference games (wild-card ties) are now applied in their official positions. Net touchdowns stays skipped. Same-seed results on the real season were identical before and after over 600,000 seasons; not checked against nflseedR.
+- S-B: `scripts/calibration.py` (`npm run calibration`, test in `npm test`) scores saved forecasts against results with a date-level leakage rule. Real run: 11 games, too few to read anything from.
+- Follow-up done by the orchestrator: `scripts/snapshot.js` now saves every remaining game's home-win chance in each mode (`probs`), and the calibration script scores those as `model: <mode>` series. Before this, snapshots held only the sportsbook probability.
+- `npm test` now has six `ok` lines (late tiebreakers and calibration added).
+
+## Nov. 23, 2026: time machine merged (branch `claude/kind-bohr-75erpe`)
+- S-C: "Replay the feed as of" control in the left rail and `?asOf=` in the URL (DEC-020). New `src/universe/18-history.js` and `scripts/event-archive.js`; the build embeds `D.eventArchive`.
+- Checked after merge: `npm test` (42 fabric tests, 296 command-center checks) and a browser look at a replay combined with a focus. Not tested: Safari and Firefox date inputs.
+- The brief and the team drawer still list current events during a replay; the banner says so.
+
+## Nov. 23, 2026: intelligence depth merged; all four streams integrated (branch `claude/kind-bohr-75erpe`)
+- S-D: watchlist stars, a bell with in-page alerts, a "What changed" panel and conflicting injury reports side by side (DEC-021). New `src/universe/17-watch.js`.
+- Merge conflicts were the two expected appends (CSS and tests); both blocks kept.
+- Teams table on wide screens now shows abbreviations only so every column fits.
+- Checked after the last merge: `npm test`, six `ok` lines (42 fabric tests, 365 command-center checks, 65 calibration checks); the page at 1440 and 390 px with a focus, a starred team and the simulator view: no page errors, no horizontal overflow.
+- Not exercised: an alert raised by a real poll (alerts were driven through the store), a real two-source injury conflict, screen readers, Safari and Firefox.
+- Open: add a disagreeing injury to `test/fixtures/make-fixtures.js`; a replay marker in the brief and team drawer; compare tiebreakers with nflseedR; the hosted Render site is unverified.
 
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
@@ -66,11 +97,10 @@
 ## Open items
 - Team labels collide in the Northeast; Network and Schedule map modes and History are placeholders.
 - The page is 400 KB (no minification; the snapshot is embedded).
-- Not built yet: depth charts in injury weights beyond the quarterback; player canonical ids (candidate crosswalk is GPL data, owner decision); tiebreaker steps from nflseedR; time-machine replay from `seenAt`.
+- Not built yet: depth charts in injury weights beyond the quarterback; player canonical ids (candidate crosswalk is GPL data, owner decision); net touchdowns as a tiebreaker (no touchdown model for unplayed games).
 - Not verified:
   - live loading of the new agents and rules (needs a signed-in session: run `/context` and `/agents`);
-  - behavior during a live game;
-  - where the daily refresh runs.
+  - behavior during a live game.
 
 ## Decisions waiting on the owner
 1. Language-model provider and cost ceiling, or none (DEC-009).

@@ -266,6 +266,27 @@ def fabric_bootstrap():
     try: return json.load(open(path))
     except Exception as err: print("fabric snapshot unreadable, skipped:", err); return None
 
+EVENT_ARCHIVE_MAX_BYTES = 200000   # keep equal to ARCHIVE_MAX_BYTES in scripts/event-archive.js
+
+def event_archive():
+    """[S-C time machine] The last days of the point-in-time event record (data/fabric/events/), compacted by
+    scripts/event-archive.js (public sources only, at most 7 days and 200,000 bytes), embedded as D.eventArchive so the
+    static page can replay the feed as it stood earlier. Checked again here; anything wrong means no archive, and the
+    page then says replay is limited to the events in its snapshot."""
+    try:
+        out = subprocess.run(["node", os.path.join(ROOT, "scripts", "event-archive.js")], capture_output=True, text=True, timeout=120)
+        if out.stderr.strip(): print(out.stderr.strip())
+        if out.returncode != 0: return None
+        arc = json.loads(out.stdout)
+        size = len(json.dumps(arc, separators=(",", ":")).encode())
+        ok = (isinstance(arc, dict) and arc.get("v") == 1 and isinstance(arc.get("events"), list) and size <= EVENT_ARCHIVE_MAX_BYTES
+              and all(isinstance(e, dict) and isinstance(e.get("id"), str) and isinstance(e.get("seenAt"), str) for e in arc["events"]))
+        if not ok: print("event archive failed the build check, not embedded"); return None
+        print(f"event archive embedded: {len(arc['events'])} events, {size} bytes of page")
+        return arc
+    except Exception as err:
+        print("event archive skipped (needs Node):", err); return None
+
 def assemble(page, data):
     """Fills the template: the data blob, the team entity file and the command-center modules in src/universe/
     (all .css files, then all .js files, each in file-name order). Output stays one self-contained HTML file."""
@@ -292,7 +313,7 @@ def reuse():
     built = open(os.path.join(ROOT, "public", "index.html")).read()
     m = re.search(r"^var D=(\{.*\});$", built, re.M)
     if not m: raise SystemExit("public/index.html has no data line to reuse; run a full build")
-    data = json.loads(m.group(1)); data["fabric"] = fabric_bootstrap()
+    data = json.loads(m.group(1)); data["fabric"] = fabric_bootstrap(); data["eventArchive"] = event_archive()   # [S-C time machine]
     page = open(os.path.join(ROOT, "src", "template.html")).read()
     open(os.path.join(ROOT, "public", "index.html"), "w").write(assemble(page, data))
     print("rebuilt public/index.html from the template, keeping data built", data.get("built"))
@@ -338,6 +359,7 @@ def main():
         data["owners"] = [order.index(raw[t]) if t in raw else None for t in order]
         data["ownersAsOf"] = datetime.date.fromtimestamp(os.path.getmtime(owners_path)).strftime("%b. ") + str(datetime.date.fromtimestamp(os.path.getmtime(owners_path)).day)
     data["fabric"] = fabric_bootstrap()
+    data["eventArchive"] = event_archive()   # [S-C time machine]
     os.makedirs(os.path.join(ROOT, "public"), exist_ok=True)
     open(os.path.join(ROOT, "public", "index.html"), "w").write(assemble(page, data))
     print(f"built public/index.html: {len(data['played'])} games played, {len(data['games'])} remaining, {sum(1 for g in data['games'] if g[6] is not None)} with sportsbook lines, EPA from {data['epaGames']} games")

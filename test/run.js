@@ -51,6 +51,48 @@ const s0 = E.simulate(none, nyg, 3000), s1 = E.simulate(none, nyg, 3000, null, f
 assert.deepStrictEqual(Array.from(s0.po), Array.from(s1.po), "default seed is unchanged");
 assert.notDeepStrictEqual(Array.from(s0.po), Array.from(s2.po), "another seed draws different seasons");
 assert.strictEqual(Math.round(Array.from(s2.po).reduce((x, y) => x + y, 0) / s2.n), 14, "any seed still fills 14 playoff spots");
+// Late tiebreaker steps: net points in common games (division ties) and in conference games (wild-card ties) sit between
+// the league-wide points ranking and net points in all games. Each case below is a small hand-made season with every
+// game already played, so nothing is drawn at random except a coin toss, and 200 identical seasons rule a coin toss out.
+{
+  const engineWith = (src, data) => new Function("__D", src.replace(dataLine, "var D=__D;") + ";return {simulate,TM}")(data);
+  assert.ok(scripts[0].includes(dataLine), "the engine's data line can be swapped for a hand-made season");
+  const DIV = []; E.TM.forEach((t, i) => (DIV[t.d] = DIV[t.d] || []).push(i));
+  const season = (played) => ({ teams: E.TM, games: [], hfa: 0, played, rate: new Array(32).fill(0) });
+  const A = DIV[0][0], B = DIV[0][1], X = DIV[1][0], Y = DIV[4][0], Z = DIV[4][1];
+  // Division tie: A and B split, both beat X (the only common opponent) and both lose once outside the conference, so
+  // records, strength of victory and schedule, and both points rankings are level. A is +10 in the common game and B
+  // +4; over all games A is -10 and B -6, so the step order decides it. Rows are [away, home, away points, home points].
+  const divGames = [[A, B, 20, 10], [B, A, 20, 10], [X, A, 20, 30], [X, B, 20, 24], [A, Y, 10, 30], [B, Z, 10, 20]];
+  let t = engineWith(scripts[0], season(divGames)).simulate([], A);
+  assert.strictEqual(t.n, 200);
+  assert.deepStrictEqual([t.dv[A], t.dv[B]], [t.n, 0], "net points in common games decides a division tie before net points in all games");
+  assert.strictEqual(engineWith(scripts[0], season(divGames)).simulate([], A, 1, null, true).first[0][0], A, "the same step applies to standings as of today");
+  // Same tie with the common-game margins level (+10 each): net points in all games (A -10, B -7) is still the next step.
+  t = engineWith(scripts[0], season([[A, B, 20, 10], [B, A, 20, 10], [X, A, 20, 30], [X, B, 20, 30], [A, Y, 10, 30], [B, Z, 3, 20]])).simulate([], A);
+  assert.deepStrictEqual([t.dv[A], t.dv[B]], [0, t.n], "level net points in common games falls through to net points in all games");
+  // Wild-card procedure (here seeding two division winners from different divisions): no head-to-head game and no common
+  // opponents; A is +10 in conference games and C +4, while over all games A is -10 and C -6.
+  const C = DIV[1][0], P = DIV[2][0], Q = DIV[2][1];
+  const wildGames = [[P, A, 20, 30], [Q, C, 20, 24], [A, Y, 10, 30], [C, Z, 10, 20]];
+  t = engineWith(scripts[0], season(wildGames)).simulate([], A);
+  assert.deepStrictEqual([t.seedC[A][0], t.seedC[C][1], t.first[0][0]], [t.n, t.n, A], "net points in conference games decides a wild-card tie before net points in all games");
+  t = engineWith(scripts[0], season([[P, A, 20, 30], [Q, C, 20, 30], [A, Y, 10, 30], [C, Z, 3, 20]])).simulate([], A);
+  assert.deepStrictEqual([t.seedC[C][0], t.seedC[A][1]], [t.n, t.n], "level net points in conference games falls through to net points in all games");
+  // With the two new steps switched off the engine is the previous one (same draws, same order of steps). On the real
+  // season the steps are reached so rarely that playoff shares for a fixed seed should not move.
+  const oldSrc = scripts[0].replace("function netIn(t,os){", "function netIn(t,os){return 0;");
+  assert.notStrictEqual(oldSrc, scripts[0], "the new steps can be switched off for comparison");
+  t = engineWith(oldSrc, season(divGames)).simulate([], A);
+  assert.deepStrictEqual([t.dv[A], t.dv[B]], [0, t.n], "without the new step the same division tie went the other way");
+  t = engineWith(oldSrc, season(wildGames)).simulate([], A);
+  assert.strictEqual(t.seedC[C][0], t.n, "without the new step the same wild-card tie went the other way");
+  const realD = new Function(scripts[0] + ";return D")(), n0 = 5000;
+  const now1 = E.simulate(none, nyg, n0), was1 = engineWith(oldSrc, realD).simulate(none, nyg, n0);
+  let moved = 0; for (let i = 0; i < 32; i++) moved = Math.max(moved, Math.abs(now1.po[i] - was1.po[i]) / n0);
+  assert.ok(moved < 0.005, "the new steps move no team's playoff share by half a point over " + n0 + " seasons (largest move " + (moved * 100).toFixed(2) + ")");
+  console.log("ok: late tiebreaker steps; largest playoff-share move from the new steps over " + n0 + " seasons: " + (moved * 100).toFixed(2) + " points");
+}
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
 assert.deepStrictEqual(feed[0], { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 });

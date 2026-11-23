@@ -18,9 +18,9 @@ function filterFeed(events, chips, range, now, query) {
   return query ? searchEvents(out, query) : out;
 }
 var FEED_PLURAL = { breaking: "breaking items", news: "news", injury: "injuries", transaction: "transactions", odds: "odds moves", weather: "weather flags", game: "game updates", model: "model events" };
-function feedEmptyText(chips, range, query) {
+function feedEmptyText(chips, range, query, phrase) {   // phrase: [S-C time machine] the range worded for a replay
   var names = chips.length ? FEED_CHIPS.filter(function (c) { return chips.indexOf(c[0]) >= 0; }).map(function (c) { return FEED_PLURAL[c[0]]; }) : ["events"];
-  return "No " + names.join(" or ") + " " + RANGE_PHRASE[range] + (query ? " matching \u201c" + query + "\u201d" : "") + ".";
+  return "No " + names.join(" or ") + " " + (phrase || RANGE_PHRASE[range]) + (query ? " matching \u201c" + query + "\u201d" : "") + ".";
 }
 function teamChip(i) {
   var t = TEAMS[i];
@@ -41,11 +41,12 @@ function eventRow(e, now) {
       e.teams.slice(0, 4).map(teamChip), e.teams.length > 4 ? el("span", { class: "u-more", text: "+" + (e.teams.length - 4) }) : null]),
     title,
     el("div", { class: "u-ev-meta" }, meta),
+    eventConflictNode(e),   // S-D: both injury reports side by side when sources differ (17-watch.js)
     e.importance != null ? el("div", { class: "u-imp", title: "Importance " + Math.round(e.importance) + " of 100 (a rule score from the feed, not a judgment)" }, [el("i", { style: { width: Math.round(e.importance) + "%" } })]) : null
   ]);
 }
 function buildFeedPanel(host) {
-  var fids = ["rss-*", "espn-*", "curated-news", "nflverse-*", "open-meteo"];
+  var fids = ["rss-*", "espn-*", "curated-news", "nflverse-*", "open-meteo", "nws"];
   feedPanel = Panel({ id: "feed", title: "Intelligence feed", sources: fids, badge: buildOrFeedBadge(fids) });
   var chips = el("div", { class: "u-chips", role: "group", "aria-label": "Event types" });
   FEED_CHIPS.forEach(function (c) {
@@ -68,22 +69,24 @@ function renderFeed() {
   if (!feedPanel) return;
   var st = store.get(), chips = st.feedTypes;
   Array.prototype.forEach.call(feedPanel.chips.children, function (b) { b.setAttribute("aria-pressed", chips.indexOf(b.getAttribute("data-chip")) >= 0 ? "true" : "false"); });
-  var now = refNow(), q = (st.search || "").trim().toLowerCase();
-  var list = focusEvents(filterFeed(st.model ? st.model.events : [], chips, st.timeRange, now, q), focusSet(st.focus));
+  // [S-C time machine] feedSource/feedNow/rangePhrase/replayFeedNote (18-history.js): the model's events and the real now, or the replay's
+  var now = feedNow(st), q = (st.search || "").trim().toLowerCase(), rnote = replayFeedNote(st);
+  var list = focusEvents(filterFeed(feedSource(st), chips, st.timeRange, now, q), focusSet(st.focus));
   if (!list.length) {
     var gap = !st.payload ? " No feed data is loaded: no server answered and this build has no embedded snapshot, so silence here is not an all-clear." : "";
-    feedPanel.empty(feedEmptyText(chips, st.timeRange, q).replace(/\.$/, focusPhrase(st.focus) + ".") + gap);
+    feedPanel.empty(feedEmptyText(chips, st.timeRange, q, rangePhrase(st)).replace(/\.$/, focusPhrase(st.focus) + ".") + gap + (rnote ? " " + rnote : ""));
     return;
   }
   feedPanel.render(function (body) {
     if (st.model && st.model.fixture) body.appendChild(el("p", { class: "u-warnline", text: "Fixture data: synthetic events for development, not real news." }));
     if (!st.payload) body.appendChild(el("p", { class: "u-warnline", text: "Live feeds unavailable and no snapshot in this build: only the curated news built into the page is listed. Injuries, transactions and other news may be missing." }));
+    if (rnote) body.appendChild(el("p", { class: "u-warnline u-replaynote", text: rnote }));
     var ul = el("ul", { class: "u-evlist" });
     var built = eventRows(list.slice(0, feedShown), now);
     built.rows.forEach(function (r) { ul.appendChild(r); });
     body.appendChild(ul);
     if (built.skipped) body.appendChild(el("p", { class: "u-warnline", text: built.skipped + " item" + (built.skipped > 1 ? "s" : "") + " could not be shown (malformed data)." }));
-    body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) }));
+    body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + rangePhrase(st) + focusPhrase(st.focus) }));
     if (list.length > feedShown) body.appendChild(el("button", { type: "button", class: "u-btn", "data-fk": "feed-more", text: "Show more", onclick: function () { feedShown += FEED_PAGE; renderFeed(); } }));
   });
 }
@@ -101,14 +104,14 @@ function tickerEvents(events, range, now) {
 }
 var tickerKey = null;
 function renderTicker(host) {
-  var st = store.get(), now = refNow();
-  var top = tickerEvents(focusEvents(st.model ? st.model.events : [], focusSet(st.focus)), st.timeRange, now);
+  var st = store.get(), now = feedNow(st);   // [S-C time machine] the ticker is replayed with the feed
+  var top = tickerEvents(focusEvents(feedSource(st), focusSet(st.focus)), st.timeRange, now);
   // rebuild (and so restart the scroll) only when the set of events changes
-  var key = (st.payload ? "p" : "n") + "|" + (st.focus || "") + "|" + top.map(function (e) { return e.id; }).join(",");
+  var key = (st.payload ? "p" : "n") + "|" + (st.focus || "") + "|" + (st.asOf || "") + "|" + top.map(function (e) { return e.id; }).join(",");
   if (key === tickerKey && host.firstChild) return;
   tickerKey = key;
   clearNode(host);
-  if (!top.length) { host.appendChild(el("p", { class: "u-tick-empty", text: st.payload ? "No scored events " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) + "." : "Ticker: no live feed and no embedded snapshot." })); return; }
+  if (!top.length) { host.appendChild(el("p", { class: "u-tick-empty", text: st.payload ? "No scored events " + rangePhrase(st) + focusPhrase(st.focus) + "." : "Ticker: no live feed and no embedded snapshot." })); return; }
   var track = el("div", { class: "u-track" });
   for (var copy = 0; copy < 2; copy++) top.forEach(function (e) {
     var item = el(e.url ? "a" : "span", { class: "u-tk", href: e.url || null, target: e.url ? "_blank" : null, rel: e.url ? "noopener" : null, "aria-hidden": copy ? "true" : null, tabindex: copy ? "-1" : null }, [
@@ -116,7 +119,7 @@ function renderTicker(host) {
     track.appendChild(item);
   });
   track.style.animationDuration = Math.max(30, top.length * 9) + "s";
-  host.appendChild(el("span", { class: "u-tk-label", text: "Top events" }));
+  host.appendChild(el("span", { class: "u-tk-label", text: tickerLabel(st) }));
   host.appendChild(el("div", { class: "u-tk-window" }, [track]));
 }
 NFLU.filterFeed = filterFeed;

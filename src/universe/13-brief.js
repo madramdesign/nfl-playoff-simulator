@@ -1,12 +1,13 @@
 // "What is happening in the NFL?": a short brief computed by fixed rules from the data on this page (DEC-009).
 function renderBrief(host) {
   var st = store.get(), now = refNow();
-  var lines = buildBrief({ M: st.model, payload: st.payload, sim: st.sim && st.sim.r, events: filterByTime(st.model ? st.model.events : [], st.timeRange, now) });
+  var fi = focusInfo(st.focus), fset = focusSet(st.focus), scope = fi.level === "league" ? "" : fi.level === "team" ? "the " + TEAMS[fi.team].nick : "the " + fi.label;
+  var lines = buildBrief({ M: st.model, payload: st.payload, sim: st.sim && st.sim.r, focus: fset, scope: scope, events: focusEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), fset) });
   clearNode(host);
   host.appendChild(el("div", { class: "u-mhead" }, [
-    el("h2", { id: "u-brief-title", text: "What is happening in the NFL?" }),
+    el("h2", { id: "u-brief-title", text: fset ? "What is happening with " + scope + "?" : "What is happening in the NFL?" }),
     el("button", { type: "button", class: "u-x", "aria-label": "Close", text: "×", onclick: closeBrief })]));
-  host.appendChild(el("p", { class: "u-label", text: "Computed from the data on this page, not written by an AI model. Events " + RANGE_PHRASE[st.timeRange] + "; " + dataStatusText() + (st.sim ? "; simulation: " + st.sim.n.toLocaleString() + " seasons, " + MODE_NAMES[st.sim.mode] + " win chances" : "") + "." }));
+  host.appendChild(el("p", { class: "u-label", text: "Computed from the data on this page, not written by an AI model. " + (fset ? "Narrowed to " + scope + " (the focus); a game counts when either team is in it. " : "") + "Events " + RANGE_PHRASE[st.timeRange] + "; " + dataStatusText() + (st.sim ? "; simulation: " + st.sim.n.toLocaleString() + " seasons, " + MODE_NAMES[st.sim.mode] + " win chances" : "") + "." }));
   if (st.model && st.model.fixture) host.appendChild(el("p", { class: "u-warnline", text: "Fixture data: these lines describe synthetic test data." }));
   var ol = el("ol", { class: "u-brief" });
   lines.forEach(function (l) {
