@@ -20,7 +20,16 @@ function load() {
     const html = fs.readFileSync(PAGE, "utf8");
     const m = html.match(/<script id="engine">([\s\S]*?)<\/script>/);
     if (!m) throw new Error("no <script id=\"engine\"> in public/index.html");
-    const E = new Function(m[1] + ";return {simulate,seedsToday,baseProb,GAMES,TM,D,HFA,SHRINK}")();
+    let src = m[1];
+    // Tests pin the season data (NFLU_ENGINE_DATA: a file holding one `var D=...` line) so that fixture matchups do
+    // not depend on which games the daily build has already counted. The engine code is still the page's own.
+    const pinned = process.env.NFLU_ENGINE_DATA;
+    if (pinned) {
+      if (!/^var D=.*$/m.test(src)) throw new Error("no `var D=` line in the engine script to pin");
+      const data = fs.readFileSync(pinned, "utf8").trim();
+      src = src.replace(/^var D=.*$/m, () => data);
+    }
+    const E = new Function(src + ";return {simulate,seedsToday,baseProb,GAMES,TM,D,HFA,SHRINK}")();
     if (!Array.isArray(E.GAMES) || !Array.isArray(E.TM) || E.TM.length !== 32 || typeof E.simulate !== "function") throw new Error("engine globals missing or malformed");
     const gameIndex = new Map(E.GAMES.map((g, i) => [g[0], i]));
     const pairIndex = new Map(E.GAMES.map((g, i) => [E.TM[g[2]].a + "@" + E.TM[g[3]].a, i]));
