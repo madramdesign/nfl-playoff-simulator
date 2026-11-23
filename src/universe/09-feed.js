@@ -69,10 +69,10 @@ function renderFeed() {
   var st = store.get(), chips = st.feedTypes;
   Array.prototype.forEach.call(feedPanel.chips.children, function (b) { b.setAttribute("aria-pressed", chips.indexOf(b.getAttribute("data-chip")) >= 0 ? "true" : "false"); });
   var now = refNow(), q = (st.search || "").trim().toLowerCase();
-  var list = filterFeed(st.model ? st.model.events : [], chips, st.timeRange, now, q);
+  var list = focusEvents(filterFeed(st.model ? st.model.events : [], chips, st.timeRange, now, q), focusSet(st.focus));
   if (!list.length) {
     var gap = !st.payload ? " No feed data is loaded: no server answered and this build has no embedded snapshot, so silence here is not an all-clear." : "";
-    feedPanel.empty(feedEmptyText(chips, st.timeRange, q) + gap);
+    feedPanel.empty(feedEmptyText(chips, st.timeRange, q).replace(/\.$/, focusPhrase(st.focus) + ".") + gap);
     return;
   }
   feedPanel.render(function (body) {
@@ -83,7 +83,7 @@ function renderFeed() {
     built.rows.forEach(function (r) { ul.appendChild(r); });
     body.appendChild(ul);
     if (built.skipped) body.appendChild(el("p", { class: "u-warnline", text: built.skipped + " item" + (built.skipped > 1 ? "s" : "") + " could not be shown (malformed data)." }));
-    body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] }));
+    body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) }));
     if (list.length > feedShown) body.appendChild(el("button", { type: "button", class: "u-btn", "data-fk": "feed-more", text: "Show more", onclick: function () { feedShown += FEED_PAGE; renderFeed(); } }));
   });
 }
@@ -102,13 +102,13 @@ function tickerEvents(events, range, now) {
 var tickerKey = null;
 function renderTicker(host) {
   var st = store.get(), now = refNow();
-  var top = tickerEvents(st.model ? st.model.events : [], st.timeRange, now);
+  var top = tickerEvents(focusEvents(st.model ? st.model.events : [], focusSet(st.focus)), st.timeRange, now);
   // rebuild (and so restart the scroll) only when the set of events changes
-  var key = (st.payload ? "p" : "n") + "|" + top.map(function (e) { return e.id; }).join(",");
+  var key = (st.payload ? "p" : "n") + "|" + (st.focus || "") + "|" + top.map(function (e) { return e.id; }).join(",");
   if (key === tickerKey && host.firstChild) return;
   tickerKey = key;
   clearNode(host);
-  if (!top.length) { host.appendChild(el("p", { class: "u-tick-empty", text: st.payload ? "No scored events " + RANGE_PHRASE[st.timeRange] + "." : "Ticker: no live feed and no embedded snapshot." })); return; }
+  if (!top.length) { host.appendChild(el("p", { class: "u-tick-empty", text: st.payload ? "No scored events " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) + "." : "Ticker: no live feed and no embedded snapshot." })); return; }
   var track = el("div", { class: "u-track" });
   for (var copy = 0; copy < 2; copy++) top.forEach(function (e) {
     var item = el(e.url ? "a" : "span", { class: "u-tk", href: e.url || null, target: e.url ? "_blank" : null, rel: e.url ? "noopener" : null, "aria-hidden": copy ? "true" : null, tabindex: copy ? "-1" : null }, [

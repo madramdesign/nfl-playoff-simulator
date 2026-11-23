@@ -562,6 +562,19 @@ a.u-tk:hover{text-decoration:underline}
 .u-nowplaying audio{max-width:100%;flex:1 1 220px}
 .u-vtitle,.u-podtitle{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 
+/* focus bar: league, conference, division, team */
+.u-focus{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:6px 16px;background:var(--u-panel);border-bottom:1px solid var(--line)}
+.u-focus[hidden]{display:none}
+.u-focus.is-on{box-shadow:inset 3px 0 0 var(--accent)}
+.u-flabel{font:700 10.5px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.u-fgroup{flex-wrap:nowrap}
+.u-focus .u-seg button.is-path{border-color:var(--accent);color:var(--accent)}
+.u-fsep{color:var(--muted);font-size:15px;line-height:1}
+.u-fnote{color:var(--muted);font-size:12px;margin-left:4px}
+.u-fopen{margin-left:auto;padding:4px 9px}
+.u-table tr.is-focus td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+@media (max-width:640px){.u-focus{padding:6px 16px}.u-fnote{flex-basis:100%;margin-left:0}.u-fopen{margin-left:0}}
+
 </style>
 </head>
 <body>
@@ -575,6 +588,7 @@ a.u-tk:hover{text-decoration:underline}
     <div class="u-viewsw" role="group" aria-label="View"><button type="button" data-view="universe" aria-pressed="true">Command center</button><button type="button" data-view="sim" aria-pressed="false">Simulator</button></div>
     <button type="button" class="u-theme" id="uTheme">Theme</button>
   </header>
+  <nav class="u-focus" id="uFocus" aria-label="Focus: league, conference, division or team"></nav>
   <div class="u-body" id="uBody" data-tab="feed">
     <div class="u-col u-left">
       <section class="u-rail" id="uRail" aria-label="Map controls"></section>
@@ -1020,7 +1034,7 @@ function filterByTime(items, range, now) {
 // ---- URL state ----
 var VIEWS = ["universe", "sim"];
 var MAP_MODES = ["geo", "div", "intel"];
-var URL_KEYS = ["view", "mode", "layers", "timeRange", "team", "game"];
+var URL_KEYS = ["view", "mode", "layers", "timeRange", "focus", "team", "game"];
 var GAME_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 var LAYER_ID_RE = /^[a-z][a-z0-9-]{0,23}$/;
 
@@ -1036,7 +1050,7 @@ function parseQuery(search) {
 }
 function uniqList(a) { var o = []; a.forEach(function (x) { if (o.indexOf(x) < 0) o.push(x); }); return o; }
 // raw: {key: string} (from the URL) or values saved earlier (layers may be an array). Anything not on an allowlist is dropped.
-// allow: {teams: [abbr], layers: [id]}; without lists, the shape checks above are used.
+// allow: {teams: [abbr], layers: [id], focus: [id]}; without lists, the shape checks above are used.
 function sanitizeState(raw, allow) {
   allow = allow || {}; raw = raw || {};
   var out = {};
@@ -1055,6 +1069,10 @@ function sanitizeState(raw, allow) {
   if (typeof raw.team === "string" && raw.team) {
     var t = raw.team.toUpperCase();
     if (allow.teams ? allow.teams.indexOf(t) >= 0 : /^[A-Z]{2,3}$/.test(t)) out.team = t;
+  }
+  if (typeof raw.focus === "string" && raw.focus) {
+    var f = raw.focus.toUpperCase();
+    if (allow.focus ? allow.focus.indexOf(f) >= 0 : /^[A-Z]{2,3}(-[A-Z]{4,5})?$/.test(f)) out.focus = f;
   }
   if (typeof raw.game === "string" && GAME_ID_RE.test(raw.game)) out.game = raw.game;
   return out;
@@ -1769,6 +1787,51 @@ Object.assign(NFLU, { modeProb: modeProb, ratingsBlendProb: ratingsBlendProb, te
   biggestMarketMove: biggestMarketMove, mostImportantGame: mostImportantGame, biggestUncertainty: biggestUncertainty, overlookedFactor: overlookedFactor,
   intelligenceGaps: intelligenceGaps, buildBrief: buildBrief, momentumOf: momentumOf, DISAGREE_MIN: DISAGREE_MIN });
 
+// ---- src/universe/05-focus.js
+// Focus: narrow the whole command center to one scope, the way a world dashboard narrows to a country. The scopes are
+// the league (no focus), a conference, a division or one team; the choice lives in the URL (?focus=AFC, AFC-EAST, BUF).
+// Everything here is pure and built from the engine's own team rows, so conferences and divisions cannot drift from them.
+var DIV_ORDER = ["East", "North", "South", "West"];
+var FOCUS = (function () {
+  var confs = [], byId = dict();
+  TEAMS.forEach(function (t, i) {
+    var conf = byId[t.conf];
+    if (!conf) { conf = byId[t.conf] = { id: t.conf, level: "conf", label: t.conf, conf: t.conf, div: null, team: null, teams: [], divs: [] }; confs.push(conf); }
+    conf.teams.push(i);
+    var did = String(t.div).toUpperCase().replace(/[^A-Z]+/g, "-"), dv = byId[did];
+    if (!dv) {
+      var short = String(t.div).replace(new RegExp("^" + t.conf + "\\s+"), "");
+      dv = byId[did] = { id: did, level: "div", label: t.div, short: short, conf: t.conf, div: did, team: null, teams: [] };
+      conf.divs.push(dv);
+    }
+    dv.teams.push(i);
+    if (!byId[t.a]) byId[t.a] = { id: t.a, level: "team", label: t.name, short: t.a, conf: t.conf, div: did, team: i, teams: [i] };
+  });
+  var rank = function (d) { var k = DIV_ORDER.indexOf(d.short); return k < 0 ? 9 : k; };
+  confs.sort(function (a, b) { return a.id < b.id ? -1 : 1; });
+  confs.forEach(function (c) { c.divs.sort(function (a, b) { return rank(a) - rank(b); }); });
+  return { confs: confs, byId: byId, ids: Object.keys(byId) };
+})();
+var LEAGUE_FOCUS = { id: null, level: "league", label: "NFL", conf: null, div: null, team: null, teams: null };
+// The scope for a focus id; anything unknown (or empty) is the whole league.
+function focusInfo(id) { return typeof id === "string" && FOCUS.byId[id] ? FOCUS.byId[id] : LEAGUE_FOCUS; }
+// Team indexes in focus as a lookup, or null for the whole league.
+function focusSet(id) {
+  var f = focusInfo(id); if (!f.teams) return null;
+  var m = dict(); f.teams.forEach(function (i) { m[i] = 1; }); return m;
+}
+// Items tagged with at least one team in focus. Items with no team (league-wide news) are left out while a focus is on.
+function focusEvents(list, set) { return set ? (list || []).filter(function (e) { return (e.teams || []).some(function (t) { return set[t]; }) || (e.team != null && set[e.team]); }) : list || []; }
+function focusGames(games, set) { return set ? (games || []).filter(function (g) { return set[g.away] || set[g.home]; }) : games || []; }
+// The teams listed beside the map: the scope's own teams, or for one team its whole division so there is something to compare with.
+function focusTeamList(id) {
+  var f = focusInfo(id);
+  if (f.level === "league") return TEAMS.map(function (t, i) { return i; });
+  return (f.level === "team" ? FOCUS.byId[f.div] : f).teams.slice();
+}
+function focusPhrase(id) { var f = focusInfo(id); return f.level === "league" ? "" : " for " + (f.level === "team" ? "the " + TEAMS[f.team].nick : "the " + f.label); }
+Object.assign(NFLU, { FOCUS: FOCUS, focusInfo: focusInfo, focusSet: focusSet, focusEvents: focusEvents, focusGames: focusGames, focusTeamList: focusTeamList, focusPhrase: focusPhrase });
+
 // ---- src/universe/05-geo.js
 // Generated by scripts/gen_geo.py. Do not edit by hand.
 // Lower-48 US state outlines from Natural Earth 1:110m admin-1 (public domain, naturalearthdata.com),
@@ -2257,6 +2320,17 @@ function clampView() {
   if (view.k <= 1) { view.k = 1; view.tx = 0; view.ty = 0; return; }
   view.tx = clamp(view.tx, MAP_W - MAP_W * view.k, 0); view.ty = clamp(view.ty, MAP_H - MAP_H * view.k, 0);
 }
+// Geographic map: frame the teams in focus (a division or a team); a conference or the league shows the whole country.
+function fitFocus() {
+  var f = focusInfo(store.get("focus"));
+  if (!HAS_GEO) return;
+  var pts = (f.level === "div" || f.level === "team" ? f.teams : []).map(function (i) { return GEO_BASE[i]; }).filter(Boolean);
+  if (!pts.length) { view.k = 1; view.tx = 0; view.ty = 0; drawMapSoon(); return; }
+  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  pts.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
+  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), 1, f.level === "team" ? 3 : 4);
+  view.k = k; view.tx = MAP_W / 2 - (x0 + x1) / 2 * k; view.ty = MAP_H / 2 - (y0 + y1) / 2 * k; clampView(); drawMapSoon();
+}
 function zoomAt(x, y, f) {
   if (store.get("mode") !== "geo") return;
   var k2 = clamp(view.k * f, 1, 8); f = k2 / view.k;
@@ -2365,12 +2439,12 @@ function drawMap() {
   var st = store.get(), mode = st.mode, simr = st.sim && st.sim.r, po = simr ? Array.prototype.map.call(simr.po, function (v) { return v / simr.n; }) : null;
   if (mode === "geo" && !HAS_GEO) mode = "div";
   map.svg.setAttribute("data-mode", mode);
-  var q = (st.search || "").trim().toLowerCase(), match = q ? searchTeams(q) : null, selTeam = st.team != null && TIDX[st.team] != null ? TIDX[st.team] : null;
+  var q = (st.search || "").trim().toLowerCase(), match = q ? searchTeams(q) : null, selTeam = st.team != null && TIDX[st.team] != null ? TIDX[st.team] : null, fset = focusSet(st.focus);
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
-    events: searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), query: q, sel: { team: selTeam, game: st.game },
-    dim: function (i) { return !!match && !match[i]; }
+    events: focusEvents(searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), fset), query: q, sel: { team: selTeam, game: st.game },
+    dim: function (i) { return (!!match && !match[i]) || (!!fset && !fset[i]); }
   };
   drawBase(mode, po);
   LAYERS.forEach(function (l) {
@@ -2498,10 +2572,10 @@ function renderFeed() {
   var st = store.get(), chips = st.feedTypes;
   Array.prototype.forEach.call(feedPanel.chips.children, function (b) { b.setAttribute("aria-pressed", chips.indexOf(b.getAttribute("data-chip")) >= 0 ? "true" : "false"); });
   var now = refNow(), q = (st.search || "").trim().toLowerCase();
-  var list = filterFeed(st.model ? st.model.events : [], chips, st.timeRange, now, q);
+  var list = focusEvents(filterFeed(st.model ? st.model.events : [], chips, st.timeRange, now, q), focusSet(st.focus));
   if (!list.length) {
     var gap = !st.payload ? " No feed data is loaded: no server answered and this build has no embedded snapshot, so silence here is not an all-clear." : "";
-    feedPanel.empty(feedEmptyText(chips, st.timeRange, q) + gap);
+    feedPanel.empty(feedEmptyText(chips, st.timeRange, q).replace(/\.$/, focusPhrase(st.focus) + ".") + gap);
     return;
   }
   feedPanel.render(function (body) {
@@ -2512,7 +2586,7 @@ function renderFeed() {
     built.rows.forEach(function (r) { ul.appendChild(r); });
     body.appendChild(ul);
     if (built.skipped) body.appendChild(el("p", { class: "u-warnline", text: built.skipped + " item" + (built.skipped > 1 ? "s" : "") + " could not be shown (malformed data)." }));
-    body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] }));
+    body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) }));
     if (list.length > feedShown) body.appendChild(el("button", { type: "button", class: "u-btn", "data-fk": "feed-more", text: "Show more", onclick: function () { feedShown += FEED_PAGE; renderFeed(); } }));
   });
 }
@@ -2531,13 +2605,13 @@ function tickerEvents(events, range, now) {
 var tickerKey = null;
 function renderTicker(host) {
   var st = store.get(), now = refNow();
-  var top = tickerEvents(st.model ? st.model.events : [], st.timeRange, now);
+  var top = tickerEvents(focusEvents(st.model ? st.model.events : [], focusSet(st.focus)), st.timeRange, now);
   // rebuild (and so restart the scroll) only when the set of events changes
-  var key = (st.payload ? "p" : "n") + "|" + top.map(function (e) { return e.id; }).join(",");
+  var key = (st.payload ? "p" : "n") + "|" + (st.focus || "") + "|" + top.map(function (e) { return e.id; }).join(",");
   if (key === tickerKey && host.firstChild) return;
   tickerKey = key;
   clearNode(host);
-  if (!top.length) { host.appendChild(el("p", { class: "u-tick-empty", text: st.payload ? "No scored events " + RANGE_PHRASE[st.timeRange] + "." : "Ticker: no live feed and no embedded snapshot." })); return; }
+  if (!top.length) { host.appendChild(el("p", { class: "u-tick-empty", text: st.payload ? "No scored events " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) + "." : "Ticker: no live feed and no embedded snapshot." })); return; }
   var track = el("div", { class: "u-track" });
   for (var copy = 0; copy < 2; copy++) top.forEach(function (e) {
     var item = el(e.url ? "a" : "span", { class: "u-tk", href: e.url || null, target: e.url ? "_blank" : null, rel: e.url ? "noopener" : null, "aria-hidden": copy ? "true" : null, tabindex: copy ? "-1" : null }, [
@@ -2574,8 +2648,8 @@ function renderGames() {
   var st = store.get(), M = st.model, q = (st.search || "").trim().toLowerCase(), tm = q ? searchTeams(q) : null;
   if (!M) return;
   gamesPanel.setTitle("This week" + (M.week != null ? " · Week " + M.week : ""));
-  var games = M.games.filter(function (x) { return !tm || tm[x.away] || tm[x.home]; });
-  if (!games.length) { gamesPanel.empty(q ? "No games this week match “" + q + "”." : "No games found for this week."); return; }
+  var games = focusGames(M.games.filter(function (x) { return !tm || tm[x.away] || tm[x.home]; }), focusSet(st.focus));
+  if (!games.length) { gamesPanel.empty(q ? "No games this week match “" + q + "”" + focusPhrase(st.focus) + "." : st.focus ? "No games this week" + focusPhrase(st.focus) + " (a bye week, or the games are not in this data)." : "No games found for this week."); return; }
   gamesPanel.render(function (body) {
     var list = el("div", { class: "u-strip", role: "list" }), anyWx = null;
     games.forEach(function (x) {
@@ -2620,14 +2694,15 @@ function buildTeamsPanel(host) {
 function renderTeamsPanel() {
   if (!teamsPanel) return;
   var st = store.get(), r = st.sim && st.sim.r, q = (st.search || "").trim().toLowerCase(), tm = q ? searchTeams(q) : null;
-  var ids = TEAMS.map(function (t, i) { return i; }).filter(function (i) { return !tm || tm[i]; });
-  if (!ids.length) { teamsPanel.empty("No team matches “" + q + "”."); return; }
+  var fi = focusInfo(st.focus), ids = focusTeamList(st.focus).filter(function (i) { return !tm || tm[i]; });
+  teamsPanel.setTitle("Teams" + (fi.level === "league" ? "" : " · " + (fi.level === "team" ? FOCUS.byId[fi.div].label : fi.label)));
+  if (!ids.length) { teamsPanel.empty("No team matches “" + q + "”" + focusPhrase(st.focus) + "."); return; }
   ids.sort(function (a, b) { return r ? r.po[b] - r.po[a] || teamPower(b) - teamPower(a) : teamPower(b) - teamPower(a); });
   teamsPanel.render(function (body) {
     var tb = el("tbody");
     ids.forEach(function (i) {
       var t = TEAMS[i], qb = qbStatusOf(i, st.model);
-      tb.appendChild(el("tr", { class: st.team === t.a ? "is-sel" : "" }, [
+      tb.appendChild(el("tr", { class: (st.team === t.a ? "is-sel" : "") + (fi.team === i ? " is-focus" : "") }, [
         el("td", {}, [el("button", { type: "button", class: "u-tlink", "data-team": i, text: t.a }), el("span", { class: "u-tname", text: " " + t.nick }), qb && qb.level >= 3 ? el("span", { class: "u-qbflag", title: qb.reasons[0].text, text: "QB" }) : null]),
         el("td", { text: recStr(recordOf(i, st.model)) }),
         el("td", { text: fmtSigned(teamPower(i)) }),
@@ -2667,6 +2742,7 @@ function renderTeamCenter(i, body) {
     el("div", {}, [el("h2", { id: "u-drawer-title", text: T.name }), el("p", { class: "u-sub", text: T.conf + " · " + T.div + " · " + recStr(rec) + (rec.feed ? " (incl. " + rec.feed + " from the feed)" : "") + " · " + (seed ? "Seed " + seed + " if the season ended today" : "Outside the field if the season ended today") + (late ? ", counting games through the build only (this week's " + late + " feed final" + (late > 1 ? "s" : "") + " not included)" : "") })])]));
   body.appendChild(el("div", { class: "u-actions" }, [
     el("button", { type: "button", class: "u-btn u-primary", "data-fk": "open-sim", text: "Open in simulator", onclick: function () { openSimulator(i); } }),
+    el("button", { type: "button", class: "u-btn", "data-fk": "focus-team", "aria-pressed": st.focus === T.a ? "true" : "false", text: st.focus === T.a ? "Focused on this team" : "Focus on this team", title: "Narrow the map, feed, games and media to the " + T.nick, onclick: function () { store.set({ focus: st.focus === T.a ? null : T.a }); } }),
     el("button", { type: "button", class: "u-btn", "data-fk": "prove", text: "Prove this wrong", onclick: function () { var s = byId("u-prove"); if (s) { s.scrollIntoView({ behavior: prefersReduced() ? "auto" : "smooth", block: "start" }); s.classList.add("is-flash"); var f = s.querySelector("li"); if (f) f.classList.add("is-strong"); setTimeout(function () { s.classList.remove("is-flash"); }, 1600); } } })]));
   if (r) {
     var w = r.sw[i] / r.n - 0.5 * BT[i];
@@ -2930,6 +3006,7 @@ function applyView() {
   document.documentElement.classList.toggle("u-view-sim", sim);
   document.documentElement.classList.toggle("u-view-universe", !sim);
   byId("uBody").hidden = sim;
+  var fb = byId("uFocus"); if (fb) fb.hidden = sim;
   var sv = byId("simView"); if (sv) sv.hidden = !sim;
   Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false"); });
   if (sim) { closePlayer(); closeDrawer(true); if (typeof ROOT.nflSimStart === "function") { ROOT.nflSimStart(); simStarted = true; } }
@@ -2972,6 +3049,34 @@ function renderDrawer() {
   d.hidden = false; document.documentElement.classList.add("u-drawer-open");
   body.scrollTop = top;
   if (fresh) { drawerKey = key; var x = d.querySelector(".u-x"); if (x) x.focus({ preventScroll: true }); }
+}
+
+// ---- focus bar: NFL, then conference, division and team, each level shown once the one above it is chosen ----
+function buildFocusBar(host) {
+  if (!host) return;
+  host.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-focus]") : null;
+    if (b) { store.set({ focus: b.getAttribute("data-focus") || null }); return; }
+    var o = e.target.closest ? e.target.closest("[data-focus-open]") : null;
+    if (o) openTeam(+o.getAttribute("data-focus-open"));
+  });
+}
+function renderFocusBar() {
+  var host = byId("uFocus"); if (!host) return;
+  var f = focusInfo(store.get("focus")), conf = f.conf ? FOCUS.byId[f.conf] : null, dv = f.div ? FOCUS.byId[f.div] : null;
+  var btn = function (id, text, on, title) { return el("button", { type: "button", class: !on && id && (id === f.conf || id === f.div) ? "is-path" : null, "data-focus": id || "", "data-fk": "focus-" + (id || "nfl"), "aria-pressed": on ? "true" : "false", title: title || null, text: text }); };
+  var group = function (label, kids) { return el("div", { class: "u-seg u-fgroup", role: "group", "aria-label": label }, kids); };
+  var sep = function () { return el("span", { class: "u-fsep", "aria-hidden": "true", text: "\u203a" }); };
+  keepFocus(host, function () {
+    clearNode(host);
+    host.appendChild(el("span", { class: "u-flabel", text: "Focus" }));
+    host.appendChild(group("League and conference", [btn(null, "NFL", f.level === "league", "The whole league")].concat(FOCUS.confs.map(function (c) { return btn(c.id, c.label, f.level === "conf" && f.id === c.id, c.teams.length + " teams"); }))));
+    if (conf) { host.appendChild(sep()); host.appendChild(group(conf.label + " divisions", conf.divs.map(function (d) { return btn(d.id, d.short, f.level === "div" && f.id === d.id, d.label); }))); }
+    if (dv) { host.appendChild(sep()); host.appendChild(group(dv.label + " teams", dv.teams.map(function (i) { return btn(TEAMS[i].a, TEAMS[i].a, f.team === i, TEAMS[i].name); }))); }
+    host.appendChild(el("span", { class: "u-fnote", text: f.level === "league" ? "All 32 teams" : f.level === "team" ? f.label + " \u00b7 " + dv.label : f.label + " \u00b7 " + f.teams.length + " teams" }));
+    if (f.level === "team") host.appendChild(el("button", { type: "button", class: "u-btn u-fopen", "data-fk": "focus-open", "data-focus-open": f.team, text: "Team center" }));
+  });
+  host.classList.toggle("is-on", f.level !== "league");
 }
 
 // ---- left rail ----
@@ -3314,13 +3419,13 @@ function renderMedia() {
     if (tab === "live") {
       var sel = st.team && TIDX[st.team] != null ? TIDX[st.team] : null;
       body.appendChild(el("p", { class: "u-note", text: "Each link opens the official channel's live page on YouTube in a new tab. YouTube shows a stream there only if the channel is streaming; this page cannot tell in advance and never marks a channel as live. Full NFL game broadcasts are not on these channels; each game card names its TV network." }));
-      var chs = channelOrder(md.channels, sel).filter(function (c) { return !q || (c.name.toLowerCase().indexOf(q) >= 0) || (c.team != null && searchTeams(q)[c.team]); });
+      var fset = focusSet(st.focus), chs = channelOrder(md.channels, sel).filter(function (c) { return !fset || c.team == null || fset[c.team]; }).filter(function (c) { return !q || (c.name.toLowerCase().indexOf(q) >= 0) || (c.team != null && searchTeams(q)[c.team]); });
       if (!chs.length) body.appendChild(el("p", { class: "u-state u-empty", text: q ? "No channel matches “" + q + "”." : "No channels in this data." }));
       body.appendChild(el("ul", { class: "u-chlist" }, chs.map(function (c) {
         return el("li", {}, [el("span", { class: "u-chname" }, [c.team != null ? teamChip(c.team) : el("span", { class: "u-tchip u-nflchip", text: "NFL" }), " " + c.name]), liveButton(c)]);
       })));
     } else if (tab === "podcasts") {
-      var pods = filterPodcasts(md.podcasts, st.timeRange, now, q), pOut = outageText("podcasts-nfl", "podcast");
+      var pods = focusEvents(filterPodcasts(md.podcasts, st.timeRange, now, q), focusSet(st.focus)), pOut = outageText("podcasts-nfl", "podcast");
       if (!pods.length) body.appendChild(el("p", { class: "u-state u-empty", text: pOut || "No podcast episodes " + RANGE_PHRASE[st.timeRange] + (q ? " matching “" + q + "”" : "") + "." }));
       else if (pOut) body.appendChild(el("p", { class: "u-warnline", text: pOut }));
       var playing = nowPlayingSrc();
@@ -3336,7 +3441,7 @@ function renderMedia() {
       VIDEO_KINDS.forEach(function (k) { kinds.appendChild(el("button", { type: "button", class: "u-chipbtn", "data-fk": "vk:" + k[0], "aria-pressed": st.mediaKind === k[0] ? "true" : "false", text: k[1], onclick: function () { store.set({ mediaKind: k[0] }); lsSet({ mediaKind: k[0] }); } })); });
       kinds.appendChild(el("button", { type: "button", class: "u-chipbtn", "data-fk": "vk:shorts", "aria-pressed": st.mediaShorts ? "true" : "false", text: "Include Shorts", onclick: function () { store.set({ mediaShorts: !store.get("mediaShorts") }); lsSet({ mediaShorts: store.get("mediaShorts") }); } }));
       body.appendChild(kinds);
-      var vids = filterVideos(md.videos, st.mediaKind, st.mediaShorts, st.timeRange, now, q), vOut = outageText("youtube-official", "video");
+      var vids = focusEvents(filterVideos(md.videos, st.mediaKind, st.mediaShorts, st.timeRange, now, q), focusSet(st.focus)), vOut = outageText("youtube-official", "video");
       if (!vids.length) body.appendChild(el("p", { class: "u-state u-empty", text: vOut || "No " + (st.mediaKind === "all" ? "videos" : VIDEO_KINDS.filter(function (k) { return k[0] === st.mediaKind; })[0][1].toLowerCase()) + " " + RANGE_PHRASE[st.timeRange] + (q ? " matching “" + q + "”" : "") + "." }));
       else if (vOut) body.appendChild(el("p", { class: "u-warnline", text: vOut }));
       body.appendChild(el("ul", { class: "u-vlist" }, vids.slice(0, 60).map(function (v) { return videoItem(v, now); })));
@@ -3426,9 +3531,9 @@ Object.assign(NFLU, { isMediaBlock: isMediaBlock, videoAction: videoAction, podc
 var store = null;
 var URL_DEFAULTS = { view: "universe", mode: "geo", layers: DEFAULT_LAYERS, timeRange: DEFAULT_RANGE };
 function initialState(search, saved) {
-  var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS };
+  var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS, focus: FOCUS.ids };
   var s = sanitizeState({ mode: saved.mode, layers: saved.layers, timeRange: saved.timeRange }, allow), u = parseUrlState(search, allow);
-  var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, team: null, game: null }, s, u);
+  var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, focus: null, team: null, game: null }, s, u);
   if (st.mode === "geo" && !HAS_GEO) st.mode = "div";
   if (st.team && st.game) st.game = null;
   return st;
@@ -3450,6 +3555,7 @@ function boot() {
   buildRail(byId("uRail"));
   buildMap(byId("uMap"));
   buildTabs(byId("uTabs"));
+  buildFocusBar(byId("uFocus"));
   buildFeedPanel(byId("uFeedHost"));
   // the media host sits between the feed and health in the right column (one column and a "Media" tab on phones)
   var mediaHost = el("div", { class: "u-host", id: "uMediaHost" }), hh = byId("uHealthHost");
@@ -3482,23 +3588,24 @@ function boot() {
 
   store.subscribe(function (st, ch) {
     var has = function () { for (var i = 0; i < arguments.length; i++) if (ch.indexOf(arguments[i]) >= 0) return true; return false; };
-    if (has("view", "mode", "layers", "timeRange", "team", "game")) writeUrlSoon(st, URL_DEFAULTS);
+    if (has("view", "mode", "layers", "timeRange", "focus", "team", "game")) writeUrlSoon(st, URL_DEFAULTS);
     if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, timeRange: st.timeRange });
     if (has("view")) applyView();
     if (has("model", "origin")) requestBaseSim();
-    if (has("mode", "layers", "timeRange", "model", "sim", "search", "team", "game")) drawMapSoon();
-    if (has("feedTypes", "timeRange", "model", "search")) renderFeed();
-    if (has("timeRange", "model")) renderTicker(byId("uTicker"));
-    if (has("model", "sim", "search")) renderGames();
-    if (has("sim", "model", "search", "team")) renderTeamsPanel();
+    if (has("focus")) { renderFocusBar(); fitFocus(); }
+    if (has("mode", "layers", "timeRange", "model", "sim", "search", "team", "game", "focus")) drawMapSoon();
+    if (has("feedTypes", "timeRange", "model", "search", "focus")) renderFeed();
+    if (has("timeRange", "model", "focus")) renderTicker(byId("uTicker"));
+    if (has("model", "sim", "search", "focus")) renderGames();
+    if (has("sim", "model", "search", "team", "focus")) renderTeamsPanel();
     if (has("payload", "origin", "pollFails", "sim", "simBusy", "simError", "fetchedAt", "breaker")) { renderHealth(); renderStatus(); refreshBadges(); }
     if (has("mode", "layers", "timeRange", "sim", "simBusy", "simError", "deepProgress", "deepError", "payload", "origin")) renderRail();
     if (has("team", "game", "view") || (has("sim", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
-    if (has("model", "timeRange", "search", "team", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
+    if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
   });
 
-  applyView(); renderRail(); renderTabs(); renderStatus();
+  applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus();
   drawMap(); renderFeed(); renderMedia(); renderTicker(byId("uTicker")); renderGames(); renderTeamsPanel(); renderHealth(); refreshBadges(); renderDrawer();
   requestBaseSim(true);
   startPolling();

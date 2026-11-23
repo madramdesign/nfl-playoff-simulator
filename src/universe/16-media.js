@@ -229,13 +229,13 @@ function renderMedia() {
     if (tab === "live") {
       var sel = st.team && TIDX[st.team] != null ? TIDX[st.team] : null;
       body.appendChild(el("p", { class: "u-note", text: "Each link opens the official channel's live page on YouTube in a new tab. YouTube shows a stream there only if the channel is streaming; this page cannot tell in advance and never marks a channel as live. Full NFL game broadcasts are not on these channels; each game card names its TV network." }));
-      var chs = channelOrder(md.channels, sel).filter(function (c) { return !q || (c.name.toLowerCase().indexOf(q) >= 0) || (c.team != null && searchTeams(q)[c.team]); });
+      var fset = focusSet(st.focus), chs = channelOrder(md.channels, sel).filter(function (c) { return !fset || c.team == null || fset[c.team]; }).filter(function (c) { return !q || (c.name.toLowerCase().indexOf(q) >= 0) || (c.team != null && searchTeams(q)[c.team]); });
       if (!chs.length) body.appendChild(el("p", { class: "u-state u-empty", text: q ? "No channel matches “" + q + "”." : "No channels in this data." }));
       body.appendChild(el("ul", { class: "u-chlist" }, chs.map(function (c) {
         return el("li", {}, [el("span", { class: "u-chname" }, [c.team != null ? teamChip(c.team) : el("span", { class: "u-tchip u-nflchip", text: "NFL" }), " " + c.name]), liveButton(c)]);
       })));
     } else if (tab === "podcasts") {
-      var pods = filterPodcasts(md.podcasts, st.timeRange, now, q), pOut = outageText("podcasts-nfl", "podcast");
+      var pods = focusEvents(filterPodcasts(md.podcasts, st.timeRange, now, q), focusSet(st.focus)), pOut = outageText("podcasts-nfl", "podcast");
       if (!pods.length) body.appendChild(el("p", { class: "u-state u-empty", text: pOut || "No podcast episodes " + RANGE_PHRASE[st.timeRange] + (q ? " matching “" + q + "”" : "") + "." }));
       else if (pOut) body.appendChild(el("p", { class: "u-warnline", text: pOut }));
       var playing = nowPlayingSrc();
@@ -251,7 +251,7 @@ function renderMedia() {
       VIDEO_KINDS.forEach(function (k) { kinds.appendChild(el("button", { type: "button", class: "u-chipbtn", "data-fk": "vk:" + k[0], "aria-pressed": st.mediaKind === k[0] ? "true" : "false", text: k[1], onclick: function () { store.set({ mediaKind: k[0] }); lsSet({ mediaKind: k[0] }); } })); });
       kinds.appendChild(el("button", { type: "button", class: "u-chipbtn", "data-fk": "vk:shorts", "aria-pressed": st.mediaShorts ? "true" : "false", text: "Include Shorts", onclick: function () { store.set({ mediaShorts: !store.get("mediaShorts") }); lsSet({ mediaShorts: store.get("mediaShorts") }); } }));
       body.appendChild(kinds);
-      var vids = filterVideos(md.videos, st.mediaKind, st.mediaShorts, st.timeRange, now, q), vOut = outageText("youtube-official", "video");
+      var vids = focusEvents(filterVideos(md.videos, st.mediaKind, st.mediaShorts, st.timeRange, now, q), focusSet(st.focus)), vOut = outageText("youtube-official", "video");
       if (!vids.length) body.appendChild(el("p", { class: "u-state u-empty", text: vOut || "No " + (st.mediaKind === "all" ? "videos" : VIDEO_KINDS.filter(function (k) { return k[0] === st.mediaKind; })[0][1].toLowerCase()) + " " + RANGE_PHRASE[st.timeRange] + (q ? " matching “" + q + "”" : "") + "." }));
       else if (vOut) body.appendChild(el("p", { class: "u-warnline", text: vOut }));
       body.appendChild(el("ul", { class: "u-vlist" }, vids.slice(0, 60).map(function (v) { return videoItem(v, now); })));

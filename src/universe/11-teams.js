@@ -15,14 +15,15 @@ function buildTeamsPanel(host) {
 function renderTeamsPanel() {
   if (!teamsPanel) return;
   var st = store.get(), r = st.sim && st.sim.r, q = (st.search || "").trim().toLowerCase(), tm = q ? searchTeams(q) : null;
-  var ids = TEAMS.map(function (t, i) { return i; }).filter(function (i) { return !tm || tm[i]; });
-  if (!ids.length) { teamsPanel.empty("No team matches “" + q + "”."); return; }
+  var fi = focusInfo(st.focus), ids = focusTeamList(st.focus).filter(function (i) { return !tm || tm[i]; });
+  teamsPanel.setTitle("Teams" + (fi.level === "league" ? "" : " · " + (fi.level === "team" ? FOCUS.byId[fi.div].label : fi.label)));
+  if (!ids.length) { teamsPanel.empty("No team matches “" + q + "”" + focusPhrase(st.focus) + "."); return; }
   ids.sort(function (a, b) { return r ? r.po[b] - r.po[a] || teamPower(b) - teamPower(a) : teamPower(b) - teamPower(a); });
   teamsPanel.render(function (body) {
     var tb = el("tbody");
     ids.forEach(function (i) {
       var t = TEAMS[i], qb = qbStatusOf(i, st.model);
-      tb.appendChild(el("tr", { class: st.team === t.a ? "is-sel" : "" }, [
+      tb.appendChild(el("tr", { class: (st.team === t.a ? "is-sel" : "") + (fi.team === i ? " is-focus" : "") }, [
         el("td", {}, [el("button", { type: "button", class: "u-tlink", "data-team": i, text: t.a }), el("span", { class: "u-tname", text: " " + t.nick }), qb && qb.level >= 3 ? el("span", { class: "u-qbflag", title: qb.reasons[0].text, text: "QB" }) : null]),
         el("td", { text: recStr(recordOf(i, st.model)) }),
         el("td", { text: fmtSigned(teamPower(i)) }),
@@ -62,6 +63,7 @@ function renderTeamCenter(i, body) {
     el("div", {}, [el("h2", { id: "u-drawer-title", text: T.name }), el("p", { class: "u-sub", text: T.conf + " · " + T.div + " · " + recStr(rec) + (rec.feed ? " (incl. " + rec.feed + " from the feed)" : "") + " · " + (seed ? "Seed " + seed + " if the season ended today" : "Outside the field if the season ended today") + (late ? ", counting games through the build only (this week's " + late + " feed final" + (late > 1 ? "s" : "") + " not included)" : "") })])]));
   body.appendChild(el("div", { class: "u-actions" }, [
     el("button", { type: "button", class: "u-btn u-primary", "data-fk": "open-sim", text: "Open in simulator", onclick: function () { openSimulator(i); } }),
+    el("button", { type: "button", class: "u-btn", "data-fk": "focus-team", "aria-pressed": st.focus === T.a ? "true" : "false", text: st.focus === T.a ? "Focused on this team" : "Focus on this team", title: "Narrow the map, feed, games and media to the " + T.nick, onclick: function () { store.set({ focus: st.focus === T.a ? null : T.a }); } }),
     el("button", { type: "button", class: "u-btn", "data-fk": "prove", text: "Prove this wrong", onclick: function () { var s = byId("u-prove"); if (s) { s.scrollIntoView({ behavior: prefersReduced() ? "auto" : "smooth", block: "start" }); s.classList.add("is-flash"); var f = s.querySelector("li"); if (f) f.classList.add("is-strong"); setTimeout(function () { s.classList.remove("is-flash"); }, 1600); } } })]));
   if (r) {
     var w = r.sw[i] / r.n - 0.5 * BT[i];

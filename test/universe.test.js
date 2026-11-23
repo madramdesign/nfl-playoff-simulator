@@ -35,6 +35,31 @@ const st = U.initialState("?mode=div&timeRange=6h", { mode: "intel", timeRange: 
 ok(st.mode === "div" && st.timeRange === "6h", "the URL wins over saved preferences");
 eq(st.layers, ["teams"], "saved layers are allowlisted too");
 
+// ---- focus: league, conference, division, team ----
+eq(U.FOCUS.confs.map((c) => c.id), ["AFC", "NFC"], "two conferences, AFC first");
+ok(U.FOCUS.confs.every((c) => c.teams.length === 16 && c.divs.length === 4 && c.divs.every((d) => d.teams.length === 4)), "each conference has four divisions of four teams");
+eq(U.FOCUS.confs[0].divs.map((d) => d.short), ["East", "North", "South", "West"], "divisions are listed East, North, South, West");
+ok(U.FOCUS.ids.length === 2 + 8 + 32 && new Set(U.FOCUS.ids).size === 42, "42 distinct focus ids: conferences, divisions, teams");
+ok(E.TM.every((t, i) => { const f = U.focusInfo(t.a); return f.level === "team" && f.team === i && f.conf === (t.c ? "NFC" : "AFC") && U.FOCUS.byId[f.div].label === t.dn && U.FOCUS.byId[f.div].teams.includes(i); }), "every team sits in the engine's own conference and division");
+eq(U.focusInfo("NOPE").level, "league", "an unknown focus is the whole league");
+eq(U.focusInfo("constructor").level, "league", "built-in property names are not scopes");
+ok(U.focusSet(null) === null && Object.keys(U.focusSet("NFC")).length === 16 && Object.keys(U.focusSet("AFC-EAST")).length === 4 && Object.keys(U.focusSet("NYG")).length === 1, "the team set for each level");
+const fNYG = E.TM.findIndex((t) => t.a === "NYG"), fBUF = E.TM.findIndex((t) => t.a === "BUF");
+const fItems = [{ teams: [fNYG] }, { teams: [fBUF, fNYG] }, { teams: [fBUF] }, { teams: [] }, { team: fNYG, teams: [] }];
+eq(U.focusEvents(fItems, U.focusSet("NYG")).length, 3, "items tagged with a team in focus are kept; untagged ones are left out");
+eq(U.focusEvents(fItems, null).length, 5, "no focus keeps everything, untagged items included");
+eq(U.focusGames([{ away: fBUF, home: fNYG }, { away: fBUF, home: fBUF }], U.focusSet("NFC-EAST")).length, 1, "a game is in focus when either side is");
+eq(U.focusTeamList("NYG").slice().sort(), U.FOCUS.byId["NFC-EAST"].teams.slice().sort(), "one team in focus lists its whole division");
+ok(U.focusTeamList(null).length === 32 && U.focusTeamList("AFC").length === 16, "the league and a conference list their own teams");
+ok(U.focusPhrase(null) === "" && U.focusPhrase("AFC-EAST") === " for the AFC East" && U.focusPhrase("NYG") === " for the Giants", "empty-state wording names the focus");
+const fAllow = { teams: E.TM.map((t) => t.a), layers: U.LAYER_IDS, focus: U.FOCUS.ids };
+eq(U.parseUrlState("?focus=afc-east", fAllow), { focus: "AFC-EAST" }, "focus is read from the URL in any letter case");
+eq(U.parseUrlState("?focus=AFC-CENTRAL", fAllow), {}, "a division that does not exist is dropped");
+eq(U.parseUrlState("?focus=%3Cscript%3E", {}), {}, "a malformed focus is dropped even without a list");
+eq(U.parseUrlState(U.serializeUrlState({ focus: "NFC", team: "NYG" }, {}), fAllow), { focus: "NFC", team: "NYG" }, "focus round-trips next to an open team");
+eq(U.initialState("?focus=nyg", {}).focus, "NYG", "the page starts in the URL's focus");
+eq(U.initialState("", {}).focus, null, "no focus by default");
+
 // ---- time ranges ----
 const now = Date.parse("2026-11-22T19:30:00Z"), H = 3600e3;
 const at = (ms) => ({ ts: new Date(now - ms).toISOString() });

@@ -19,8 +19,8 @@ function renderGames() {
   var st = store.get(), M = st.model, q = (st.search || "").trim().toLowerCase(), tm = q ? searchTeams(q) : null;
   if (!M) return;
   gamesPanel.setTitle("This week" + (M.week != null ? " · Week " + M.week : ""));
-  var games = M.games.filter(function (x) { return !tm || tm[x.away] || tm[x.home]; });
-  if (!games.length) { gamesPanel.empty(q ? "No games this week match “" + q + "”." : "No games found for this week."); return; }
+  var games = focusGames(M.games.filter(function (x) { return !tm || tm[x.away] || tm[x.home]; }), focusSet(st.focus));
+  if (!games.length) { gamesPanel.empty(q ? "No games this week match “" + q + "”" + focusPhrase(st.focus) + "." : st.focus ? "No games this week" + focusPhrase(st.focus) + " (a bye week, or the games are not in this data)." : "No games found for this week."); return; }
   gamesPanel.render(function (body) {
     var list = el("div", { class: "u-strip", role: "list" }), anyWx = null;
     games.forEach(function (x) {

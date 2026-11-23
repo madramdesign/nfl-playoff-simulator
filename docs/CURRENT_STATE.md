@@ -19,6 +19,11 @@
 - Checked: `npm test` passes; the server was started with the hosted settings in the cloud container and served the page, `/api/universe` (public sources only), 404 on `/api/live` and 403 for a foreign Host.
 - Not done: the deploy itself. It needs the owner's Render sign-in. Not verified on Render.
 
+## Nov. 23, 2026: focus bar (branch `claude/kind-bohr-75erpe`)
+- New `src/universe/05-focus.js` and a focus bar under the top bar: NFL, then conference, division and team. The choice is in the URL (`?focus=AFC`, `AFC-EAST`, `NYG`) and narrows the map (teams outside are dimmed; the geographic map frames a division or team), the feed, the ticker, this week's games, the teams panel and media. Items with no team tag are left out while a focus is on. The team center has a "Focus on this team" button.
+- Not narrowed by focus: the "What is happening in the NFL?" brief, system health and the simulator view.
+- Checked: `npm test` (217 command-center checks, 20 of them new) and a browser run at desktop and phone widths against the local server.
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.

@@ -223,6 +223,17 @@ function clampView() {
   if (view.k <= 1) { view.k = 1; view.tx = 0; view.ty = 0; return; }
   view.tx = clamp(view.tx, MAP_W - MAP_W * view.k, 0); view.ty = clamp(view.ty, MAP_H - MAP_H * view.k, 0);
 }
+// Geographic map: frame the teams in focus (a division or a team); a conference or the league shows the whole country.
+function fitFocus() {
+  var f = focusInfo(store.get("focus"));
+  if (!HAS_GEO) return;
+  var pts = (f.level === "div" || f.level === "team" ? f.teams : []).map(function (i) { return GEO_BASE[i]; }).filter(Boolean);
+  if (!pts.length) { view.k = 1; view.tx = 0; view.ty = 0; drawMapSoon(); return; }
+  var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  pts.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
+  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), 1, f.level === "team" ? 3 : 4);
+  view.k = k; view.tx = MAP_W / 2 - (x0 + x1) / 2 * k; view.ty = MAP_H / 2 - (y0 + y1) / 2 * k; clampView(); drawMapSoon();
+}
 function zoomAt(x, y, f) {
   if (store.get("mode") !== "geo") return;
   var k2 = clamp(view.k * f, 1, 8); f = k2 / view.k;
@@ -331,12 +342,12 @@ function drawMap() {
   var st = store.get(), mode = st.mode, simr = st.sim && st.sim.r, po = simr ? Array.prototype.map.call(simr.po, function (v) { return v / simr.n; }) : null;
   if (mode === "geo" && !HAS_GEO) mode = "div";
   map.svg.setAttribute("data-mode", mode);
-  var q = (st.search || "").trim().toLowerCase(), match = q ? searchTeams(q) : null, selTeam = st.team != null && TIDX[st.team] != null ? TIDX[st.team] : null;
+  var q = (st.search || "").trim().toLowerCase(), match = q ? searchTeams(q) : null, selTeam = st.team != null && TIDX[st.team] != null ? TIDX[st.team] : null, fset = focusSet(st.focus);
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
-    events: searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), query: q, sel: { team: selTeam, game: st.game },
-    dim: function (i) { return !!match && !match[i]; }
+    events: focusEvents(searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), fset), query: q, sel: { team: selTeam, game: st.game },
+    dim: function (i) { return (!!match && !match[i]) || (!!fset && !fset[i]); }
   };
   drawBase(mode, po);
   LAYERS.forEach(function (l) {
