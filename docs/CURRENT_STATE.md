@@ -126,9 +126,16 @@
 ## Effects of the merge to watch
 - The next daily refresh runs `scripts/fabric-snapshot.js` (needs network; never fails the refresh) and all four test suites, and the page it publishes opens on the command center. The published copy is static, so it shows the public snapshot with its age, never ESPN data.
 
+## Nov. 23, 2026: feature research (docs only, no code changed)
+- New living documents: `FEATURE_RESEARCH.md` (baseline, competitors, open-source, technology and data research, scoring of 39 candidates, top 20, top 5, rejected ideas), `FEATURE_BACKLOG.md` (one entry per candidate), `FEATURE_ROADMAP.md` (P0–P2 and order).
+- Found while researching:
+  - The Nov. 23 refresh published a degraded public snapshot. Open-Meteo, both RSS feeds, YouTube and podcasts all failed with `fetch failed`, and the run overwrote the previous good data. There is no event file for Nov. 22. Backlog F01.
+  - Small robustness and security fixes, listed in backlog F31.
+  - The "Model" feed filter can never show anything: nothing emits `model` or `playoff_move` events (F22).
+
 ## Next actions
 1. Confirm the heartbeat during a real game (kickoff and score events without the "~" estimate mark) and follow a game through to its final.
-2. Then M5 (intelligence depth) and M6 (live game center) from `MASTER_PLAN.md`.
+2. Then Phase 1 of `FEATURE_ROADMAP.md`, starting with F01 (snapshot carry-forward) and F31. Then P0 differentiators F02, F04, F05 and F08 within M4 and M5 of `MASTER_PLAN.md`.
 
 ## Commands actually run (this session)
 | Command | Result |
