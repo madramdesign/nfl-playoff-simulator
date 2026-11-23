@@ -428,6 +428,19 @@ svg.u-map:not([data-mode="geo"])~.u-mapctl{display:none}
 .u-lgrad{display:inline-block;width:38px;height:8px;border-radius:4px;flex:0 0 auto}
 .u-lsw{display:inline-block;width:14px;height:10px;flex:0 0 auto}
 .u-lsw-ring{border:2.5px solid var(--accent);border-radius:50%;width:11px;height:11px}
+/* helmets (07-helmets.js): our own drawing in team colours; a thin outline keeps dark shells visible on the dark map */
+.u-helmets{cursor:pointer}
+.u-helm-shell{stroke:var(--ink);stroke-opacity:.45;stroke-width:.9;stroke-linejoin:round}
+.u-helm-stripe{fill:none;stroke-width:2;stroke-linecap:round}
+.u-helm-mask{fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.u-helm-ear{fill:var(--ink);fill-opacity:.35}
+.u-helmets.is-final .u-helm{opacity:.7}
+.u-helmets.is-dim{opacity:.25}
+.u-helmets.is-sel .u-helm-shell{stroke:var(--accent);stroke-opacity:1;stroke-width:1.6}
+.u-helm-pulse{stroke-width:2.2}
+.u-helm-lab{font:600 10px var(--body);fill:var(--ink);paint-order:stroke;stroke:var(--u-panel);stroke-width:3px;stroke-linejoin:round}
+.u-helm-lab.is-live{fill:var(--u-live)}
+.u-lsw-helm{flex:0 0 auto}
 .u-lsw-link{height:0;border-top:2px dashed var(--u-link);margin:0 0 0 0;width:16px}
 .u-lsw-badges{background:radial-gradient(circle at 25% 50%,var(--u-inj) 3px,transparent 3.5px),radial-gradient(circle at 75% 50%,var(--u-news) 3px,transparent 3.5px);width:16px}
 .u-lsw-wx{background:var(--u-warn);transform:rotate(45deg);width:8px;height:8px;margin:0 3px}
@@ -1214,7 +1227,7 @@ TM.forEach(function (t, i) { TIDX[t.a] = i; });
 var TEAMS = TM.map(function (t, i) {
   var u = UT && UT.teams && UT.teams[i] && UT.teams[i].a === t.a ? UT.teams[i] : null;
   return { i: i, a: t.a, nick: t.n, name: u ? u.name : t.n, conf: t.c ? "NFC" : "AFC", c: t.c, d: t.d, div: t.dn,
-    color: u ? u.color : null, stadium: u && u.stadium ? u.stadium : null, aliases: u ? u.aliases || [] : [] };
+    color: u ? u.color : null, alt: u ? u.alt || null : null, stadium: u && u.stadium ? u.stadium : null, aliases: u ? u.aliases || [] : [] };
 });
 function teamName(i) { return TEAMS[i] ? TEAMS[i].name : "?"; }
 function teamAbbr(i) { return TEAMS[i] ? TEAMS[i].a : "?"; }
@@ -2008,6 +2021,92 @@ function buildOrFeedBadge(ids) {
 }
 function refreshBadges() { var now = Date.now(); for (var k in PANELS) { try { PANELS[k].refreshBadge(now); } catch (e) { uReport("badge", e); } } }
 
+// ---- src/universe/07-helmets.js
+// Helmets on the geographic map: where each team plays today. On a game day both teams' helmets stand at the game's
+// stadium (the visiting team in the home team's city, or at the neutral site), facing each other; a live game gets a
+// pulse and its score. Teams not playing today stay at home, shown by their usual node.
+// The helmet is this project's own drawing, filled with each team's colours from shared/teams.json. It is not a
+// club's logo or helmet design: club marks are not openly licensed (docs/NFL_DATA_SOURCE_REGISTRY.md).
+
+// A side-view helmet facing right, in a 24 x 20 box: shell, centre stripe, face mask, ear hole.
+var HELMET = {
+  w: 24, h: 20,
+  shell: "M2 11C2 4.6 7 1 13 1c5.6 0 9 3.6 9 8v2h-6l-1.6 4v3H6c-2.4 0-4-2.4-4-5z",
+  stripe: "M6.2 4.2C9 2.3 13.2 1.6 17.4 2.6",
+  mask: "M16 11h7M15 14.2h8M23 8.8V17.4h-7.6",
+  ear: [9.2, 12.2, 1.3]
+};
+// Pure: the two colours of a team's helmet. The stripe and mask use the team's second colour, or white when it has
+// none or when it is too close to the shell colour to see.
+function helmetColors(t) {
+  var hex = /^#[0-9a-f]{6}$/i, shell = t && hex.test(t.color || "") ? t.color : "#8b95a7", trim = t && hex.test(t.alt || "") ? t.alt : "#ffffff";
+  var lum = function (h) { return [1, 3, 5].reduce(function (s, k, j) { return s + [0.299, 0.587, 0.114][j] * parseInt(h.slice(k, k + 2), 16); }, 0) / 255; };
+  if (Math.abs(lum(shell) - lum(trim)) < 0.12) trim = lum(shell) > 0.6 ? "#1b1f27" : "#ffffff";
+  return { shell: shell, trim: trim };
+}
+// Pure: the games to show today. A game counts when it kicks off on the viewer's local calendar day of `now`, or is
+// in progress (a late game running past midnight). Returns them in kickoff order.
+function todaysGames(games, now) {
+  var d = new Date(now), y = d.getFullYear(), m = d.getMonth(), day = d.getDate();
+  return (games || []).filter(function (x) {
+    if (!x || x.away == null || x.home == null) return false;
+    if (x.state === "in") return true;
+    var k = Date.parse(x.kickoff); if (!isFinite(k)) return false;
+    var kd = new Date(k);
+    return kd.getFullYear() === y && kd.getMonth() === m && kd.getDate() === day;
+  }).sort(function (a, b) { return (Date.parse(a.kickoff) || 0) - (Date.parse(b.kickoff) || 0); });
+}
+// Pure: helmet scale for the map. detail: zoomed in; px: screen pixels per map unit.
+var HELMET_MIN_PX = 18;
+function helmetScale(detail, px) {
+  var base = detail ? 1.15 : 0.95, p = px > 0 && isFinite(px) ? px : 1;
+  return Math.min(2.4, Math.max(base, HELMET_MIN_PX / (HELMET.w * p)));
+}
+NFLU.helmetScale = helmetScale;
+// One helmet, its bottom centre at (x, y); faceLeft mirrors it. scale: 1 is 24 x 20 map units.
+function drawHelmet(parent, x, y, team, faceLeft, scale) {
+  var t = TEAMS[team], col = helmetColors(t), s = scale || 1, sx = faceLeft ? -s : s;
+  var g = svgEl("g", { class: "u-helm", transform: "translate(" + x.toFixed(1) + " " + (y - HELMET.h * s).toFixed(1) + ") scale(" + sx + " " + s + ") translate(" + (-HELMET.w / 2) + " 0)" });
+  g.appendChild(svgEl("path", { d: HELMET.shell, class: "u-helm-shell", style: "fill:" + col.shell }));
+  g.appendChild(svgEl("path", { d: HELMET.stripe, class: "u-helm-stripe", style: "stroke:" + col.trim }));
+  g.appendChild(svgEl("path", { d: HELMET.mask, class: "u-helm-mask", style: "stroke:" + col.trim }));
+  g.appendChild(svgEl("circle", { cx: HELMET.ear[0], cy: HELMET.ear[1], r: HELMET.ear[2], class: "u-helm-ear" }));
+  parent.appendChild(g);
+  return g;
+}
+function renderHelmets(c, g) {
+  if (c.mode !== "geo") return;
+  // at least 18 screen pixels wide, however small the map is drawn (phones), and never more than 2.4 times normal size
+  var list = todaysGames(c.M ? c.M.games : [], c.now), s = helmetScale(c.detail, c.px);
+  list.forEach(function (x) {
+    var p = gameSitePos(c, x); if (!p) return;
+    var live = x.state === "in" && isLiveGame(x), y = p[1] - c.r - 3, gap = 12.5 * s;
+    var where = x.neutral ? (neutralSite(x) ? neutralSite(x).city : "a neutral site") : (TEAMS[x.home].stadium ? TEAMS[x.home].stadium.city : TEAMS[x.home].name);
+    var state = live ? "live, " + x.awayScore + "–" + x.homeScore + (x.period ? ", Q" + x.period + " " + (x.clock || "") : "")
+      : x.state === "in" ? "in progress (" + staleNote(x) + ")" : x.state === "post" ? "final, " + x.awayScore + "–" + x.homeScore
+      : "kickoff " + new Date(Date.parse(x.kickoff)).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    var tip = TEAMS[x.away].name + " at " + TEAMS[x.home].name + " today in " + where + ": " + state + ". Click to open the game.";
+    // the game's own link is its keyboard stop; the helmets are a picture of it for pointer users
+    var gg = svgEl("g", { class: "u-helmets" + (live ? " is-live" : "") + (x.state === "post" ? " is-final" : "") + (c.dim(x.away) && c.dim(x.home) ? " is-dim" : "") + (c.sel.game === x.key ? " is-sel" : ""),
+      "data-game": x.key, "data-tip": tip, "aria-hidden": "true" });
+    if (live) gg.appendChild(svgEl("ellipse", { cx: p[0].toFixed(1), cy: (y - 9 * s).toFixed(1), rx: (gap + 14 * s).toFixed(1), ry: (13 * s).toFixed(1), class: "u-pulse u-helm-pulse" }));
+    drawHelmet(gg, p[0] - gap, y, x.away, false, s);
+    drawHelmet(gg, p[0] + gap, y, x.home, true, s);
+    var lab = live || x.state === "post" ? teamAbbr(x.away) + " " + x.awayScore + "–" + x.homeScore + " " + teamAbbr(x.home) + (x.state === "post" ? " F" : "")
+      : c.detail ? teamAbbr(x.away) + " at " + teamAbbr(x.home) : null;
+    if (lab) gg.appendChild(svgEl("text", { x: p[0].toFixed(1), y: (y - 22 * s - 3).toFixed(1), "text-anchor": "middle", class: "u-helm-lab" + (live ? " is-live" : ""), text: lab }));
+    g.appendChild(gg);
+  });
+}
+// The helmet in the legend, in neutral colours.
+function helmetIcon() {
+  var svg = svgEl("svg", { viewBox: "0 0 26 20", width: "26", height: "20", class: "u-lsw-helm", "aria-hidden": "true" });
+  drawHelmet(svg, 13, 20, null, false, 0.95);
+  return svg;
+}
+NFLU.helmetColors = helmetColors;
+NFLU.todaysGames = todaysGames;
+
 // ---- src/universe/07-layers.js
 // Declarative map layers. Each: {id, label, group, defaultOn, modes, sourceIds, legend, render(ctx, g)}.
 // Registry order is drawing order (first is lowest). Groups only affect the toggle list. sourceIds drive the freshness
@@ -2025,6 +2124,7 @@ var LAYERS = [
   { id: "weather", label: "Weather flags", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["open-meteo"], render: renderWeather },
   { id: "playoff", label: "Playoff odds (ring)", group: "Model", defaultOn: true, modes: ["geo", "div"], sourceIds: [], render: renderPlayoffRing },
   { id: "teams", label: "Teams (colored by power)", group: "Teams", defaultOn: true, modes: ALL_MODES, sourceIds: [], render: renderTeams },
+  { id: "helmets", label: "Helmets: where teams play today", group: "Teams", defaultOn: true, modes: ["geo"], sourceIds: ["espn-scoreboard", "nflverse-games"], render: renderHelmets },
   { id: "superbowl", label: "Super Bowl odds", group: "Model", defaultOn: false, modes: ALL_MODES, sourceIds: [], render: renderSuperBowl },
   { id: "momentum", label: "Momentum (week over week)", group: "Model", defaultOn: false, modes: ALL_MODES, sourceIds: [], render: renderMomentum },
   { id: "injuries", label: "Injuries (burden)", group: "Intelligence", defaultOn: true, modes: ALL_MODES, sourceIds: ["espn-injuries", "nflverse-injuries"], render: renderInjuries },
@@ -2036,6 +2136,16 @@ var LAYERS = [
 ];
 var LAYER_IDS = LAYERS.map(function (l) { return l.id; });
 var DEFAULT_LAYERS = LAYERS.filter(function (l) { return l.defaultOn; }).map(function (l) { return l.id; });
+// A viewer's saved layer list predates any layer added since, so a new layer that is on by default is switched on.
+// known: the layer ids that existed when the list was saved (saved with it); saves from before that was recorded
+// knew every layer except the ones listed here.
+var LAYERS_ADDED_LATER = ["helmets"];   // Nov. 23, 2026
+function withNewDefaults(saved, known) {
+  var k = Array.isArray(known) ? known : LAYER_IDS.filter(function (id) { return LAYERS_ADDED_LATER.indexOf(id) < 0; }), out = saved.slice();
+  DEFAULT_LAYERS.forEach(function (id) { if (k.indexOf(id) < 0 && out.indexOf(id) < 0) out.push(id); });
+  return out;
+}
+NFLU.withNewDefaults = withNewDefaults;
 function layerById(id) { for (var i = 0; i < LAYERS.length; i++) if (LAYERS[i].id === id) return LAYERS[i]; return null; }
 // Pure: problems with the registry (empty when it is sound). Checked by test/universe.test.js.
 function validateLayerRegistry(layers, defaults) {
@@ -2541,6 +2651,8 @@ function drawMap() {
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
+    // screen pixels per map unit (under 1 on a phone, where the 960-unit map is drawn about 350 px wide)
+    px: (function () { var m = map.svg.getScreenCTM && map.svg.getScreenCTM(); return m && m.a > 0 ? m.a : 1; })(),
     events: focusEvents(searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), fset), query: q, sel: { team: selTeam, game: st.game },
     dim: function (i) { return (!!match && !match[i]) || (!!fset && !fset[i]); }
   };
@@ -2567,6 +2679,9 @@ function drawLegend(mode, st) {
   var grad = function (a, b, c) { return el("span", { class: "u-lgrad", style: { background: "linear-gradient(90deg," + a + "," + b + "," + c + ")" } }); };
   if (on("teams")) L.appendChild(mode === "intel" ? row(grad("#d93f3f", "#8b95a7", "#1fa463"), "Node color: playoff chance last week, down to up (momentum)") : row(grad("#e2711d", "#8b95a7", "#2f7fe8"), "Node color: power, weaker to stronger"));
   if (on("playoff")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-ring" }), "Ring: playoff chance"));
+  if (on("helmets")) L.appendChild(row(helmetIcon(), todaysGames(st.model ? st.model.games : [], refNow()).length
+    ? "Helmets: teams playing today, at the stadium; a pulse means live. Our own drawing in team colours, not the clubs' logos."
+    : "Helmets: no games today, so every team is at home."));
   if (on("live") || on("upcoming") || on("final")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-link" }), "Line: away to home this week; red is live"));
   if (on("injuries") || on("news") || on("qb") || on("transactions")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-badges" }), "Badges: injuries, news, transactions, QB (descriptive)"));
   if (on("weather")) L.appendChild(el("div", { class: "u-lgrow" }, [el("span", { class: "u-lsw u-lsw-wx" }), weatherCredit("open-meteo")]));
@@ -2632,11 +2747,22 @@ function fmtBefore(ms, now) {
   var d = new Date(ms), same = new Date(now).toDateString() === d.toDateString();
   return "before " + (same ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : MON3[d.getMonth()] + " " + d.getDate());
 }
-var BEFORE_NOTE = "Already in the data when the server started watching its source. When each of these happened is not known, so they are listed after everything with a real time.";
+// Pure: the hover text for an event whose time is an estimate (data.tsEstimated), or null. data.between, when given,
+// is the gap the change was seen in: not in the data fetched at the first time, in the data fetched at the second.
+function estimateNote(e) {
+  var d = e && e.data;
+  if (!d || d.tsEstimated !== true) return null;
+  var b = Array.isArray(d.between) ? d.between.map(Date.parse) : [];
+  return b.length === 2 && isFinite(b[0]) && isFinite(b[1])
+    ? "Estimated time: this happened between " + new Date(b[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " and " + new Date(b[1]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ", when the server next checked."
+    : "Estimated time.";
+}
+NFLU.estimateNote = estimateNote;
+var BEFORE_NOTE ="Already in the data when the server started watching its source. When each of these happened is not known, so they are listed after everything with a real time.";
 function eventRow(e, now) {
   var srcs = e.sourceCount > 1 ? e.sourceCount + " sources" : null;
   var when = e.before != null ? el("time", { class: "u-ev-time", datetime: new Date(e.before).toISOString(), title: "Already in the data at " + new Date(e.before).toLocaleString() + "; when it happened is not known.", text: fmtBefore(e.before, now) })
-    : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : new Date(e.ts).toLocaleString(), text: fmtRel(e.ts, now, e.dateOnly) });
+    : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : estimateNote(e) || new Date(e.ts).toLocaleString(), text: (estimateNote(e) ? "~" : "") + fmtRel(e.ts, now, e.dateOnly) });
   var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title }) : el("span", { class: "u-ev-title", text: e.title });
   var meta = [el("span", { class: "u-ev-pub", text: e.publisher || "" })];
   if (e.confidence != null) meta.push(el("span", { text: "confidence " + Math.round(e.confidence * 100) + "%" }));
@@ -4224,6 +4350,7 @@ var URL_DEFAULTS = { view: "universe", mode: "geo", layers: DEFAULT_LAYERS, time
 function initialState(search, saved) {
   var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS, focus: FOCUS.ids };
   var s = sanitizeState({ mode: saved.mode, layers: saved.layers, timeRange: saved.timeRange }, allow), u = parseUrlState(search, allow);
+  if (Array.isArray(s.layers)) s.layers = withNewDefaults(s.layers, saved.layersKnown);
   var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, focus: null, team: null, game: null }, s, u);
   if (st.mode === "geo" && !HAS_GEO) st.mode = "div";
   if (st.team && st.game) st.game = null;
@@ -4281,7 +4408,7 @@ function boot() {
   store.subscribe(function (st, ch) {
     var has = function () { for (var i = 0; i < arguments.length; i++) if (ch.indexOf(arguments[i]) >= 0) return true; return false; };
     if (has("view", "mode", "layers", "timeRange", "focus", "team", "game")) writeUrlSoon(st, URL_DEFAULTS);
-    if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, timeRange: st.timeRange });
+    if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, layersKnown: LAYER_IDS, timeRange: st.timeRange });
     if (has("view")) applyView();
     if (has("model", "origin")) requestBaseSim();
     if (has("focus")) { renderFocusBar(); fitFocus(); }

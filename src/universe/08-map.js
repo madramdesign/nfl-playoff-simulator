@@ -346,6 +346,8 @@ function drawMap() {
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
+    // screen pixels per map unit (under 1 on a phone, where the 960-unit map is drawn about 350 px wide)
+    px: (function () { var m = map.svg.getScreenCTM && map.svg.getScreenCTM(); return m && m.a > 0 ? m.a : 1; })(),
     events: focusEvents(searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), fset), query: q, sel: { team: selTeam, game: st.game },
     dim: function (i) { return (!!match && !match[i]) || (!!fset && !fset[i]); }
   };
@@ -372,6 +374,9 @@ function drawLegend(mode, st) {
   var grad = function (a, b, c) { return el("span", { class: "u-lgrad", style: { background: "linear-gradient(90deg," + a + "," + b + "," + c + ")" } }); };
   if (on("teams")) L.appendChild(mode === "intel" ? row(grad("#d93f3f", "#8b95a7", "#1fa463"), "Node color: playoff chance last week, down to up (momentum)") : row(grad("#e2711d", "#8b95a7", "#2f7fe8"), "Node color: power, weaker to stronger"));
   if (on("playoff")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-ring" }), "Ring: playoff chance"));
+  if (on("helmets")) L.appendChild(row(helmetIcon(), todaysGames(st.model ? st.model.games : [], refNow()).length
+    ? "Helmets: teams playing today, at the stadium; a pulse means live. Our own drawing in team colours, not the clubs' logos."
+    : "Helmets: no games today, so every team is at home."));
   if (on("live") || on("upcoming") || on("final")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-link" }), "Line: away to home this week; red is live"));
   if (on("injuries") || on("news") || on("qb") || on("transactions")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-badges" }), "Badges: injuries, news, transactions, QB (descriptive)"));
   if (on("weather")) L.appendChild(el("div", { class: "u-lgrow" }, [el("span", { class: "u-lsw u-lsw-wx" }), weatherCredit("open-meteo")]));

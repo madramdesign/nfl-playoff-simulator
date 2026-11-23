@@ -14,6 +14,7 @@ var LAYERS = [
   { id: "weather", label: "Weather flags", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["open-meteo"], render: renderWeather },
   { id: "playoff", label: "Playoff odds (ring)", group: "Model", defaultOn: true, modes: ["geo", "div"], sourceIds: [], render: renderPlayoffRing },
   { id: "teams", label: "Teams (colored by power)", group: "Teams", defaultOn: true, modes: ALL_MODES, sourceIds: [], render: renderTeams },
+  { id: "helmets", label: "Helmets: where teams play today", group: "Teams", defaultOn: true, modes: ["geo"], sourceIds: ["espn-scoreboard", "nflverse-games"], render: renderHelmets },
   { id: "superbowl", label: "Super Bowl odds", group: "Model", defaultOn: false, modes: ALL_MODES, sourceIds: [], render: renderSuperBowl },
   { id: "momentum", label: "Momentum (week over week)", group: "Model", defaultOn: false, modes: ALL_MODES, sourceIds: [], render: renderMomentum },
   { id: "injuries", label: "Injuries (burden)", group: "Intelligence", defaultOn: true, modes: ALL_MODES, sourceIds: ["espn-injuries", "nflverse-injuries"], render: renderInjuries },
@@ -25,6 +26,16 @@ var LAYERS = [
 ];
 var LAYER_IDS = LAYERS.map(function (l) { return l.id; });
 var DEFAULT_LAYERS = LAYERS.filter(function (l) { return l.defaultOn; }).map(function (l) { return l.id; });
+// A viewer's saved layer list predates any layer added since, so a new layer that is on by default is switched on.
+// known: the layer ids that existed when the list was saved (saved with it); saves from before that was recorded
+// knew every layer except the ones listed here.
+var LAYERS_ADDED_LATER = ["helmets"];   // Nov. 23, 2026
+function withNewDefaults(saved, known) {
+  var k = Array.isArray(known) ? known : LAYER_IDS.filter(function (id) { return LAYERS_ADDED_LATER.indexOf(id) < 0; }), out = saved.slice();
+  DEFAULT_LAYERS.forEach(function (id) { if (k.indexOf(id) < 0 && out.indexOf(id) < 0) out.push(id); });
+  return out;
+}
+NFLU.withNewDefaults = withNewDefaults;
 function layerById(id) { for (var i = 0; i < LAYERS.length; i++) if (LAYERS[i].id === id) return LAYERS[i]; return null; }
 // Pure: problems with the registry (empty when it is sound). Checked by test/universe.test.js.
 function validateLayerRegistry(layers, defaults) {

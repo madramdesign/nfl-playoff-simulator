@@ -137,5 +137,10 @@ function serveStatic(url, res) {
 
 // Listens on this machine only by default: ESPN data is for the owner's local use (DEC-006). HOST=0.0.0.0 opens it to the network.
 const HOST = process.env.HOST || "127.0.0.1";
-if (require.main === module) server.listen(PORT, HOST, () => console.log("NFL Universe running at http://" + (HOST === "127.0.0.1" ? "localhost" : HOST) + ":" + PORT));
+if (require.main === module) server.listen(PORT, HOST, () => {
+  console.log("NFL Universe running at http://" + (HOST === "127.0.0.1" ? "localhost" : HOST) + ":" + PORT);
+  // Keep live scores and game events current with no page open: only where the live scoreboard is read (local
+  // scope); FABRIC_WATCH=0 turns it off. Hosted public servers have no live scoreboard, so they don't poll.
+  if (scopes().includes("local") && process.env.FABRIC_WATCH !== "0") getFabric().startWatch();
+});
 module.exports = { normalize, server, setFabric: (f) => { fabric = f; } };   // setFabric: tests only

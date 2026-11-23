@@ -16,7 +16,7 @@ TM.forEach(function (t, i) { TIDX[t.a] = i; });
 var TEAMS = TM.map(function (t, i) {
   var u = UT && UT.teams && UT.teams[i] && UT.teams[i].a === t.a ? UT.teams[i] : null;
   return { i: i, a: t.a, nick: t.n, name: u ? u.name : t.n, conf: t.c ? "NFC" : "AFC", c: t.c, d: t.d, div: t.dn,
-    color: u ? u.color : null, stadium: u && u.stadium ? u.stadium : null, aliases: u ? u.aliases || [] : [] };
+    color: u ? u.color : null, alt: u ? u.alt || null : null, stadium: u && u.stadium ? u.stadium : null, aliases: u ? u.aliases || [] : [] };
 });
 function teamName(i) { return TEAMS[i] ? TEAMS[i].name : "?"; }
 function teamAbbr(i) { return TEAMS[i] ? TEAMS[i].a : "?"; }

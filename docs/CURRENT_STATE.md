@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -42,6 +42,17 @@
 - **Command center (`src/universe/`):** map (geographic, divisions, intelligence), 17 layers, URL state, time ranges, intelligence feed, games strip, ticker, team and game panels, system health, rule-based brief, simulation in a Web Worker (20,000 seasons, 100,000 on request).
 - **MCP server (`mcp/`):** 14 read-only tools over stdio.
 - **Server hardening:** localhost binding, Host check on the API, malformed-request handling, `<` escaped in embedded data.
+
+## Nov. 23 (on `main`): helmets on the map
+- New default layer on the geographic map: on a game day both teams' helmets at the stadium, facing each other; live games pulse and show the score; teams not playing are at home. Our own helmet drawing in team colours (club logos are not openly licensed: `NFL_DATA_SOURCE_REGISTRY.md`). Code: `src/universe/07-helmets.js`; the page's team entries now carry the second colour (`alt`).
+- Checked in the browser on Nov. 23 with the Monday night game (CIN at WAS, before kickoff): the pair stands in Landover, MD, in the right colours on dark and light backgrounds, at least 16 px wide on a 375 px phone, with no horizontal scroll. Not yet seen: a live game's pulse and score, and a full Sunday slate (crowding in the Northeast).
+- Tests: 13 new page checks (today's games, colours, sizes, saved layers).
+
+## Nov. 23 (on `main`): the two live weaknesses
+- **Heartbeat:** the server now checks on its own (`startWatch` in `lib/fabric/index.js`, started by `server.js` where the live scoreboard is read; `FABRIC_WATCH=0` turns it off): every 20 seconds during a game window (a game in progress, or one due within 15 minutes and not over), every 5 minutes otherwise. Scores and game events stay current with no page open.
+- **Honest game-event times:** a kickoff or score is known only to have happened between the last data that did not show it and the first that did. Kickoffs are dated by the scheduled kickoff when it falls in that gap. A gap over two minutes marks the time as an estimate (`data.tsEstimated`, `data.between`), shown with a "~" and the gap on hover.
+- **Merged scores:** when the change between two looks could be more than one score, the event reads "Score update: …" instead of naming one scorer.
+- Tests: 2 new fabric tests and 1 extended, 4 new page checks; each new rule was shown to fail against deliberately broken code.
 
 ## Nov. 22 (integration branch; on `main` since Nov. 23)
 - **Feed after a fresh start:** items with no time of their own that were already there when a server started (injury statuses, line moves, weather flags) used to show as brand new and bury real headlines. They are now marked `data.beforeWatch`, listed last as "before <time>", and left out of the ticker and the brief.
@@ -111,7 +122,7 @@
 - The next daily refresh runs `scripts/fabric-snapshot.js` (needs network; never fails the refresh) and all four test suites, and the page it publishes opens on the command center. The published copy is static, so it shows the public snapshot with its age, never ESPN data.
 
 ## Next actions
-1. Keep the server's scoreboard fresh during game windows without waiting for a page to ask, and date kickoff events by the scheduled kickoff; then confirm a game through to its final.
+1. Confirm the heartbeat during a real game (kickoff and score events without the "~" estimate mark) and follow a game through to its final.
 2. Then M5 (intelligence depth) and M6 (live game center) from `MASTER_PLAN.md`.
 
 ## Commands actually run (this session)

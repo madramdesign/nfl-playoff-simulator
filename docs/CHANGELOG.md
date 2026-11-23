@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-23 (map: helmets where teams play today)
+- New default map layer "Helmets: where teams play today" (geographic map). On a game day both teams' helmets stand at the game's stadium (the visiting team in the home team's city, or at the neutral site), facing each other; a live game gets a pulse and its score, a finished one its final score. Teams not playing today stay at home. The schedule gives no travel or practice locations, so none are shown.
+- The helmet is this project's own drawing in each team's two colours from `shared/teams.json`, not a club logo or helmet design (no club marks are openly licensed; see the source registry).
+- Helmets stay at least 18 px wide on phones. A saved layer choice from before this layer existed gains it; a viewer who turns it off keeps it off.
+
+## 2026-11-23 (live data: server heartbeat and honest game-event times)
+- The server checks on its own every 20 seconds during game windows and every 5 minutes otherwise, so scores and game events stay current with no page open (`FABRIC_WATCH=0` turns it off; hosted public servers without the live scoreboard don't poll).
+- Kickoff and score events are dated inside the gap they were seen in (kickoffs by the scheduled kickoff when it falls there); gaps over two minutes are marked as estimates and shown with "~". A change that may be several scores reads "Score update" instead of naming one scorer.
+
 ## 2026-11-22 (panel layout)
 - Command-center panels can be moved, hidden, resized and reset:
   - move: drag a panel's header, or focus its grip and use the arrow keys;

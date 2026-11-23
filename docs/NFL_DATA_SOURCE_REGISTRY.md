@@ -68,6 +68,18 @@ Wired in M8 (Nov. 21, 2026) as fabric sources `youtube-official` (the NFL's and 
 
 No stream is proxied, downloaded or re-hosted. Live game broadcasts are not available from any authorized free source and are not planned.
 
+## Team logos and marks (checked Nov. 23, 2026)
+
+| Candidate | What it is | Usable? |
+|---|---|---|
+| nflverse `load_teams()` logo columns | Links to images hosted by ESPN and Wikipedia; nflverse's MIT license covers its code, not the images | No: the images are the clubs' trademarks; no license is offered |
+| Wikimedia Commons NFL files | Some simple logos are tagged public domain for copyright | No: Commons says trademark restrictions still apply and are the reuser's problem |
+| ESPN logo CDN, logo download sites, GitHub "NFL logos" repos | Copies of club logos | No: no right to redistribute them |
+| Team names, abbreviations, colours | Facts used to identify a team | Yes (already in `shared/teams.json`); never presented so as to suggest endorsement |
+| Generic helmet artwork: our own SVG, or game-icons.net "american-football-helmet" (CC BY 3.0, attribution, confirmed only via Iconify's mirror) | Not any club's design | Yes, coloured with team colours and the abbreviation |
+
+Club logos, helmets and uniform designs belong to the NFL and its clubs, which enforce them. Any use of official logos needs the owner to obtain permission first. Also, claude.ai's viewer blocks images from other sites, so a logo would have to be copied into the page.
+
 ## Verification checklist
 - [x] Endpoints reached and shapes recorded (Nov. 21, 2026)
 - [x] Terms of service reviewed for each source in use or proposed (Nov. 21, 2026)

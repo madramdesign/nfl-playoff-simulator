@@ -5,6 +5,7 @@ var URL_DEFAULTS = { view: "universe", mode: "geo", layers: DEFAULT_LAYERS, time
 function initialState(search, saved) {
   var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS, focus: FOCUS.ids };
   var s = sanitizeState({ mode: saved.mode, layers: saved.layers, timeRange: saved.timeRange }, allow), u = parseUrlState(search, allow);
+  if (Array.isArray(s.layers)) s.layers = withNewDefaults(s.layers, saved.layersKnown);
   var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, focus: null, team: null, game: null }, s, u);
   if (st.mode === "geo" && !HAS_GEO) st.mode = "div";
   if (st.team && st.game) st.game = null;
@@ -62,7 +63,7 @@ function boot() {
   store.subscribe(function (st, ch) {
     var has = function () { for (var i = 0; i < arguments.length; i++) if (ch.indexOf(arguments[i]) >= 0) return true; return false; };
     if (has("view", "mode", "layers", "timeRange", "focus", "team", "game")) writeUrlSoon(st, URL_DEFAULTS);
-    if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, timeRange: st.timeRange });
+    if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, layersKnown: LAYER_IDS, timeRange: st.timeRange });
     if (has("view")) applyView();
     if (has("model", "origin")) requestBaseSim();
     if (has("focus")) { renderFocusBar(); fitFocus(); }

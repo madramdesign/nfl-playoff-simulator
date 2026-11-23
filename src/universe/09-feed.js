@@ -31,11 +31,22 @@ function fmtBefore(ms, now) {
   var d = new Date(ms), same = new Date(now).toDateString() === d.toDateString();
   return "before " + (same ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : MON3[d.getMonth()] + " " + d.getDate());
 }
-var BEFORE_NOTE = "Already in the data when the server started watching its source. When each of these happened is not known, so they are listed after everything with a real time.";
+// Pure: the hover text for an event whose time is an estimate (data.tsEstimated), or null. data.between, when given,
+// is the gap the change was seen in: not in the data fetched at the first time, in the data fetched at the second.
+function estimateNote(e) {
+  var d = e && e.data;
+  if (!d || d.tsEstimated !== true) return null;
+  var b = Array.isArray(d.between) ? d.between.map(Date.parse) : [];
+  return b.length === 2 && isFinite(b[0]) && isFinite(b[1])
+    ? "Estimated time: this happened between " + new Date(b[0]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + " and " + new Date(b[1]).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) + ", when the server next checked."
+    : "Estimated time.";
+}
+NFLU.estimateNote = estimateNote;
+var BEFORE_NOTE ="Already in the data when the server started watching its source. When each of these happened is not known, so they are listed after everything with a real time.";
 function eventRow(e, now) {
   var srcs = e.sourceCount > 1 ? e.sourceCount + " sources" : null;
   var when = e.before != null ? el("time", { class: "u-ev-time", datetime: new Date(e.before).toISOString(), title: "Already in the data at " + new Date(e.before).toLocaleString() + "; when it happened is not known.", text: fmtBefore(e.before, now) })
-    : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : new Date(e.ts).toLocaleString(), text: fmtRel(e.ts, now, e.dateOnly) });
+    : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : estimateNote(e) || new Date(e.ts).toLocaleString(), text: (estimateNote(e) ? "~" : "") + fmtRel(e.ts, now, e.dateOnly) });
   var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title }) : el("span", { class: "u-ev-title", text: e.title });
   var meta = [el("span", { class: "u-ev-pub", text: e.publisher || "" })];
   if (e.confidence != null) meta.push(el("span", { text: "confidence " + Math.round(e.confidence * 100) + "%" }));

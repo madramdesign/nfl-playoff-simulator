@@ -281,6 +281,19 @@ svg.u-map:not([data-mode="geo"])~.u-mapctl{display:none}
 .u-lgrad{display:inline-block;width:38px;height:8px;border-radius:4px;flex:0 0 auto}
 .u-lsw{display:inline-block;width:14px;height:10px;flex:0 0 auto}
 .u-lsw-ring{border:2.5px solid var(--accent);border-radius:50%;width:11px;height:11px}
+/* helmets (07-helmets.js): our own drawing in team colours; a thin outline keeps dark shells visible on the dark map */
+.u-helmets{cursor:pointer}
+.u-helm-shell{stroke:var(--ink);stroke-opacity:.45;stroke-width:.9;stroke-linejoin:round}
+.u-helm-stripe{fill:none;stroke-width:2;stroke-linecap:round}
+.u-helm-mask{fill:none;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.u-helm-ear{fill:var(--ink);fill-opacity:.35}
+.u-helmets.is-final .u-helm{opacity:.7}
+.u-helmets.is-dim{opacity:.25}
+.u-helmets.is-sel .u-helm-shell{stroke:var(--accent);stroke-opacity:1;stroke-width:1.6}
+.u-helm-pulse{stroke-width:2.2}
+.u-helm-lab{font:600 10px var(--body);fill:var(--ink);paint-order:stroke;stroke:var(--u-panel);stroke-width:3px;stroke-linejoin:round}
+.u-helm-lab.is-live{fill:var(--u-live)}
+.u-lsw-helm{flex:0 0 auto}
 .u-lsw-link{height:0;border-top:2px dashed var(--u-link);margin:0 0 0 0;width:16px}
 .u-lsw-badges{background:radial-gradient(circle at 25% 50%,var(--u-inj) 3px,transparent 3.5px),radial-gradient(circle at 75% 50%,var(--u-news) 3px,transparent 3.5px);width:16px}
 .u-lsw-wx{background:var(--u-warn);transform:rotate(45deg);width:8px;height:8px;margin:0 3px}

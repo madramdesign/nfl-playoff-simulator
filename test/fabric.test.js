@@ -321,12 +321,58 @@ test("kickoff and score events survive later polls and restarts", async () => {
     assert.ok(u.events.some((e) => e.subtype === "score" && e.gameId === "900000002"));
     t += 60000; u = await fab.universe({ fresh: true });
     assert.ok(u.events.some((e) => e.subtype === "score"), "still there on the next poll");
+    // one touchdown 20 seconds after the last look: the scorer is named and the time is exact
+    board.events[0].competitions[0].competitors.forEach((x) => { if (x.homeAway === "home") x.score = String(Number(x.score) + 7); });
+    t += 20000; u = await fab.universe({ fresh: true });
+    const td = u.events.find((e) => e.subtype === "score" && e.gameId === "900000002" && e.ts === new Date(t).toISOString());
+    assert.ok(td && /^BUF scores: /.test(td.title) && !td.data.tsEstimated, "one score, seen within 20 s: " + (td && td.title));
     const again = createFabric({ scopes: ["public", "local"], cacheDir: dir, season: 2026, now: () => t + 60000, fetchImpl: f });
     u = await again.universe({ fresh: true });
     assert.ok(u.events.some((e) => e.subtype === "kickoff"), "still there after a restart");
     const first = u.events.find((e) => e.subtype === "kickoff");
-    assert.ok(Date.parse(first.ts) <= t, "time is when it was first seen");
+    assert.ok(Date.parse(first.ts) <= t, "never later than when it was first seen");
+    // seen an hour after the last look: dated by the scheduled kickoff inside that hour, and marked as an estimate
+    assert.strictEqual(first.ts, "2026-11-22T18:00:00.000Z");
+    assert.ok(first.data.tsEstimated && first.data.between.length === 2, "an estimate, with the gap it fell in");
+    const sc = u.events.find((e) => e.subtype === "score" && e.gameId === "900000002" && /MIA 10, BUF 17/.test(e.title));
+    assert.ok(/^Score update: /.test(sc.title), "both teams scored between looks: no single scorer is named (" + sc.title + ")");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("game changes are dated inside the gap they were seen in; long gaps are marked as estimates", () => {
+  const { gameTime } = require(path.join(root, "lib/fabric"));
+  const T0 = Date.parse("2026-11-22T17:50:00Z"), K = Date.parse("2026-11-22T18:00:00Z"), M = 60000;
+  assert.deepStrictEqual(gameTime(T0, T0 + 20000, null), { ts: new Date(T0 + 20000).toISOString(), data: {} }, "a 20-second gap: the time it was seen, exact");
+  assert.deepStrictEqual(gameTime(K - 10000, K + 10000, K), { ts: new Date(K).toISOString(), data: {} }, "the scheduled kickoff inside a short gap");
+  const late = gameTime(T0, T0 + 22 * M, K);
+  assert.strictEqual(late.ts, new Date(K).toISOString(), "a 22-minute gap: dated by the scheduled kickoff it contains");
+  assert.deepStrictEqual(late.data, { tsEstimated: true, between: [new Date(T0).toISOString(), new Date(T0 + 22 * M).toISOString()] }, "and marked as an estimate with the gap");
+  assert.strictEqual(gameTime(K + 5 * M, K + 30 * M, K).ts, new Date(K + 5 * M).toISOString(), "a kickoff that was still to come at the last look is no earlier than that look");
+  assert.strictEqual(gameTime(T0, T0 + 30 * M, null).data.tsEstimated, true, "a score seen after a long gap is an estimate");
+  assert.strictEqual(gameTime(NaN, T0, K).ts, new Date(T0).toISOString(), "no earlier look: the time it was seen");
+});
+test("the heartbeat checks every 20 s in a game window and every 5 min otherwise, and stops when asked", async () => {
+  const { liveWindow } = require(path.join(root, "lib/fabric"));
+  const t = Date.parse("2026-11-22T19:00:00Z"), M = 60000, g = (state, kickMs) => ({ state, kickoff: new Date(kickMs).toISOString() });
+  assert.ok(liveWindow([g("in", t - 60 * M)], t), "a game in progress");
+  assert.ok(liveWindow([g("pre", t + 10 * M)], t), "kickoff within 15 minutes");
+  assert.ok(liveWindow([g("pre", t - 30 * M)], t), "a late start still counts");
+  assert.ok(!liveWindow([g("pre", t + 20 * M)], t) && !liveWindow([g("pre", t - 5 * 60 * M)], t), "too early, or a game that never started");
+  assert.ok(!liveWindow([g("post", t - 60 * M)], t) && !liveWindow([], t) && !liveWindow(null, t), "finished games or none");
+  const run = async (board) => {
+    const f = (url) => (url.endsWith("/scoreboard") ? Promise.resolve({ ok: true, status: 200, json: async () => board, text: async () => "" }) : fakeFetch()(url));
+    const fab = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: () => t, fetchImpl: f });
+    const delays = [], fns = [];
+    const w = fab.startWatch({ setTimer: (fn, ms) => { delays.push(ms); fns.push(fn); return { n: fns.length }; }, clearTimer: () => {} });
+    await fns[0](); await fns[1]();
+    w.stop(); await fns[2]();
+    return delays;
+  };
+  const live = JSON.parse(JSON.stringify(SB));
+  assert.ok(live.events.some((e) => e.competitions[0].status.type.state === "in"), "the fixture has a game in progress");
+  assert.deepStrictEqual(await run(live), [0, 20000, 20000], "in a window: every 20 seconds; after stop() nothing more is scheduled");
+  const done = JSON.parse(JSON.stringify(SB));
+  done.events.forEach((e) => { e.competitions[0].status = { period: 4, displayClock: "0:00", type: { state: "post" } }; });
+  assert.deepStrictEqual(await run(done), [0, 300000, 300000], "no window: every 5 minutes");
 });
 test("headlines without a publication time keep their first-seen time", async () => {
   const os = require("os"), fs = require("fs");

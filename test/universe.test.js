@@ -33,7 +33,9 @@ eq(U.parseUrlState("?layers=none", allow), { layers: [] }, "layers=none means no
 ok(U.serializeUrlState({ view: "sim" }, defaults, [["utm", "x"], ["view", "old"]]) === "?utm=x&view=sim", "foreign parameters are kept, ours replaced");
 const st = U.initialState("?mode=div&timeRange=6h", { mode: "intel", timeRange: "30d", layers: ["teams", "bogus"] });
 ok(st.mode === "div" && st.timeRange === "6h", "the URL wins over saved preferences");
-eq(st.layers, ["teams"], "saved layers are allowlisted too");
+eq(st.layers, ["teams", "helmets"], "saved layers are allowlisted too; a save from before the helmets layer existed gains it (on by default)");
+eq(U.initialState("", { layers: ["teams"], layersKnown: U.LAYER_IDS }).layers, ["teams"], "a viewer who saved after the helmets layer existed, without it, keeps it off");
+eq(U.initialState("", { layers: [], layersKnown: ["teams"] }).layers.sort(), U.DEFAULT_LAYERS.filter((id) => id !== "teams").sort(), "every default layer unknown at the save is switched on");
 
 // ---- focus: league, conference, division, team ----
 eq(U.FOCUS.confs.map((c) => c.id), ["AFC", "NFC"], "two conferences, AFC first");
@@ -329,6 +331,32 @@ const tkB = U.tickerEvents(MB.events, "7d", now);
 ok(tkB.length > 0 && tkB.every((e) => e.before == null), "the ticker leaves them out, even at importance 100");
 ok(U.topEvent(MB.events) && U.topEvent(MB.events).before == null, "the brief's biggest development is never one of them");
 ok(U.filterFeed(MB.events, [], "7d", now, "").some((e) => e.before != null), "the feed still lists them");
+
+// ---- helmets: where teams play today (our own drawing in team colours) ----
+const loc = (y, mo, d, h, mi) => new Date(y, mo, d, h, mi).getTime();   // local time, as the viewer sees it
+const gm = (key, away, home, state, kick) => ({ key, away: idx(away), home: idx(home), state, kickoff: new Date(kick).toISOString() });
+const MON = loc(2026, 10, 23, 18, 0);
+const day = [gm("a", "CIN", "WAS", "pre", loc(2026, 10, 23, 20, 15)), gm("b", "MIN", "SF", "post", loc(2026, 10, 22, 20, 20)), gm("c", "NYJ", "LAC", "pre", loc(2026, 10, 24, 0, 30)),
+  gm("d", "KC", "DEN", "in", loc(2026, 10, 22, 23, 50)), gm("e", "BUF", "MIA", "pre", loc(2026, 10, 23, 13, 0)), { key: "f", away: null, home: idx("NE"), state: "pre", kickoff: new Date(MON).toISOString() }];
+eq(U.todaysGames(day, MON).map((x) => x.key), ["d", "e", "a"], "today: games kicking off on the viewer's calendar day, plus any still in progress, in kickoff order; tomorrow's, yesterday's finals and incomplete rows left out");
+eq(U.todaysGames([], MON), [], "no games today");
+eq(U.todaysGames(null, MON), [], "no data");
+const UTJ = require(path.join(__dirname, "..", "shared", "teams.json")).teams;
+eq(U.helmetColors(U.TEAMS[idx("WAS")]), { shell: UTJ[idx("WAS")].color, trim: UTJ[idx("WAS")].alt }, "the page's team entries carry both colours (Washington: maroon with gold trim)");
+eq(U.helmetColors(U.TEAMS[idx("CIN")]).trim, UTJ[idx("CIN")].alt, "Cincinnati: orange with black trim");
+eq(U.helmetColors({ color: "#101820", alt: "#0b1620" }).trim, "#ffffff", "a trim too close to the shell colour becomes white");
+eq(U.helmetColors({ color: "#f5f5f5", alt: "#ffffff" }).trim, "#1b1f27", "and dark on a light shell");
+eq(U.helmetColors({ color: "red", alt: "javascript:x" }), { shell: "#8b95a7", trim: "#ffffff" }, "anything but a #rrggbb colour falls back to neutral");
+ok(U.helmetScale(false, 1) === 0.95 && U.helmetScale(true, 1) === 1.15, "normal size on a full-size map; a little larger zoomed in");
+ok(Math.abs(U.helmetScale(false, 0.37) * 24 * 0.37 - 18) < 1e-9, "on a phone-size map a helmet is still 18 px wide");
+ok(U.helmetScale(false, 0.05) === 2.4 && U.helmetScale(false, NaN) === 0.95 && U.helmetScale(false, 0) === 0.95, "capped, and safe with no measurement");
+ok(U.LAYERS.some((l) => l.id === "helmets" && l.defaultOn && l.modes.join() === "geo" && l.group === "Teams"), "the Helmets layer is registered, on by default, geographic map only");
+
+// ---- estimated event times (data.tsEstimated): flagged, with the gap when the feed gives one ----
+ok(U.estimateNote({ data: {} }) === null && U.estimateNote({}) === null && U.estimateNote(null) === null && U.estimateNote({ data: { tsEstimated: "yes" } }) === null, "only a real estimate flag counts");
+ok(U.estimateNote({ data: { tsEstimated: true } }) === "Estimated time.", "an estimate without a gap");
+ok(/^Estimated time: this happened between .+ and .+, when the server next checked\.$/.test(U.estimateNote({ data: { tsEstimated: true, between: ["2026-11-22T17:50:00Z", "2026-11-22T18:12:00Z"] } })), "an estimate with the gap it fell in");
+ok(U.estimateNote({ data: { tsEstimated: true, between: ["x", "y"] } }) === "Estimated time.", "a malformed gap is ignored");
 
 // ---- hosts that refuse outside media (claude.ai's artifact viewer): refusals switch videos and episodes to links ----
 const cspv = (d, uri) => ({ effectiveDirective: d, blockedURI: uri });
