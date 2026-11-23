@@ -24,7 +24,7 @@ function renderTeamsPanel() {
     ids.forEach(function (i) {
       var t = TEAMS[i], qb = qbStatusOf(i, st.model);
       tb.appendChild(el("tr", { class: (st.team === t.a ? "is-sel" : "") + (fi.team === i ? " is-focus" : "") }, [
-        el("td", {}, [el("button", { type: "button", class: "u-tlink", "data-team": i, text: t.a }), el("span", { class: "u-tname", text: " " + t.nick }), qb && qb.level >= 3 ? el("span", { class: "u-qbflag", title: qb.reasons[0].text, text: "QB" }) : null]),
+        el("td", {}, [watchStar(i), /* S-D: watchlist star (17-watch.js) */ el("button", { type: "button", class: "u-tlink", "data-team": i, text: t.a }), el("span", { class: "u-tname", text: " " + t.nick }), qb && qb.level >= 3 ? el("span", { class: "u-qbflag", title: qb.reasons[0].text, text: "QB" }) : null]),
         el("td", { text: recStr(recordOf(i, st.model)) }),
         el("td", { text: fmtSigned(teamPower(i)) }),
         el("td", { class: "u-num", text: r ? fmtPct(simPo(r, i)) : "…" }),
@@ -64,6 +64,7 @@ function renderTeamCenter(i, body) {
   body.appendChild(el("div", { class: "u-actions" }, [
     el("button", { type: "button", class: "u-btn u-primary", "data-fk": "open-sim", text: "Open in simulator", onclick: function () { openSimulator(i); } }),
     el("button", { type: "button", class: "u-btn", "data-fk": "focus-team", "aria-pressed": st.focus === T.a ? "true" : "false", text: st.focus === T.a ? "Focused on this team" : "Focus on this team", title: "Narrow the map, feed, games and media to the " + T.nick, onclick: function () { store.set({ focus: st.focus === T.a ? null : T.a }); } }),
+    watchButton(i),   // S-D: watchlist (17-watch.js)
     el("button", { type: "button", class: "u-btn", "data-fk": "prove", text: "Prove this wrong", onclick: function () { var s = byId("u-prove"); if (s) { s.scrollIntoView({ behavior: prefersReduced() ? "auto" : "smooth", block: "start" }); s.classList.add("is-flash"); var f = s.querySelector("li"); if (f) f.classList.add("is-strong"); setTimeout(function () { s.classList.remove("is-flash"); }, 1600); } } })]));
   if (r) {
     var w = r.sw[i] / r.n - 0.5 * BT[i];
@@ -91,7 +92,7 @@ function renderTeamCenter(i, body) {
   var injKids = [];
   if (inj) {
     injKids.push(el("p", { class: "u-note", text: "Burden index " + inj.burden.toFixed(2) + ": " + (inj.out || 0) + " out, " + (inj.doubtful || 0) + " doubtful, " + (inj.questionable || 0) + " questionable, " + (inj.ir || 0) + " on injured reserve. Descriptive only, not part of the forecast." }));
-    injKids.push(el("ul", { class: "u-list" }, (inj.players || []).map(function (p) { return el("li", {}, [el("b", { text: p.name }), " " + (p.pos || "") + " · " + p.status + (p.type ? " (" + p.type + ")" : "") + (p.source ? " · " + sourceLabel(p.source) : "")]); })));
+    injKids.push(injuryList(inj, st.payload));   // S-D: each report with its publisher, two side by side when sources differ (17-watch.js)
   } else injKids.push(el("p", { class: "u-note", text: st.payload ? "No injury report for this team in the current data. That is not the same as no injuries." : "No injury feed: no server and no embedded snapshot." }));
   body.appendChild(section("Injuries", injKids));
   var evs = (M ? M.events : []).filter(function (e) { return e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
