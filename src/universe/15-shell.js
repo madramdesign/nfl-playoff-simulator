@@ -93,6 +93,7 @@ function renderFocusBar() {
     if (f.level === "team") host.appendChild(el("button", { type: "button", class: "u-btn u-fopen", "data-fk": "focus-open", "data-focus-open": f.team, text: "Team center" }));
   });
   host.classList.toggle("is-on", f.level !== "league");
+  var ask = byId("uAsk"); if (ask) ask.textContent = f.level === "league" ? "What is happening in the NFL?" : "What is happening with " + (f.level === "team" ? "the " + TEAMS[f.team].nick : "the " + f.label) + "?";
 }
 
 // ---- left rail ----

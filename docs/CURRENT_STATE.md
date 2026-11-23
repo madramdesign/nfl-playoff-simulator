@@ -30,6 +30,12 @@
 - Not checked: the backup with several games at once (only one outdoor game was left this week), an international game, and the scheduled task's own next run.
 - Where the daily refresh runs is now known: the cloud scheduled task "NFL simulator daily refresh", 4:35 a.m. Eastern, in the Default cloud environment.
 
+## Nov. 23, 2026: focus follow-ups (branch `claude/kind-bohr-75erpe`)
+- The brief ("What is happening...") now answers for the focus: every ranked line is looked for inside it, and the button and title name the scope.
+- Map labels no longer sit on each other or on count badges (`placeLabels` in `07-layers.js`); a focused division is always zoomed far enough to be labelled.
+- Checked: `npm test` (227 command-center checks) and a browser look at the NFC East.
+- Four streams dispatched to agents in worktrees: see `docs/AGENT_COORDINATION.md`.
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.

@@ -219,6 +219,24 @@ eq(U.disagreementGames().map((d) => d.gi).sort((a, b) => a - b), expDis, "model 
 const brief = U.buildBrief({ M, payload: live, sim: r, events: M.events });
 eq(brief.map((l) => l.id), ["development", "injury", "team", "playoff", "market", "disagree", "game", "uncertain", "overlooked", "redteam"].filter((id) => id !== "team" || E.D.history).filter((id) => id !== "playoff" || E.D.prev).filter((id) => id !== "overlooked" || U.overlookedFactor()), "the brief has its lines in order");
 ok(/Intelligence gaps: .*transactions \(down\)/.test(brief.find((l) => l.id === "redteam").text), "the red-team line names the down transactions feed");
+// the brief narrowed to a focus: every ranked answer stays inside it
+const fAFC = U.focusSet("AFC"), briefAFC = U.buildBrief({ M, payload: live, sim: r, focus: fAFC, scope: "the AFC", events: U.focusEvents(M.events, fAFC) });
+ok(briefAFC.filter((l) => l.team != null).every((l) => fAFC[l.team]), "a focused brief names only teams in focus");
+ok(briefAFC.filter((l) => l.gi != null).every((l) => fAFC[E.GAMES[l.gi][2]] || fAFC[E.GAMES[l.gi][3]]), "and only games involving them");
+ok(U.biggestInjury(M.injuries, U.focusSet("AFC")) === null || U.biggestInjury(M.injuries, U.focusSet("AFC")).team !== idx("NYG"), "the biggest injury burden is looked for inside the focus");
+eq(U.biggestInjury(M.injuries, U.focusSet("NFC-EAST")).team, idx("NYG"), "and found when the team is in it");
+const bu1 = U.biggestUncertainty(U.focusSet("KC")); ok(bu1 && bu1.team === idx("KC"), "one team in focus answers about that team");
+const igF = U.mostImportantGame(r.watch, U.focusSet("NYG"));
+ok(igF === null || [E.GAMES[igF.gi][2], E.GAMES[igF.gi][3]].includes(idx("NYG")), "the most important game is one the focused team plays in");
+// map labels: a crowded cluster gets labels that do not sit on each other
+const tight = [[100, 100], [108, 100], [104, 108], [100, 116], [300, 300]], names5 = ["NYG", "NYJ", "PHI", "BAL", "KC"];
+const labs = U.placeLabels(tight, 6.5, names5, null);
+const overlapArea = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
+let labHits = 0; labs.forEach((a, i) => labs.forEach((b, j) => { if (i < j) labHits += overlapArea(a.box, b.box); }));
+ok(labHits === 0, "labels in a tight cluster do not overlap each other");
+ok(labs[4].anchor === "start" && labs[4].x === 300 + 6.5 + 3, "an uncrowded team keeps its label on the right");
+ok(U.placeLabels(tight, 6.5, names5, null, 10)[4].x === 300 + 16.5 + 3, "room is left for the count badges around a dot");
+eq(U.placeLabels(tight, 6.5, names5, (i) => i === 1)[1], null, "a skipped team gets no label");
 eq(U.intelligenceGaps(null).length, 5, "with no payload every kind of source is a gap");
 const pw = U.proveWrong(idx("NYG"), M);
 ok(pw.length >= 2 && pw.every((x, k, a) => k === 0 || a[k - 1].w >= x.w) && pw[pw.length - 1].kind === "sample", "prove-this-wrong is sorted, ends with the sample-size caveat");

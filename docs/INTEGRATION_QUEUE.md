@@ -22,3 +22,12 @@
 - [ ] Docs and current state updated
 - [ ] Merge performed in dependency order
 - [ ] Post-merge regression checks completed
+
+## Queue, Nov. 23, 2026
+| Order | Stream | Branch | Review | Merged |
+|---|---|---|---|---|
+| 1 | S-A tiebreakers | agent worktree | pending | no |
+| 2 | S-B calibration | agent worktree | pending | no |
+| 3 | S-D intelligence depth | agent worktree | pending | no |
+| 4 | S-C time machine | agent worktree | pending | no |
+

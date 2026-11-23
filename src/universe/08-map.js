@@ -232,7 +232,8 @@ function fitFocus() {
   if (!pts.length) { view.k = 1; view.tx = 0; view.ty = 0; drawMapSoon(); return; }
   var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   pts.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
-  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), 1, f.level === "team" ? 3 : 4);
+  // never below the zoom at which team labels appear, so a focused division is always labelled
+  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), DETAIL_K, f.level === "team" ? 3 : 4);
   view.k = k; view.tx = MAP_W / 2 - (x0 + x1) / 2 * k; view.ty = MAP_H / 2 - (y0 + y1) / 2 * k; clampView(); drawMapSoon();
 }
 function zoomAt(x, y, f) {

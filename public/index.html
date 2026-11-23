@@ -1654,41 +1654,43 @@ function proveWrong(i, M) {
 }
 
 // ---- the brief's ranking functions (pure: inputs in, one ranked answer out) ----
+// set: optional lookup of team indexes in focus (focusSet); without it every team counts. A game counts when either side does.
+function inFocus(set, i) { return !set || !!set[i]; }
 function topEvent(events) {
   var best = null;
   (events || []).forEach(function (e) { if (e.importance == null) return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
   return best;
 }
-function biggestInjury(injuries) {
+function biggestInjury(injuries, set) {
   var best = null, qbOut = [];
   for (var k in (injuries || {})) {
     var t = injuries[k], i = +k;
-    if (!t || typeof t.burden !== "number") continue;
+    if (!t || typeof t.burden !== "number" || !inFocus(set, i)) continue;
     if (t.qbOut) qbOut.push(i);
     if (!best || t.burden > best.burden) best = { team: i, burden: t.burden, rec: t };
   }
   if (best) best.qbOut = qbOut;
   return best;
 }
-function biggestHistoryMove(H) {
+function biggestHistoryMove(H, set) {
   if (!H || !H.po || H.po.length < 2) return null;
   var n = H.po.length, best = null;
-  for (var i = 0; i < NT; i++) { var d = H.po[n - 1][i] - H.po[n - 2][i]; if (!best || Math.abs(d) > Math.abs(best.delta)) best = { team: i, from: H.po[n - 2][i], to: H.po[n - 1][i], delta: d, week: H.weeks[n - 1], prevWeek: H.weeks[n - 2] }; }
+  for (var i = 0; i < NT; i++) { if (!inFocus(set, i)) continue; var d = H.po[n - 1][i] - H.po[n - 2][i]; if (!best || Math.abs(d) > Math.abs(best.delta)) best = { team: i, from: H.po[n - 2][i], to: H.po[n - 1][i], delta: d, week: H.weeks[n - 1], prevWeek: H.weeks[n - 2] }; }
   return best;
 }
 // po: playoff probability per team now (a simulation); prev: D.prev (a saved forecast).
-function biggestPrevMove(prev, po) {
+function biggestPrevMove(prev, po, set) {
   if (!prev || !prev.playoffs || !po) return null;
   var best = null;
-  for (var i = 0; i < NT; i++) { var d = po[i] - prev.playoffs[i]; if (!best || Math.abs(d) > Math.abs(best.delta)) best = { team: i, from: prev.playoffs[i], to: po[i], delta: d, date: prev.date }; }
+  for (var i = 0; i < NT; i++) { if (!inFocus(set, i)) continue; var d = po[i] - prev.playoffs[i]; if (!best || Math.abs(d) > Math.abs(best.delta)) best = { team: i, from: prev.playoffs[i], to: po[i], delta: d, date: prev.date }; }
   return best;
 }
 // Largest market move: the feed's open -> current home win chance (or spread), else the line now vs the saved forecast.
-function biggestMarketMove(games, prev) {
+function biggestMarketMove(games, prev, set) {
   var best = null;
   (games || []).forEach(function (g) {
     var o = g.odds;
-    if (!o) return;
+    if (!o || !(inFocus(set, g.away) || inFocus(set, g.home))) return;
     var hp = o.homeProb, sp = o.spread;
     if (hp && hp.open != null && hp.current != null) { var d = hp.current - hp.open; if (!best || Math.abs(d) > Math.abs(best.size)) best = { game: g, kind: "prob", from: hp.open, to: hp.current, size: d, src: o.source, provider: o.provider }; }
     else if (sp && sp.open != null && sp.current != null) { var ds = sp.current - sp.open, sz = ds / 25; if (!best || Math.abs(sz) > Math.abs(best.size)) best = { game: g, kind: "spread", from: sp.open, to: sp.current, size: sz, src: o.source, provider: o.provider }; }
@@ -1696,18 +1698,18 @@ function biggestMarketMove(games, prev) {
   if (best) return best;
   if (prev && prev.lines) GAMES.forEach(function (g, gi) {
     var was = prev.lines[g[0]];
-    if (was == null || g[6] == null) return;
+    if (was == null || g[6] == null || !(inFocus(set, g[2]) || inFocus(set, g[3]))) return;
     var d = g[6] - was;
     if (!best || Math.abs(d) > Math.abs(best.size)) best = { gi: gi, kind: "saved", from: was, to: g[6], size: d, date: prev.date };
   });
   return best && Math.abs(best.size) > 0 ? best : null;
 }
 // The watched game whose result moves the most playoff probability, summed over all 32 teams.
-function mostImportantGame(watch) {
+function mostImportantGame(watch, set) {
   var best = null;
   for (var k in (watch || {})) {
     var w = watch[k];
-    if (!w || !w.nH || !w.nA) continue;
+    if (!w || !w.nH || !w.nA || !GAMES[+k] || !(inFocus(set, GAMES[+k][2]) || inFocus(set, GAMES[+k][3]))) continue;
     var sum = 0, per = [];
     for (var t = 0; t < NT; t++) { var d = w.H[t] / w.nH - w.A[t] / w.nA; sum += Math.abs(d); per.push([t, d]); }
     per.sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); });
@@ -1715,17 +1717,17 @@ function mostImportantGame(watch) {
   }
   return best;
 }
-function biggestUncertainty() {
+function biggestUncertainty(set) {
   var best = null;
-  for (var i = 0; i < NT; i++) { var s = ratingSpread(i); if (!best || s.range > best.range) best = { team: i, range: s.range, lo: s.lo, hi: s.hi }; }
+  for (var i = 0; i < NT; i++) { if (!inFocus(set, i)) continue; var s = ratingSpread(i); if (!best || s.range > best.range) best = { team: i, range: s.range, lo: s.lo, hi: s.hi }; }
   return best;
 }
-function overlookedFactor() {
+function overlookedFactor(set) {
   var best = null;
-  if (D.luck) for (var i = 0; i < NT; i++) if (Math.abs(D.luck[i]) >= 8 && (!best || Math.abs(D.luck[i]) > Math.abs(best.luck))) best = { team: i, kind: "luck", luck: D.luck[i] };
+  if (D.luck) for (var i = 0; i < NT; i++) if (inFocus(set, i) && Math.abs(D.luck[i]) >= 8 && (!best || Math.abs(D.luck[i]) > Math.abs(best.luck))) best = { team: i, kind: "luck", luck: D.luck[i] };
   if (best) return best;
-  if (D.qbShift) for (var k in D.qbShift) if (D.qbShift[k] && D.qbShift[k].shift == null) return { team: +k, kind: "qb", qb: D.qbShift[k] };
-  for (var t = 0; t < NT; t++) { var o = CLOSE[t], n = o[0] + o[1] + o[2]; if (n >= 4 && (o[0] / n >= 0.75 || o[1] / n >= 0.75)) return { team: t, kind: "close", rec: o }; }
+  if (D.qbShift) for (var k in D.qbShift) if (inFocus(set, +k) && D.qbShift[k] && D.qbShift[k].shift == null) return { team: +k, kind: "qb", qb: D.qbShift[k] };
+  for (var t = 0; t < NT; t++) { var o = CLOSE[t], n = o[0] + o[1] + o[2]; if (inFocus(set, t) && n >= 4 && (o[0] / n >= 0.75 || o[1] / n >= 0.75)) return { team: t, kind: "close", rec: o }; }
   return null;
 }
 var KEY_SOURCE_KINDS = [["scores", ["espn-scoreboard", "nflverse-games"]], ["injuries", ["espn-injuries", "nflverse-injuries"]], ["news", ["rss-*", "espn-news", "curated-news"]], ["weather", ["open-meteo", "nws"]], ["transactions", ["espn-transactions"]]];
@@ -1740,45 +1742,46 @@ function intelligenceGaps(payload) {
   return gaps;
 }
 
-// The brief. ctx: {M, payload, sim (result or null), events (already time-filtered)}. Each line: {id, label, text, team, gi, gameKey, url}.
+// The brief. ctx: {M, payload, sim (result or null), events (already time- and focus-filtered), focus (team lookup or null), scope (its name)}. Each line: {id, label, text, team, gi, gameKey, url}.
 function buildBrief(ctx) {
   var M = ctx.M, r = ctx.sim, lines = [], po = r ? Array.prototype.map.call(r.po, function (v) { return v / r.n; }) : null;
   var add = function (id, label, x) { lines.push(Object.assign({ id: id, label: label }, x)); };
+  var set = ctx.focus || null;
   var te = topEvent(ctx.events);
   if (te) add("development", "Biggest development", { text: te.title + " (" + te.publisher + ", importance " + Math.round(te.importance) + " of 100)", team: te.teams[0], url: te.url, eventId: te.id });
   else {
     var qbn = (ctx.events || []).filter(function (e) { return e.type === "qb_change"; })[0];
     add("development", "Biggest development", qbn ? { text: qbn.title + " (" + qbn.publisher + ", " + fmtDateUTC(qbn.ts) + "; no importance score)", team: qbn.teams[0], url: qbn.url } : { text: "No scored events in this time range." });
   }
-  var bi = biggestInjury(M && M.injuries);
+  var bi = biggestInjury(M && M.injuries, set);
   if (bi) add("injury", "Biggest injury burden", { text: "The " + TEAMS[bi.team].nick + " carry the heaviest injury burden (index " + bi.burden.toFixed(2) + ": " + (bi.rec.out || 0) + " out, " + (bi.rec.ir || 0) + " on injured reserve)" + (bi.qbOut.length ? ". Quarterback listed out: " + bi.qbOut.map(function (t) { return TEAMS[t].nick; }).join(", ") : "") + ". Descriptive, not part of the forecast.", team: bi.team });
   else add("injury", "Biggest injury burden", { text: "No injury report in the current data, which does not mean there are no injuries." });
-  var hm = biggestHistoryMove(D.history);
+  var hm = biggestHistoryMove(D.history, set);
   if (hm) add("team", "Biggest team movement", { text: "The " + TEAMS[hm.team].nick + " moved " + fmtSigned(hm.delta * 100, 0) + " points in playoff chance in week " + hm.week + " (" + fmtPct(hm.from) + " to " + fmtPct(hm.to) + ").", team: hm.team });
-  var pm = biggestPrevMove(D.prev, po);
+  var pm = biggestPrevMove(D.prev, po, set);
   if (pm) add("playoff", "Biggest playoff movement", { text: "The " + TEAMS[pm.team].nick + " are " + fmtPct(pm.to) + " to make the playoffs, from " + fmtPct(pm.from) + " in the forecast saved " + pm.date + " (" + fmtSigned(pm.delta * 100, 0) + " points)." + (Math.abs(pm.delta) < 0.03 ? " That is within simulation noise." : ""), team: pm.team });
   else if (!r) add("playoff", "Biggest playoff movement", { text: "Waiting for the simulation." });
-  var mm = biggestMarketMove(M && M.games, D.prev);
+  var mm = biggestMarketMove(M && M.games, D.prev, set);
   if (mm && mm.game) {
     var g = mm.game, src = M.sources[mm.src];
     add("market", "Biggest market movement", { text: teamAbbr(g.away) + " at " + teamAbbr(g.home) + ": " + (mm.kind === "prob" ? "home win chance " + fmtPct(mm.from) + " to " + fmtPct(mm.to) : "home spread " + fmtSigned(mm.from) + " to " + fmtSigned(mm.to)) + " (" + (mm.provider || "") + (src ? ", " + src.label : "") + ", open to current).", gameKey: g.key });
   } else if (mm) add("market", "Biggest market movement", { text: TEAMS[GAMES[mm.gi][2]].a + " at " + TEAMS[GAMES[mm.gi][3]].a + ": home win chance " + fmtPct(mm.from) + " in the forecast saved " + mm.date + ", " + fmtPct(mm.to) + " at the build (nflverse line, " + (D.built || "") + ").", gi: mm.gi });
   else add("market", "Biggest market movement", { text: "No line movement in the current data (nflverse gives one current line and no opening line)." });
-  var dg = disagreementGames()[0];
+  var dg = disagreementGames().filter(function (x) { return inFocus(set, GAMES[x.gi][2]) || inFocus(set, GAMES[x.gi][3]); })[0];
   if (dg) { var G = GAMES[dg.gi]; add("disagree", "Biggest model disagreement", { text: TEAMS[G[2]].a + " at " + TEAMS[G[3]].a + " (week " + G[1] + "): ratings give the home team " + fmtPct(dg.ratings) + ", the market " + fmtPct(dg.market) + ".", gi: dg.gi }); }
   else add("disagree", "Biggest model disagreement", { text: "No game with a posted line differs from the ratings by " + Math.round(DISAGREE_MIN * 100) + " points or more." });
-  var ig = r && mostImportantGame(r.watch);
+  var ig = r && mostImportantGame(r.watch, set);
   if (ig) { var G2 = GAMES[ig.gi]; add("game", "Most important game left this week", { text: TEAMS[G2[2]].a + " at " + TEAMS[G2[3]].a + ": the result moves " + Math.round(ig.swing * 100) + " points of playoff chance summed over all teams. A " + TEAMS[G2[3]].nick + " win rather than a " + TEAMS[G2[2]].nick + " win changes " + ig.top.map(function (x) { return TEAMS[x[0]].a + " " + fmtSigned(x[1] * 100, 0); }).join(", ") + " points.", gi: ig.gi }); }
   else add("game", "Most important game left this week", { text: r ? "No unfinished game this week to measure." : "Waiting for the simulation." });
-  var bu = biggestUncertainty();
+  var bu = biggestUncertainty(set);
   if (bu) add("uncertain", "Biggest uncertainty", { text: "The rating methods disagree most about the " + TEAMS[bu.team].nick + ": from " + fmtSigned(bu.lo) + " to " + fmtSigned(bu.hi) + " points per game.", team: bu.team });
-  var of = overlookedFactor();
+  var of = overlookedFactor(set);
   if (of) add("overlooked", "Overlooked factor", { text: of.kind === "luck" ? "The " + TEAMS[of.team].nick + " have " + (of.luck > 0 ? "gained" : "lost") + " about " + Math.abs(Math.round(of.luck)) + " points from fumble bounces; their record " + (of.luck > 0 ? "flatters" : "undersells") + " them." : of.kind === "qb" ? "The " + TEAMS[of.team].nick + " start " + of.qb.qb + " in place of " + of.qb.was + " and there is no rating for him; their results rating still describes the old lineup." : "The " + TEAMS[of.team].nick + " are " + of.rec[0] + "-" + of.rec[1] + " in one-score games, which usually drifts back toward even.", team: of.team });
   var gaps = intelligenceGaps(ctx.payload);
-  var fav = -1; if (r) for (var t = 0; t < NT; t++) if (fav < 0 || r.wSB[t] > r.wSB[fav]) fav = t;
+  var fav = -1; if (r) for (var t = 0; t < NT; t++) if (inFocus(set, t) && (fav < 0 || r.wSB[t] > r.wSB[fav])) fav = t;
   var pw = fav >= 0 ? proveWrong(fav, M)[0] : null;
-  if (gaps.length) add("redteam", "Red-team warning", { text: "Intelligence gaps: " + gaps.map(function (x) { return x.kind + " (" + x.why + ")"; }).join(", ") + ". Silence in those areas is not an all-clear." + (pw ? " Also, on the favorite (" + TEAMS[fav].nick + "): " + pw.text : ""), team: fav >= 0 ? fav : undefined });
-  else if (pw) add("redteam", "Red-team warning", { text: "Against the Super Bowl favorite (" + TEAMS[fav].nick + ", " + fmtPct(r.wSB[fav] / r.n) + "): " + pw.text, team: fav });
+  if (gaps.length) add("redteam", "Red-team warning", { text: "Intelligence gaps: " + gaps.map(function (x) { return x.kind + " (" + x.why + ")"; }).join(", ") + ". Silence in those areas is not an all-clear." + (pw ? " Also, on the " + (set ? "likeliest champion in focus" : "favorite") + " (" + TEAMS[fav].nick + "): " + pw.text : ""), team: fav >= 0 ? fav : undefined });
+  else if (pw) add("redteam", "Red-team warning", { text: (set ? "Against " + (ctx.scope || "the focus") + "'s likeliest champion (" : "Against the Super Bowl favorite (") + TEAMS[fav].nick + ", " + fmtPct(r.wSB[fav] / r.n) + "): " + pw.text, team: fav });
   return lines;
 }
 
@@ -2039,15 +2042,45 @@ function renderPlayoffRing(c, g) {
     if (v > 0.004) g.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: r, class: "u-ring" + (c.dim(i) ? " is-dim" : ""), "stroke-dasharray": (C * v).toFixed(2) + " " + C.toFixed(2), transform: "rotate(-90 " + p[0].toFixed(1) + " " + p[1].toFixed(1) + ")" }));
   });
 }
+// Pure: where each team's label goes so that labels do not sit on each other or on a neighbor's dot (the Northeast is
+// crowded). pts: [x, y] per team; r: dot radius; names: label text per team; skip(i): teams with no label; pad: room
+// kept around every dot for its count badges, which sit in a ring just outside it.
+// Each label tries eight spots around its dot, right first, and takes the one that overlaps the least.
+function placeLabels(pts, r, names, skip, pad) {
+  r += pad || 0;
+  var H = 10, placed = [], out = [];
+  var dots = pts.map(function (p, i) { return p && !(skip && skip(i)) ? [p[0] - r, p[1] - r, p[0] + r, p[1] + r] : null; });
+  var hit = function (a, b) { return Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1])); };
+  pts.forEach(function (p, i) {
+    if (!p || (skip && skip(i))) { out[i] = null; return; }
+    var w = 6.4 * String(names[i]).length, g = r + 3, d = r * 0.75 + 2;
+    // [text x, baseline y, anchor, box left]
+    var cands = [[p[0] + g, p[1] + 4, "start", p[0] + g], [p[0] - g, p[1] + 4, "end", p[0] - g - w], [p[0], p[1] - g - 1, "middle", p[0] - w / 2], [p[0], p[1] + g + H - 1, "middle", p[0] - w / 2],
+      [p[0] + d, p[1] - d, "start", p[0] + d], [p[0] + d, p[1] + d + H - 2, "start", p[0] + d], [p[0] - d, p[1] - d, "end", p[0] - d - w], [p[0] - d, p[1] + d + H - 2, "end", p[0] - d - w]];
+    var best = null, bestCost = Infinity, bestBox = null;
+    for (var k = 0; k < cands.length && bestCost > 0; k++) {
+      var c = cands[k], box = [c[3], c[1] - H + 1, c[3] + w, c[1] + 2], cost = 0;
+      placed.forEach(function (b) { cost += hit(box, b); });
+      dots.forEach(function (b, j) { if (b && j !== i) cost += hit(box, b); });
+      if (cost < bestCost) { best = c; bestCost = cost; bestBox = box; }
+    }
+    placed.push(bestBox);
+    out[i] = { x: best[0], y: best[1], anchor: best[2], box: bestBox, overlap: bestCost };
+  });
+  return out;
+}
+NFLU.placeLabels = placeLabels;
+var LABEL_PAD = 10;   // the badge ring: 5 out from the dot plus a badge radius
 function renderTeams(c, g) {
+  var showLabs = (c.mode !== "geo" || c.detail) && c.mode !== "div";
+  var labs = showLabs ? placeLabels(c.pos, c.r, TEAMS.map(function (t) { return t.a; }), null, LABEL_PAD) : [];
   TEAMS.forEach(function (t, i) {
     var p = c.pos[i], pw = teamPower(i), fill = c.mode === "intel" ? momentumColor(momentumOf(i)) : powerColor(pw);
     var po = c.po ? fmtPct(c.po[i]) : "simulating";
     var label = t.name + ": power " + fmtSigned(pw) + " points, playoff chance " + po + (c.mode === "intel" ? ", momentum " + (momentumOf(i) == null ? "n/a" : fmtSigned(momentumOf(i) * 100, 0) + " points") : "");
     var node = svgEl("g", { class: "u-node" + (c.sel.team === i ? " is-sel" : "") + (c.dim(i) ? " is-dim" : ""), tabindex: "0", role: "button", "aria-label": label, "data-team": i, "data-tip": label });
     node.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: c.r, class: "u-dot", style: "fill:" + fill }));
-    var showLab = c.mode !== "geo" || c.detail;
-    if (showLab && c.mode !== "div") node.appendChild(svgEl("text", { x: p[0] + c.r + 3, y: p[1] + 4, class: "u-nodelab", text: t.a }));
+    if (labs[i]) node.appendChild(svgEl("text", { x: labs[i].x, y: labs[i].y, "text-anchor": labs[i].anchor, class: "u-nodelab", text: t.a }));
     g.appendChild(node);
   });
 }
@@ -2329,7 +2362,8 @@ function fitFocus() {
   if (!pts.length) { view.k = 1; view.tx = 0; view.ty = 0; drawMapSoon(); return; }
   var x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
   pts.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); });
-  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), 1, f.level === "team" ? 3 : 4);
+  // never below the zoom at which team labels appear, so a focused division is always labelled
+  var k = clamp(Math.min(MAP_W / (x1 - x0 + 220), MAP_H / (y1 - y0 + 160)), DETAIL_K, f.level === "team" ? 3 : 4);
   view.k = k; view.tx = MAP_W / 2 - (x0 + x1) / 2 * k; view.ty = MAP_H / 2 - (y0 + y1) / 2 * k; clampView(); drawMapSoon();
 }
 function zoomAt(x, y, f) {
@@ -2888,12 +2922,13 @@ function loadGameDetail(x, host) {
 // "What is happening in the NFL?": a short brief computed by fixed rules from the data on this page (DEC-009).
 function renderBrief(host) {
   var st = store.get(), now = refNow();
-  var lines = buildBrief({ M: st.model, payload: st.payload, sim: st.sim && st.sim.r, events: filterByTime(st.model ? st.model.events : [], st.timeRange, now) });
+  var fi = focusInfo(st.focus), fset = focusSet(st.focus), scope = fi.level === "league" ? "" : fi.level === "team" ? "the " + TEAMS[fi.team].nick : "the " + fi.label;
+  var lines = buildBrief({ M: st.model, payload: st.payload, sim: st.sim && st.sim.r, focus: fset, scope: scope, events: focusEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), fset) });
   clearNode(host);
   host.appendChild(el("div", { class: "u-mhead" }, [
-    el("h2", { id: "u-brief-title", text: "What is happening in the NFL?" }),
+    el("h2", { id: "u-brief-title", text: fset ? "What is happening with " + scope + "?" : "What is happening in the NFL?" }),
     el("button", { type: "button", class: "u-x", "aria-label": "Close", text: "×", onclick: closeBrief })]));
-  host.appendChild(el("p", { class: "u-label", text: "Computed from the data on this page, not written by an AI model. Events " + RANGE_PHRASE[st.timeRange] + "; " + dataStatusText() + (st.sim ? "; simulation: " + st.sim.n.toLocaleString() + " seasons, " + MODE_NAMES[st.sim.mode] + " win chances" : "") + "." }));
+  host.appendChild(el("p", { class: "u-label", text: "Computed from the data on this page, not written by an AI model. " + (fset ? "Narrowed to " + scope + " (the focus); a game counts when either team is in it. " : "") + "Events " + RANGE_PHRASE[st.timeRange] + "; " + dataStatusText() + (st.sim ? "; simulation: " + st.sim.n.toLocaleString() + " seasons, " + MODE_NAMES[st.sim.mode] + " win chances" : "") + "." }));
   if (st.model && st.model.fixture) host.appendChild(el("p", { class: "u-warnline", text: "Fixture data: these lines describe synthetic test data." }));
   var ol = el("ol", { class: "u-brief" });
   lines.forEach(function (l) {
@@ -3078,6 +3113,7 @@ function renderFocusBar() {
     if (f.level === "team") host.appendChild(el("button", { type: "button", class: "u-btn u-fopen", "data-fk": "focus-open", "data-focus-open": f.team, text: "Team center" }));
   });
   host.classList.toggle("is-on", f.level !== "league");
+  var ask = byId("uAsk"); if (ask) ask.textContent = f.level === "league" ? "What is happening in the NFL?" : "What is happening with " + (f.level === "team" ? "the " + TEAMS[f.team].nick : "the " + f.label) + "?";
 }
 
 // ---- left rail ----
