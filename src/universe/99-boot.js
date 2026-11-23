@@ -38,6 +38,7 @@ function boot() {
   buildTeamsPanel(byId("uTeamsHost"));
   buildGamesPanel(byId("uGamesHost"));
   renderFooter(byId("uFoot"));
+  initLayout();   // the viewer's panel arrangement (17-layout.js), once every panel exists
 
   byId("uAsk").addEventListener("click", openBrief);
   byId("uStatus").addEventListener("click", focusHealth);

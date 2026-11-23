@@ -91,7 +91,9 @@ function normEvent(e) {
     source: typeof e.source === "string" ? e.source : null, importance: num(e.importance) != null ? clamp(e.importance, 0, 100) : null,
     confidence: num(e.confidence) != null ? clamp(e.confidence, 0, 1) : null, sourceCount: Math.max(1, num(e.sourceCount) || 1),
     sources: (Array.isArray(e.sources) ? e.sources : []).filter(function (s) { return s && typeof s === "object"; }).map(function (s) { return { publisher: String(s.publisher || ""), url: safeUrl(s.url) }; }),
-    gameId: typeof e.gameId === "string" ? e.gameId : null, data: e.data && typeof e.data === "object" ? e.data : {}, dateOnly: false, origin: "feed"
+    gameId: typeof e.gameId === "string" ? e.gameId : null, data: e.data && typeof e.data === "object" ? e.data : {}, dateOnly: false, origin: "feed",
+    // already there when the server started watching its source: the real time is unknown and earlier than this
+    before: e.data && typeof e.data === "object" && isFinite(Date.parse(e.data.beforeWatch)) ? Date.parse(e.data.beforeWatch) : null
   };
 }
 // D.news: dated (no time), so it is placed at the start of that day in UTC and shown with the date only. It carries no
@@ -114,7 +116,8 @@ function buildEvents(payload) {
     seen[e.id] = 1; if (n.url) urls[n.url] = 1; evs.push(n);
   });
   evs = evs.concat(pageNewsEvents(urls));
-  evs.sort(function (a, b) { return b.ts - a.ts || (b.importance || 0) - (a.importance || 0); });
+  // newest first; items with an unknown time (already there when watching began) after every item with a real time
+  evs.sort(function (a, b) { return (a.before != null ? 1 : 0) - (b.before != null ? 1 : 0) || b.ts - a.ts || (b.importance || 0) - (a.importance || 0); });
   return evs;
 }
 

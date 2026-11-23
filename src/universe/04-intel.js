@@ -118,7 +118,7 @@ function proveWrong(i, M) {
 // ---- the brief's ranking functions (pure: inputs in, one ranked answer out) ----
 function topEvent(events) {
   var best = null;
-  (events || []).forEach(function (e) { if (e.importance == null) return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
+  (events || []).forEach(function (e) { if (e.importance == null || e.before != null) return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
   return best;
 }
 function biggestInjury(injuries) {

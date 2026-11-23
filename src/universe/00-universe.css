@@ -25,6 +25,7 @@ html.u-view-universe body{background:var(--u-bg)}
 
 /* ---- top bar ---- */
 .u-top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:8px 16px;min-height:var(--u-toph);background:var(--u-panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.u-top.is-menu-open{z-index:42}
 .u-brand{display:flex;align-items:center;gap:8px;margin-right:4px}
 .u-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 210deg,var(--u-afc),var(--u-nfc),var(--u-afc));box-shadow:inset 0 0 0 5px var(--u-panel)}
 .u-title{font:700 21px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
@@ -42,11 +43,28 @@ html.u-view-universe body{background:var(--u-bg)}
 .u-viewsw button+button{border-left:1px solid var(--line)}
 .u-viewsw button[aria-pressed="true"]{background:var(--ink);color:var(--card)}
 .u-theme{font:500 12px var(--body);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 9px;cursor:pointer;white-space:nowrap}
-html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display:none}
+html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-view-sim .u-pmenu{display:none}
+/* the Panels menu (17-layout.js) */
+.u-pmenu{position:relative}
+.u-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;width:min(300px,calc(100vw - 24px));background:var(--u-panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--u-shadow);padding:10px 12px 12px}
+.u-mtitle{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.u-mlist{list-style:none;margin:0 0 4px;padding:0}
+.u-mrow{display:flex;align-items:center;gap:4px;padding:1px 0}
+.u-mrow label{flex:1 1 auto;display:flex;align-items:center;gap:7px;min-width:0;cursor:pointer;padding:4px 0}
+.u-mrow input{accent-color:var(--accent);margin:0}
+.u-mrow small{margin-left:auto;padding-left:6px;color:var(--muted);font-size:10.5px;white-space:nowrap}
+.u-mrow.is-off span{color:var(--muted)}
+.u-mv{flex:0 0 auto;width:28px;height:26px;padding:0;font:600 13px var(--body);color:var(--ink);background:var(--u-panel2);border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.u-mv[aria-disabled="true"]{opacity:.35;cursor:default}
+.u-mreset{margin-top:8px}
+.u-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-/* ---- body layout: one column under 1100px, the command center grid above ---- */
+/* ---- body layout: one column under 1100px, the command center grid above. Each panel sits in a host slot (.u-host) in
+   one of three zones that 17-layout.js arranges (left column, panel column, bottom row); on phones the zones dissolve and
+   the tabs pick one slot. The grid numbers here (252px left column, zero-width divider track, 8px gaps, 384px panel
+   column) are mirrored in LIM in 17-layout.js. ---- */
 .u-body{display:flex;flex-direction:column;gap:10px;padding:10px 16px 24px}
-.u-col{display:contents}
+.u-col,.u-zone{display:contents}
 .u-mapbox{order:1;height:min(78vw,440px);min-height:260px}
 .u-rail{order:2}
 .u-tabs{order:3;display:flex;gap:4px;border-bottom:1px solid var(--line)}
@@ -54,6 +72,7 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display
 .u-body[data-tab="feed"] #uFeedHost,.u-body[data-tab="media"] #uMediaHost,.u-body[data-tab="games"] #uGamesHost,.u-body[data-tab="teams"] #uTeamsHost,.u-body[data-tab="health"] #uHealthHost{display:block}
 .u-ticker{order:5}
 .u-foot{order:6}
+.u-split,.u-rh,.u-rw,.u-grip{display:none}
 .u-tabs button{flex:1;font:600 13px var(--body);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:9px 4px;cursor:pointer}
 .u-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .u-railtoggle{display:block;width:100%;text-align:left;font:600 13px var(--body);color:var(--ink);background:none;border:0;padding:2px 0;cursor:pointer}
@@ -64,32 +83,75 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display
 @media (min-width:1100px){
   html.u-view-universe,html.u-view-universe body{height:100%;overflow:hidden}
   html.u-view-universe .u-app{display:flex;flex-direction:column;height:100vh}
-  .u-body{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;grid-template-columns:252px minmax(0,1fr) 384px;
-    grid-template-rows:minmax(0,1fr) auto auto auto;grid-template-areas:"left map right" "strip strip strip" "ticker ticker ticker" "foot foot foot"}
+  .u-body{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;grid-template-columns:252px minmax(0,1fr) 0 var(--u-panw,384px);
+    grid-template-rows:minmax(0,1fr) auto auto auto;grid-template-areas:"left map split right" "dock dock dock dock" "ticker ticker ticker ticker" "foot foot foot foot"}
+  /* no shown panel in the panel column: the map takes its place (while a panel is dragged the column returns as a drop target) */
+  html:not(.u-dragging) .u-body.u-noright{grid-template-columns:252px minmax(0,1fr);grid-template-areas:"left map" "dock dock" "ticker ticker" "foot foot"}
+  html:not(.u-dragging) .u-body.u-noright>.u-split,html:not(.u-dragging) .u-body.u-noright>#uZoneRight,html:not(.u-dragging) .u-dock.is-empty{display:none}
   .u-col{display:flex;flex-direction:column;gap:8px;min-height:0}
   .u-left{grid-area:left;overflow:auto}
-  .u-right{grid-area:right}
   .u-mapbox{grid-area:map;height:auto;min-height:0}
   .u-tabs{display:none}
-  .u-body[data-tab] .u-host{display:flex;flex-direction:column}
+  /* the divider: a zero-width track whose handle covers the two gaps beside it */
+  .u-split{grid-area:split;display:block;position:relative;margin:0 -8px;cursor:col-resize;touch-action:none;z-index:2;border-radius:4px}
+  .u-split::before{content:"";position:absolute;left:50%;top:50%;width:4px;height:44px;margin:-22px 0 0 -2px;border-radius:2px;background:var(--line)}
+  .u-split::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:1px;background:var(--accent);opacity:0;transition:opacity .15s}
+  .u-split:hover::after,.u-split:focus-visible::after,html.u-colresize .u-split::after{opacity:1}
+  .u-split:focus-visible{outline-offset:-2px}
+  .u-zone{display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0}
+  #uZoneLeft{flex:1 0 auto;order:3}   /* after the map controls (.u-rail has order 2 for the phone layout) */
+  #uZoneRight{grid-area:right;overflow-x:hidden;overflow-y:auto}
+  .u-dock{grid-area:dock}
+  /* a zone wide enough for more than one column (the bottom row; the panel column once widened) is a grid */
+  .u-zone.u-dock,.u-zone[data-cols]:not([data-cols="1"]){display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));align-items:start;align-content:start}
+  .u-body[data-tab] .u-host{display:flex;flex-direction:column;position:relative;min-height:0}
   .u-body[data-tab] #uFeedHost,.u-body[data-tab] #uMediaHost,.u-body[data-tab] #uHealthHost,.u-body[data-tab] #uTeamsHost,.u-body[data-tab] #uGamesHost{display:flex}
-  #uMediaHost{flex:1 1 0;min-height:0}
-  #uMediaHost>.u-panel{flex:1 1 auto}
-  #uFeedHost{flex:1.2 1 0;min-height:0}
-  #uFeedHost>.u-panel{flex:1 1 auto}
-  #uHealthHost{flex:0 1 auto;max-height:30%;min-height:0}
-  #uHealthHost>.u-panel{flex:1 1 auto}
-  #uTeamsHost{flex:0 0 auto;min-height:260px;max-height:70%}
-  #uTeamsHost>.u-panel{flex:1 1 auto}
-  .u-striphost{grid-area:strip}
+  .u-host>.u-panel{flex:1 1 auto}
+  /* one-column zones share their height; a panel given a height keeps it; a folded panel is only its header */
+  .u-zone:not(.u-dock)>.u-host:not(.is-folded){flex:1 1 0;min-height:150px}
+  .u-zone>#uFeedHost:not(.has-h):not(.is-folded){flex-grow:1.2}
+  .u-zone>#uHealthHost:not(.has-h):not(.is-folded){flex-grow:.6}
+  #uZoneLeft>.u-host:not(.is-folded){min-height:260px}
+  .u-zone:not(.u-dock)>.u-host.has-h:not(.is-folded){flex:0 0 var(--h);height:var(--h);min-height:0}
+  .u-zone>.u-host.is-folded{flex:0 0 auto}
+  /* grid zones: every panel has a height, its own or half the column's */
+  .u-zone[data-cols]:not([data-cols="1"]):not(.u-dock)>.u-host:not(.is-folded){height:var(--h,var(--u-defh,320px))}
+  .u-dock>.u-host:not(.is-folded){max-height:40vh}
+  .u-dock>.u-host.has-h:not(.is-folded){height:min(var(--h),60vh);max-height:none}
   .u-ticker{grid-area:ticker}
   .u-foot{grid-area:foot}
   .u-railtoggle{display:none}
   .u-rail .u-railbody{display:block!important}
-  .u-strip{display:flex;overflow-x:auto;padding-bottom:2px}
-  .u-gcard{flex:0 0 172px}
+  .u-dock .u-strip{display:flex;overflow-x:auto;padding-bottom:2px}
+  .u-dock .u-gcard{flex:0 0 172px}
+  .u-dock .has-h .u-strip{display:grid;overflow-x:visible}
   .u-gamespanel .u-pbody{padding:8px 10px 6px}
+  /* moving and resizing */
+  /* the grip sits in the header's left padding, so titles keep their width */
+  .u-grip{display:block;position:absolute;left:0;top:50%;width:12px;height:18px;margin-top:-9px;padding:0;border:0;border-radius:3px;cursor:grab;opacity:.5;
+    background:radial-gradient(circle,var(--muted) 1.3px,transparent 1.8px) 0 0/6px 6px}
+  .u-grip:hover,.u-grip:focus-visible{opacity:1}
+  .u-phead{position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+  .u-phead button,.u-phead a{cursor:pointer}
+  .u-rh,.u-rw{display:block;position:absolute;z-index:3;touch-action:none}
+  .u-rh{left:16px;right:16px;bottom:0;height:10px;cursor:row-resize}
+  .u-rw{top:16px;bottom:16px;right:0;width:10px;cursor:col-resize}
+  .u-rh::after,.u-rw::after{content:"";position:absolute;left:50%;top:50%;border-radius:2px;background:var(--accent);opacity:0;transition:opacity .15s}
+  .u-rh::after{width:44px;height:3px;margin:-1.5px 0 0 -22px}
+  .u-rw::after{width:3px;height:44px;margin:-22px 0 0 -1.5px}
+  .u-host:hover>.u-rh::after,.u-host:hover>.u-rw::after{opacity:.4}
+  .u-rh:hover::after,.u-rw:hover::after,.u-rh:focus-visible::after,.u-rw:focus-visible::after{opacity:1}
+  .u-rh:focus-visible,.u-rw:focus-visible{outline-offset:-1px}
+  .u-host.is-folded>.u-rh{display:none}
+  html.u-dragging,html.u-dragging *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
+  html.u-colresize,html.u-colresize *{cursor:col-resize!important;user-select:none!important;-webkit-user-select:none!important}
+  html.u-rowresize,html.u-rowresize *{cursor:row-resize!important;user-select:none!important;-webkit-user-select:none!important}
+  .u-host.is-dragging{opacity:.4}
+  html.u-dragging .u-zone.is-empty{display:flex;min-height:64px;border:2px dashed var(--line);border-radius:10px}
+  html.u-dragging .u-zone.is-empty::before{content:"Drop a panel here";margin:auto;color:var(--muted);font-size:12px}
+  .u-zone.is-droptarget{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:10px}
 }
+.u-dropmark{position:fixed;z-index:60;background:var(--accent);border-radius:2px;pointer-events:none}
 
 /* ---- panels ---- */
 .u-panel{background:var(--u-panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0;min-width:0}
@@ -353,6 +415,9 @@ a.u-tk:hover{text-decoration:underline}
 }
 @media (max-width:560px){
   .u-top{gap:8px;padding:8px 16px}
+  /* room for the Panels button beside the view switch and theme on a 375 px phone */
+  html.u-view-universe .u-viewsw button{padding:7px 7px}
+  html.u-view-universe .u-theme{padding:7px 7px}
   .u-title{font-size:19px}
   .u-ask{flex:1 1 auto}
   .u-tiles{grid-template-columns:repeat(2,1fr)}
@@ -367,7 +432,7 @@ a.u-tk:hover{text-decoration:underline}
   .u-pulse{animation:none;opacity:.85}
   .u-link-in{animation:none}
   .u-livedot{animation:none}
-  .u-collapse span,.u-progress i{transition:none}
+  .u-collapse span,.u-progress i,.u-split::after,.u-rh::after,.u-rw::after{transition:none}
 }
 
 /* ---- media center (16-media.js) ---- */

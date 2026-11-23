@@ -317,6 +317,19 @@ eq(U.filterVideos(NM.videos, "all", true, "season", now, ""), [], "and no videos
 eq(U.freshness(["youtube-official", "podcasts-nfl"], meta({ payload: noMedia }), now).label, "UNAVAILABLE", "the Media badge reads UNAVAILABLE without its sources");
 ok(U.freshness(["youtube-official", "podcasts-nfl"], meta(), now).label.startsWith("LIVE · 15m"), "and reflects them when present");
 
+// ---- items already there when the server started watching (data.beforeWatch): time unknown, so listed last and
+// left out of the ticker and the brief, however important ----
+const bw = JSON.parse(JSON.stringify(live)), bwStart = new Date(now - 30 * 60e3).toISOString();
+bw.events.forEach((e, k) => { if (k % 2 === 0) Object.assign(e, { ts: bwStart, importance: 100, data: Object.assign({}, e.data, { beforeWatch: bwStart }) }); });
+bw.events[1].data = Object.assign({}, bw.events[1].data, { beforeWatch: "not a time" });
+const MB = U.buildModel(bw), kb = MB.events.findIndex((e) => e.before != null), nb = bw.events.filter((e, k) => k % 2 === 0).length;
+ok(nb >= 2 && MB.events.filter((e) => e.before != null).length === nb, "each marked item carries its start-of-watching time; a malformed mark is ignored");
+ok(kb > 0 && MB.events.slice(kb).every((e) => e.before === Date.parse(bwStart)), "items with an unknown time are listed after every item with a real time");
+const tkB = U.tickerEvents(MB.events, "7d", now);
+ok(tkB.length > 0 && tkB.every((e) => e.before == null), "the ticker leaves them out, even at importance 100");
+ok(U.topEvent(MB.events) && U.topEvent(MB.events).before == null, "the brief's biggest development is never one of them");
+ok(U.filterFeed(MB.events, [], "7d", now, "").some((e) => e.before != null), "the feed still lists them");
+
 // ---- hosts that refuse outside media (claude.ai's artifact viewer): refusals switch videos and episodes to links ----
 const cspv = (d, uri) => ({ effectiveDirective: d, blockedURI: uri });
 [cspv("img-src", "https://i.ytimg.com/vi/fxVideo0001/mqdefault.jpg"), cspv("img-src", "https://i.ytimg.com"), cspv("frame-src", "https://www.youtube-nocookie.com/embed/fxVideo0001"),

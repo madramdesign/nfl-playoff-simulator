@@ -26,8 +26,16 @@ function teamChip(i) {
   var t = TEAMS[i];
   return el("button", { type: "button", class: "u-tchip", "data-team": i, title: "Open " + t.name, style: t.color ? { "--tc": t.color } : null, text: t.a });
 }
+// "before 12:37 PM" (or "before Nov 21") for an item already there when the server started watching its source.
+function fmtBefore(ms, now) {
+  var d = new Date(ms), same = new Date(now).toDateString() === d.toDateString();
+  return "before " + (same ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : MON3[d.getMonth()] + " " + d.getDate());
+}
+var BEFORE_NOTE = "Already in the data when the server started watching its source. When each of these happened is not known, so they are listed after everything with a real time.";
 function eventRow(e, now) {
   var srcs = e.sourceCount > 1 ? e.sourceCount + " sources" : null;
+  var when = e.before != null ? el("time", { class: "u-ev-time", datetime: new Date(e.before).toISOString(), title: "Already in the data at " + new Date(e.before).toLocaleString() + "; when it happened is not known.", text: fmtBefore(e.before, now) })
+    : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : new Date(e.ts).toLocaleString(), text: fmtRel(e.ts, now, e.dateOnly) });
   var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title }) : el("span", { class: "u-ev-title", text: e.title });
   var meta = [el("span", { class: "u-ev-pub", text: e.publisher || "" })];
   if (e.confidence != null) meta.push(el("span", { text: "confidence " + Math.round(e.confidence * 100) + "%" }));
@@ -36,7 +44,7 @@ function eventRow(e, now) {
   if (e.origin === "page") meta.push(el("span", { text: "curated news file" }));
   return el("li", { class: "u-ev u-ev-" + e.type + (e.importance != null && e.importance >= BREAKING_MIN ? " is-breaking" : ""), "data-id": e.id }, [
     el("div", { class: "u-ev-top" }, [
-      el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : new Date(e.ts).toLocaleString(), text: fmtRel(e.ts, now, e.dateOnly) }),
+      when,
       el("span", { class: "u-ev-type", text: e.type.replace("_", " ") }),
       e.teams.slice(0, 4).map(teamChip), e.teams.length > 4 ? el("span", { class: "u-more", text: "+" + (e.teams.length - 4) }) : null]),
     title,
@@ -79,8 +87,12 @@ function renderFeed() {
     if (st.model && st.model.fixture) body.appendChild(el("p", { class: "u-warnline", text: "Fixture data: synthetic events for development, not real news." }));
     if (!st.payload) body.appendChild(el("p", { class: "u-warnline", text: "Live feeds unavailable and no snapshot in this build: only the curated news built into the page is listed. Injuries, transactions and other news may be missing." }));
     var ul = el("ul", { class: "u-evlist" });
-    var built = eventRows(list.slice(0, feedShown), now);
-    built.rows.forEach(function (r) { ul.appendChild(r); });
+    var shown = list.slice(0, feedShown), built = eventRows(shown, now), firstBefore = -1;
+    shown.forEach(function (e, k) { if (firstBefore < 0 && e.before != null) firstBefore = k; });
+    built.rows.forEach(function (r) {
+      if (firstBefore >= 0 && r.getAttribute("data-id") === shown[firstBefore].id) ul.appendChild(el("li", { class: "u-ev u-ev-before", role: "presentation" }, [el("p", { class: "u-note", text: BEFORE_NOTE })]));
+      ul.appendChild(r);
+    });
     body.appendChild(ul);
     if (built.skipped) body.appendChild(el("p", { class: "u-warnline", text: built.skipped + " item" + (built.skipped > 1 ? "s" : "") + " could not be shown (malformed data)." }));
     body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) }));
@@ -94,9 +106,9 @@ function eventRows(list, now) {
   list.forEach(function (e) { try { rows.push(eventRow(e, now)); } catch (err) { skipped++; uReport("event " + (e && e.id), err); } });
   return { rows: rows, skipped: skipped };
 }
-// Pure: which events the ticker shows (the highest importance in range).
+// Pure: which events the ticker shows (the highest importance in range). Items with an unknown time are left out.
 function tickerEvents(events, range, now) {
-  return filterByTime(events || [], range, now).filter(function (e) { return e.importance != null; })
+  return filterByTime(events || [], range, now).filter(function (e) { return e.importance != null && e.before == null; })
     .sort(function (a, b) { return b.importance - a.importance || b.ts - a.ts; }).slice(0, 12);
 }
 var tickerKey = null;

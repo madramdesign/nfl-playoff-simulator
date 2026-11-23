@@ -23,6 +23,8 @@ function applyView() {
   document.documentElement.classList.toggle("u-view-universe", !sim);
   byId("uBody").hidden = sim;
   var fb = byId("uFocus"); if (fb) fb.hidden = sim;
+  closeMenu(false);
+  if (!sim) fitZones();   // panel sizes depend on the command center's own page layout, which starts here
   var sv = byId("simView"); if (sv) sv.hidden = !sim;
   Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false"); });
   if (sim) { closePlayer(); closeDrawer(true); if (typeof ROOT.nflSimStart === "function") { ROOT.nflSimStart(); simStarted = true; } }
@@ -180,6 +182,7 @@ function renderStatus() {
   b.title = dataStatusText() + ". Click for system health.";
 }
 function focusHealth() {
+  if (LAYOUT && !isShown(LAYOUT, "health")) { commitLayout(setHidden(LAYOUT, "health", false)); announce("System health shown."); }   // the pill asks for it
   if (ROOT.matchMedia && ROOT.matchMedia("(max-width: 1099px)").matches) store.set({ mobileTab: "health" });
   var p = PANELS.health; if (!p) return;
   if (p.root.classList.contains("is-collapsed")) p.root.querySelector(".u-collapse").click();
@@ -191,8 +194,15 @@ function buildTabs(host) {
   host.setAttribute("role", "tablist");
   TAB_LABELS.forEach(function (t) { host.appendChild(el("button", { type: "button", role: "tab", "data-tab-btn": t[0], text: t[1], onclick: function () { store.set({ mobileTab: t[0] }); } })); });
 }
+// Phones: one panel at a time behind tabs, in the layout's tab order; a hidden panel has no tab.
 function renderTabs() {
-  var cur = store.get("mobileTab");
+  var cur = store.get("mobileTab"), host = byId("uTabs");
+  if (LAYOUT && host) {
+    var shown = LAYOUT.tabs.filter(function (id) { return isShown(LAYOUT, id); });
+    orderChildren(host, LAYOUT.tabs.map(function (id) { return host.querySelector('[data-tab-btn="' + id + '"]'); }));
+    LAYOUT.tabs.forEach(function (id) { var b = host.querySelector('[data-tab-btn="' + id + '"]'); if (b) b.hidden = !isShown(LAYOUT, id); });
+    if (shown.length && shown.indexOf(cur) < 0) { cur = shown[0]; store.set({ mobileTab: cur }); }
+  }
   byId("uBody").setAttribute("data-tab", cur);
   Array.prototype.forEach.call(document.querySelectorAll("[data-tab-btn]"), function (b) { b.setAttribute("aria-selected", b.getAttribute("data-tab-btn") === cur ? "true" : "false"); });
 }

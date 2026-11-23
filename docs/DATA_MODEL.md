@@ -45,6 +45,7 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 **Event**: `{id, type, subtype, ts, seenAt, teams[], players[], title, url, source, publisher, importance 0-100, confidence 0-1, sourceCount, sources[{publisher,url}], gameId, data}`.
 - Types: `news`, `injury`, `transaction`, `odds_move`, `weather`, `game`, `qb_change`, `model`, `playoff_move`.
 - `ts` is when it happened (publication, report or line time); `seenAt` is when the fabric first saw it. Time-range filters use `ts`; point-in-time replay must use `seenAt`.
+- `data.beforeWatch` (ISO time, optional): the item has no time of its own and was already in its source when this cache folder started watching that source, so its `ts` is only the start of watching and its real time is unknown and earlier. The fabric and the page list such items after every item with a real time, and the ticker and the brief leave them out. Game events (kickoffs, scores) are never marked.
 - `title` is a source headline or a sentence the fabric writes from structured fields. No article text is stored.
 - `importance` and `confidence` are rules, not judgments. Planned formula (adapted from World Monitor's published weighting): importance = 0.55 headline severity + 0.20 source tier + 0.15 corroboration (distinct publishers, capped at 5) + 0.10 recency (linear decay over 24 hours); confidence = the best source's tier value plus 0.04 per further independent publisher. The final rules and their tests arrive with milestone M1.
 

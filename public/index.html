@@ -172,6 +172,7 @@ html.u-view-universe body{background:var(--u-bg)}
 
 /* ---- top bar ---- */
 .u-top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;padding:8px 16px;min-height:var(--u-toph);background:var(--u-panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.u-top.is-menu-open{z-index:42}
 .u-brand{display:flex;align-items:center;gap:8px;margin-right:4px}
 .u-logo{width:22px;height:22px;border-radius:6px;background:conic-gradient(from 210deg,var(--u-afc),var(--u-nfc),var(--u-afc));box-shadow:inset 0 0 0 5px var(--u-panel)}
 .u-title{font:700 21px/1 var(--display);letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}
@@ -189,11 +190,28 @@ html.u-view-universe body{background:var(--u-bg)}
 .u-viewsw button+button{border-left:1px solid var(--line)}
 .u-viewsw button[aria-pressed="true"]{background:var(--ink);color:var(--card)}
 .u-theme{font:500 12px var(--body);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:8px;padding:7px 9px;cursor:pointer;white-space:nowrap}
-html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display:none}
+html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-view-sim .u-pmenu{display:none}
+/* the Panels menu (17-layout.js) */
+.u-pmenu{position:relative}
+.u-menu{position:absolute;right:0;top:calc(100% + 6px);z-index:5;width:min(300px,calc(100vw - 24px));background:var(--u-panel);border:1px solid var(--line);border-radius:10px;box-shadow:var(--u-shadow);padding:10px 12px 12px}
+.u-mtitle{font:600 12px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 4px}
+.u-mlist{list-style:none;margin:0 0 4px;padding:0}
+.u-mrow{display:flex;align-items:center;gap:4px;padding:1px 0}
+.u-mrow label{flex:1 1 auto;display:flex;align-items:center;gap:7px;min-width:0;cursor:pointer;padding:4px 0}
+.u-mrow input{accent-color:var(--accent);margin:0}
+.u-mrow small{margin-left:auto;padding-left:6px;color:var(--muted);font-size:10.5px;white-space:nowrap}
+.u-mrow.is-off span{color:var(--muted)}
+.u-mv{flex:0 0 auto;width:28px;height:26px;padding:0;font:600 13px var(--body);color:var(--ink);background:var(--u-panel2);border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.u-mv[aria-disabled="true"]{opacity:.35;cursor:default}
+.u-mreset{margin-top:8px}
+.u-sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
-/* ---- body layout: one column under 1100px, the command center grid above ---- */
+/* ---- body layout: one column under 1100px, the command center grid above. Each panel sits in a host slot (.u-host) in
+   one of three zones that 17-layout.js arranges (left column, panel column, bottom row); on phones the zones dissolve and
+   the tabs pick one slot. The grid numbers here (252px left column, zero-width divider track, 8px gaps, 384px panel
+   column) are mirrored in LIM in 17-layout.js. ---- */
 .u-body{display:flex;flex-direction:column;gap:10px;padding:10px 16px 24px}
-.u-col{display:contents}
+.u-col,.u-zone{display:contents}
 .u-mapbox{order:1;height:min(78vw,440px);min-height:260px}
 .u-rail{order:2}
 .u-tabs{order:3;display:flex;gap:4px;border-bottom:1px solid var(--line)}
@@ -201,6 +219,7 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display
 .u-body[data-tab="feed"] #uFeedHost,.u-body[data-tab="media"] #uMediaHost,.u-body[data-tab="games"] #uGamesHost,.u-body[data-tab="teams"] #uTeamsHost,.u-body[data-tab="health"] #uHealthHost{display:block}
 .u-ticker{order:5}
 .u-foot{order:6}
+.u-split,.u-rh,.u-rw,.u-grip{display:none}
 .u-tabs button{flex:1;font:600 13px var(--body);color:var(--muted);background:none;border:0;border-bottom:2px solid transparent;padding:9px 4px;cursor:pointer}
 .u-tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 .u-railtoggle{display:block;width:100%;text-align:left;font:600 13px var(--body);color:var(--ink);background:none;border:0;padding:2px 0;cursor:pointer}
@@ -211,32 +230,75 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill{display
 @media (min-width:1100px){
   html.u-view-universe,html.u-view-universe body{height:100%;overflow:hidden}
   html.u-view-universe .u-app{display:flex;flex-direction:column;height:100vh}
-  .u-body{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;grid-template-columns:252px minmax(0,1fr) 384px;
-    grid-template-rows:minmax(0,1fr) auto auto auto;grid-template-areas:"left map right" "strip strip strip" "ticker ticker ticker" "foot foot foot"}
+  .u-body{flex:1 1 auto;min-height:0;display:grid;gap:8px;padding:8px;grid-template-columns:252px minmax(0,1fr) 0 var(--u-panw,384px);
+    grid-template-rows:minmax(0,1fr) auto auto auto;grid-template-areas:"left map split right" "dock dock dock dock" "ticker ticker ticker ticker" "foot foot foot foot"}
+  /* no shown panel in the panel column: the map takes its place (while a panel is dragged the column returns as a drop target) */
+  html:not(.u-dragging) .u-body.u-noright{grid-template-columns:252px minmax(0,1fr);grid-template-areas:"left map" "dock dock" "ticker ticker" "foot foot"}
+  html:not(.u-dragging) .u-body.u-noright>.u-split,html:not(.u-dragging) .u-body.u-noright>#uZoneRight,html:not(.u-dragging) .u-dock.is-empty{display:none}
   .u-col{display:flex;flex-direction:column;gap:8px;min-height:0}
   .u-left{grid-area:left;overflow:auto}
-  .u-right{grid-area:right}
   .u-mapbox{grid-area:map;height:auto;min-height:0}
   .u-tabs{display:none}
-  .u-body[data-tab] .u-host{display:flex;flex-direction:column}
+  /* the divider: a zero-width track whose handle covers the two gaps beside it */
+  .u-split{grid-area:split;display:block;position:relative;margin:0 -8px;cursor:col-resize;touch-action:none;z-index:2;border-radius:4px}
+  .u-split::before{content:"";position:absolute;left:50%;top:50%;width:4px;height:44px;margin:-22px 0 0 -2px;border-radius:2px;background:var(--line)}
+  .u-split::after{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;border-radius:1px;background:var(--accent);opacity:0;transition:opacity .15s}
+  .u-split:hover::after,.u-split:focus-visible::after,html.u-colresize .u-split::after{opacity:1}
+  .u-split:focus-visible{outline-offset:-2px}
+  .u-zone{display:flex;flex-direction:column;gap:8px;min-height:0;min-width:0}
+  #uZoneLeft{flex:1 0 auto;order:3}   /* after the map controls (.u-rail has order 2 for the phone layout) */
+  #uZoneRight{grid-area:right;overflow-x:hidden;overflow-y:auto}
+  .u-dock{grid-area:dock}
+  /* a zone wide enough for more than one column (the bottom row; the panel column once widened) is a grid */
+  .u-zone.u-dock,.u-zone[data-cols]:not([data-cols="1"]){display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));align-items:start;align-content:start}
+  .u-body[data-tab] .u-host{display:flex;flex-direction:column;position:relative;min-height:0}
   .u-body[data-tab] #uFeedHost,.u-body[data-tab] #uMediaHost,.u-body[data-tab] #uHealthHost,.u-body[data-tab] #uTeamsHost,.u-body[data-tab] #uGamesHost{display:flex}
-  #uMediaHost{flex:1 1 0;min-height:0}
-  #uMediaHost>.u-panel{flex:1 1 auto}
-  #uFeedHost{flex:1.2 1 0;min-height:0}
-  #uFeedHost>.u-panel{flex:1 1 auto}
-  #uHealthHost{flex:0 1 auto;max-height:30%;min-height:0}
-  #uHealthHost>.u-panel{flex:1 1 auto}
-  #uTeamsHost{flex:0 0 auto;min-height:260px;max-height:70%}
-  #uTeamsHost>.u-panel{flex:1 1 auto}
-  .u-striphost{grid-area:strip}
+  .u-host>.u-panel{flex:1 1 auto}
+  /* one-column zones share their height; a panel given a height keeps it; a folded panel is only its header */
+  .u-zone:not(.u-dock)>.u-host:not(.is-folded){flex:1 1 0;min-height:150px}
+  .u-zone>#uFeedHost:not(.has-h):not(.is-folded){flex-grow:1.2}
+  .u-zone>#uHealthHost:not(.has-h):not(.is-folded){flex-grow:.6}
+  #uZoneLeft>.u-host:not(.is-folded){min-height:260px}
+  .u-zone:not(.u-dock)>.u-host.has-h:not(.is-folded){flex:0 0 var(--h);height:var(--h);min-height:0}
+  .u-zone>.u-host.is-folded{flex:0 0 auto}
+  /* grid zones: every panel has a height, its own or half the column's */
+  .u-zone[data-cols]:not([data-cols="1"]):not(.u-dock)>.u-host:not(.is-folded){height:var(--h,var(--u-defh,320px))}
+  .u-dock>.u-host:not(.is-folded){max-height:40vh}
+  .u-dock>.u-host.has-h:not(.is-folded){height:min(var(--h),60vh);max-height:none}
   .u-ticker{grid-area:ticker}
   .u-foot{grid-area:foot}
   .u-railtoggle{display:none}
   .u-rail .u-railbody{display:block!important}
-  .u-strip{display:flex;overflow-x:auto;padding-bottom:2px}
-  .u-gcard{flex:0 0 172px}
+  .u-dock .u-strip{display:flex;overflow-x:auto;padding-bottom:2px}
+  .u-dock .u-gcard{flex:0 0 172px}
+  .u-dock .has-h .u-strip{display:grid;overflow-x:visible}
   .u-gamespanel .u-pbody{padding:8px 10px 6px}
+  /* moving and resizing */
+  /* the grip sits in the header's left padding, so titles keep their width */
+  .u-grip{display:block;position:absolute;left:0;top:50%;width:12px;height:18px;margin-top:-9px;padding:0;border:0;border-radius:3px;cursor:grab;opacity:.5;
+    background:radial-gradient(circle,var(--muted) 1.3px,transparent 1.8px) 0 0/6px 6px}
+  .u-grip:hover,.u-grip:focus-visible{opacity:1}
+  .u-phead{position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+  .u-phead button,.u-phead a{cursor:pointer}
+  .u-rh,.u-rw{display:block;position:absolute;z-index:3;touch-action:none}
+  .u-rh{left:16px;right:16px;bottom:0;height:10px;cursor:row-resize}
+  .u-rw{top:16px;bottom:16px;right:0;width:10px;cursor:col-resize}
+  .u-rh::after,.u-rw::after{content:"";position:absolute;left:50%;top:50%;border-radius:2px;background:var(--accent);opacity:0;transition:opacity .15s}
+  .u-rh::after{width:44px;height:3px;margin:-1.5px 0 0 -22px}
+  .u-rw::after{width:3px;height:44px;margin:-22px 0 0 -1.5px}
+  .u-host:hover>.u-rh::after,.u-host:hover>.u-rw::after{opacity:.4}
+  .u-rh:hover::after,.u-rw:hover::after,.u-rh:focus-visible::after,.u-rw:focus-visible::after{opacity:1}
+  .u-rh:focus-visible,.u-rw:focus-visible{outline-offset:-1px}
+  .u-host.is-folded>.u-rh{display:none}
+  html.u-dragging,html.u-dragging *{cursor:grabbing!important;user-select:none!important;-webkit-user-select:none!important}
+  html.u-colresize,html.u-colresize *{cursor:col-resize!important;user-select:none!important;-webkit-user-select:none!important}
+  html.u-rowresize,html.u-rowresize *{cursor:row-resize!important;user-select:none!important;-webkit-user-select:none!important}
+  .u-host.is-dragging{opacity:.4}
+  html.u-dragging .u-zone.is-empty{display:flex;min-height:64px;border:2px dashed var(--line);border-radius:10px}
+  html.u-dragging .u-zone.is-empty::before{content:"Drop a panel here";margin:auto;color:var(--muted);font-size:12px}
+  .u-zone.is-droptarget{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:10px}
 }
+.u-dropmark{position:fixed;z-index:60;background:var(--accent);border-radius:2px;pointer-events:none}
 
 /* ---- panels ---- */
 .u-panel{background:var(--u-panel);border:1px solid var(--line);border-radius:10px;display:flex;flex-direction:column;min-height:0;min-width:0}
@@ -500,6 +562,9 @@ a.u-tk:hover{text-decoration:underline}
 }
 @media (max-width:560px){
   .u-top{gap:8px;padding:8px 16px}
+  /* room for the Panels button beside the view switch and theme on a 375 px phone */
+  html.u-view-universe .u-viewsw button{padding:7px 7px}
+  html.u-view-universe .u-theme{padding:7px 7px}
   .u-title{font-size:19px}
   .u-ask{flex:1 1 auto}
   .u-tiles{grid-template-columns:repeat(2,1fr)}
@@ -514,7 +579,7 @@ a.u-tk:hover{text-decoration:underline}
   .u-pulse{animation:none;opacity:.85}
   .u-link-in{animation:none}
   .u-livedot{animation:none}
-  .u-collapse span,.u-progress i{transition:none}
+  .u-collapse span,.u-progress i,.u-split::after,.u-rh::after,.u-rw::after{transition:none}
 }
 
 /* ---- media center (16-media.js) ---- */
@@ -586,26 +651,35 @@ a.u-tk:hover{text-decoration:underline}
     <button type="button" class="u-ask" id="uAsk">What is happening in the NFL?</button>
     <input type="search" id="uSearch" class="u-search" placeholder="Search teams and events" aria-label="Search teams and events" autocomplete="off">
     <div class="u-viewsw" role="group" aria-label="View"><button type="button" data-view="universe" aria-pressed="true">Command center</button><button type="button" data-view="sim" aria-pressed="false">Simulator</button></div>
+    <div class="u-pmenu"><button type="button" class="u-theme" id="uPanels" aria-expanded="false" aria-controls="uPanelsMenu">Panels</button><div class="u-menu" id="uPanelsMenu" role="group" aria-label="Show, hide and order panels" hidden></div></div>
     <button type="button" class="u-theme" id="uTheme">Theme</button>
   </header>
   <nav class="u-focus" id="uFocus" aria-label="Focus: league, conference, division or team"></nav>
   <div class="u-body" id="uBody" data-tab="feed">
+    <!-- Panels sit in three zones (left column, panel column, bottom row) that the viewer can rearrange: src/universe/17-layout.js -->
     <div class="u-col u-left">
       <section class="u-rail" id="uRail" aria-label="Map controls"></section>
-      <div class="u-host" id="uTeamsHost"></div>
+      <div class="u-zone" id="uZoneLeft" data-zone="left">
+        <div class="u-host" id="uTeamsHost" data-slot="teams"></div>
+      </div>
     </div>
     <section class="u-mapbox" id="uMap" aria-label="League map"></section>
+    <div class="u-split" id="uSplit" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="uZoneRight" aria-label="Map width" aria-valuemin="30" aria-valuemax="85" title="Drag to change the map's width · arrow keys · double-click to reset"></div>
     <nav class="u-tabs" id="uTabs" aria-label="Panels"></nav>
-    <div class="u-col u-right">
-      <div class="u-host" id="uFeedHost"></div>
-      <div class="u-host" id="uHealthHost"></div>
+    <div class="u-zone u-right" id="uZoneRight" data-zone="right">
+      <div class="u-host" id="uFeedHost" data-slot="feed"></div>
+      <div class="u-host" id="uHealthHost" data-slot="health"></div>
     </div>
-    <div class="u-host u-striphost" id="uGamesHost"></div>
+    <div class="u-zone u-dock" id="uZoneBottom" data-zone="bottom">
+      <div class="u-host u-striphost" id="uGamesHost" data-slot="games"></div>
+    </div>
     <div class="u-ticker" id="uTicker" aria-label="Top events"></div>
     <footer class="u-foot" id="uFoot"></footer>
   </div>
   <aside class="u-drawer" id="uDrawer" role="dialog" aria-labelledby="u-drawer-title" hidden><button type="button" class="u-x" aria-label="Close">&times;</button><div class="u-dbody"></div></aside>
   <div class="u-modal" id="uBrief" role="dialog" aria-modal="true" aria-labelledby="u-brief-title" hidden><div class="u-mbox"></div></div>
+  <p class="u-sr" id="uMoveHint">Arrow keys move this panel one place. On wide screens you can also drag the panel by its header.</p>
+  <p class="u-sr" id="uLayoutLive" role="status" aria-live="polite"></p>
 </div>
 <main id="simView" hidden>
   <header>
@@ -1215,7 +1289,9 @@ function normEvent(e) {
     source: typeof e.source === "string" ? e.source : null, importance: num(e.importance) != null ? clamp(e.importance, 0, 100) : null,
     confidence: num(e.confidence) != null ? clamp(e.confidence, 0, 1) : null, sourceCount: Math.max(1, num(e.sourceCount) || 1),
     sources: (Array.isArray(e.sources) ? e.sources : []).filter(function (s) { return s && typeof s === "object"; }).map(function (s) { return { publisher: String(s.publisher || ""), url: safeUrl(s.url) }; }),
-    gameId: typeof e.gameId === "string" ? e.gameId : null, data: e.data && typeof e.data === "object" ? e.data : {}, dateOnly: false, origin: "feed"
+    gameId: typeof e.gameId === "string" ? e.gameId : null, data: e.data && typeof e.data === "object" ? e.data : {}, dateOnly: false, origin: "feed",
+    // already there when the server started watching its source: the real time is unknown and earlier than this
+    before: e.data && typeof e.data === "object" && isFinite(Date.parse(e.data.beforeWatch)) ? Date.parse(e.data.beforeWatch) : null
   };
 }
 // D.news: dated (no time), so it is placed at the start of that day in UTC and shown with the date only. It carries no
@@ -1238,7 +1314,8 @@ function buildEvents(payload) {
     seen[e.id] = 1; if (n.url) urls[n.url] = 1; evs.push(n);
   });
   evs = evs.concat(pageNewsEvents(urls));
-  evs.sort(function (a, b) { return b.ts - a.ts || (b.importance || 0) - (a.importance || 0); });
+  // newest first; items with an unknown time (already there when watching began) after every item with a real time
+  evs.sort(function (a, b) { return (a.before != null ? 1 : 0) - (b.before != null ? 1 : 0) || b.ts - a.ts || (b.importance || 0) - (a.importance || 0); });
   return evs;
 }
 
@@ -1656,7 +1733,7 @@ function proveWrong(i, M) {
 // ---- the brief's ranking functions (pure: inputs in, one ranked answer out) ----
 function topEvent(events) {
   var best = null;
-  (events || []).forEach(function (e) { if (e.importance == null) return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
+  (events || []).forEach(function (e) { if (e.importance == null || e.before != null) return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
   return best;
 }
 function biggestInjury(injuries) {
@@ -1843,9 +1920,9 @@ function geoProject(lat,lon){var r=Math.PI/180,P=GEO_P,rho=Math.sqrt(P.c-2*P.n*M
   return[P.s*rho*Math.sin(th)+P.tx,P.ty-P.s*(P.rho0-rho*Math.cos(th))]}
 
 // ---- src/universe/06-panel.js
-// Panel helper: every panel has an id, a title, a collapse toggle (remembered), a freshness badge driven by the sources it
-// depends on, and four states (loading, error with retry, empty, content). All content goes through render(), which
-// clears any earlier error or empty state first.
+// Panel helper: every panel has an id, a title, a move grip, a collapse toggle (remembered), a freshness badge driven by the
+// sources it depends on, and four states (loading, error with retry, empty, content). All content goes through render(),
+// which clears any earlier error or empty state first and waits while the viewer has hidden the panel (17-layout.js).
 var PANELS = {};
 // Re-rendering replaces nodes; this puts keyboard focus back on the equivalent element afterwards (matched by data-fk,
 // data-game, data-team or data-chip), so a poll or a finished simulation never drops focus to the page.
@@ -1866,28 +1943,49 @@ function keepFocus(container, fn) {
 }
 function Panel(o) {
   // a panel the viewer has never toggled starts as o.collapsed says (a function, so it can depend on the screen width)
-  var saved = lsGet().collapsed || {}, collapsed = Object.prototype.hasOwnProperty.call(saved, o.id) ? !!saved[o.id] : !!(o.collapsed && o.collapsed());
+  var defCollapsed = function () { return !!(o.collapsed && o.collapsed()); };
+  var saved = lsGet().collapsed || {}, collapsed = Object.prototype.hasOwnProperty.call(saved, o.id) ? !!saved[o.id] : defCollapsed();
   var badge = el("span", { class: "u-badge", "data-state": "loading", text: "…" });
   var btn = el("button", { type: "button", class: "u-collapse", "aria-expanded": collapsed ? "false" : "true", "aria-controls": "u-pb-" + o.id, title: "Collapse or expand" }, [el("span", { "aria-hidden": "true", text: "▾" })]);
+  // the grip: drag handle on wide screens (the whole header drags too) and the keyboard move control (17-layout.js)
+  var name = (typeof PANEL_NAMES !== "undefined" && PANEL_NAMES[o.id]) || o.title;
+  var grip = el("button", { type: "button", class: "u-grip", "aria-label": "Move " + name, "aria-describedby": "uMoveHint", title: "Drag to move · arrow keys move one place",
+    onkeydown: function (e) { layoutKey(o.id, e); } });
   var tools = el("div", { class: "u-ptools" });
   var body = el("div", { class: "u-pbody", id: "u-pb-" + o.id }), h2 = el("h2", { id: "u-ph-" + o.id, text: o.title });
   var root = el("section", { class: "u-panel" + (collapsed ? " is-collapsed" : "") + (o.cls ? " " + o.cls : ""), id: "u-panel-" + o.id, "data-panel": o.id, "aria-labelledby": "u-ph-" + o.id }, [
-    el("header", { class: "u-phead" }, [h2, badge, tools, btn]), body]);
-  var p = { id: o.id, root: root, body: body, tools: tools, badge: badge, sources: o.sources || [], state: "loading", lastFn: null };
+    el("header", { class: "u-phead" }, [grip, h2, badge, tools, btn]), body]);
+  var p = { id: o.id, root: root, body: body, tools: tools, badge: badge, sources: o.sources || [], state: "loading", lastFn: null, hidden: false, pending: false };
+  function setCollapsed(c) {
+    root.classList.toggle("is-collapsed", c); btn.setAttribute("aria-expanded", c ? "false" : "true");
+    onPanelFold(o.id);
+  }
   btn.addEventListener("click", function () {
     var c = !root.classList.contains("is-collapsed");
-    root.classList.toggle("is-collapsed", c); btn.setAttribute("aria-expanded", c ? "false" : "true");
+    setCollapsed(c);
     var s = lsGet().collapsed || {}; s[o.id] = c ? 1 : 0; lsSet({ collapsed: s });
   });
+  p.resetCollapsed = function () { setCollapsed(defCollapsed()); };
   function setState(s) { p.state = s; root.setAttribute("data-state", s); }
+  // A hidden panel is not drawn: the latest render is kept and runs when the panel is shown again.
   p.render = function (fn) {
     p.lastFn = fn;
+    if (p.hidden) { p.pending = true; return; }
+    p.pending = false;
     try { keepFocus(body, function () { clearNode(body); fn(body); }); setState("ok"); }
     catch (e) { uReport("panel " + o.id, e); p.error("This panel could not be drawn (" + (e && e.message || e) + ").", function () { p.render(fn); }); }
   };
-  p.loading = function (msg) { clearNode(body); body.appendChild(el("p", { class: "u-state u-loading", role: "status", text: msg || "Loading…" })); setState("loading"); };
-  p.empty = function (msg) { clearNode(body); body.appendChild(el("p", { class: "u-state u-empty", text: msg })); setState("empty"); };
+  p.setHidden = function (h) {
+    h = !!h;
+    if (h === p.hidden) return;
+    p.hidden = h;
+    if (!h && p.pending && p.lastFn) p.render(p.lastFn);
+  };
+  // these show the latest state themselves, so a render held back while hidden is out of date
+  p.loading = function (msg) { p.pending = false; clearNode(body); body.appendChild(el("p", { class: "u-state u-loading", role: "status", text: msg || "Loading…" })); setState("loading"); };
+  p.empty = function (msg) { p.pending = false; clearNode(body); body.appendChild(el("p", { class: "u-state u-empty", text: msg })); setState("empty"); };
   p.error = function (msg, retry) {
+    p.pending = false;
     clearNode(body);
     body.appendChild(el("div", { class: "u-state u-error", role: "alert" }, [el("p", { text: msg }), retry ? el("button", { type: "button", class: "u-btn", text: "Retry", onclick: retry }) : null]));
     setState("error");
@@ -2529,8 +2627,16 @@ function teamChip(i) {
   var t = TEAMS[i];
   return el("button", { type: "button", class: "u-tchip", "data-team": i, title: "Open " + t.name, style: t.color ? { "--tc": t.color } : null, text: t.a });
 }
+// "before 12:37 PM" (or "before Nov 21") for an item already there when the server started watching its source.
+function fmtBefore(ms, now) {
+  var d = new Date(ms), same = new Date(now).toDateString() === d.toDateString();
+  return "before " + (same ? d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : MON3[d.getMonth()] + " " + d.getDate());
+}
+var BEFORE_NOTE = "Already in the data when the server started watching its source. When each of these happened is not known, so they are listed after everything with a real time.";
 function eventRow(e, now) {
   var srcs = e.sourceCount > 1 ? e.sourceCount + " sources" : null;
+  var when = e.before != null ? el("time", { class: "u-ev-time", datetime: new Date(e.before).toISOString(), title: "Already in the data at " + new Date(e.before).toLocaleString() + "; when it happened is not known.", text: fmtBefore(e.before, now) })
+    : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : new Date(e.ts).toLocaleString(), text: fmtRel(e.ts, now, e.dateOnly) });
   var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title }) : el("span", { class: "u-ev-title", text: e.title });
   var meta = [el("span", { class: "u-ev-pub", text: e.publisher || "" })];
   if (e.confidence != null) meta.push(el("span", { text: "confidence " + Math.round(e.confidence * 100) + "%" }));
@@ -2539,7 +2645,7 @@ function eventRow(e, now) {
   if (e.origin === "page") meta.push(el("span", { text: "curated news file" }));
   return el("li", { class: "u-ev u-ev-" + e.type + (e.importance != null && e.importance >= BREAKING_MIN ? " is-breaking" : ""), "data-id": e.id }, [
     el("div", { class: "u-ev-top" }, [
-      el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : new Date(e.ts).toLocaleString(), text: fmtRel(e.ts, now, e.dateOnly) }),
+      when,
       el("span", { class: "u-ev-type", text: e.type.replace("_", " ") }),
       e.teams.slice(0, 4).map(teamChip), e.teams.length > 4 ? el("span", { class: "u-more", text: "+" + (e.teams.length - 4) }) : null]),
     title,
@@ -2582,8 +2688,12 @@ function renderFeed() {
     if (st.model && st.model.fixture) body.appendChild(el("p", { class: "u-warnline", text: "Fixture data: synthetic events for development, not real news." }));
     if (!st.payload) body.appendChild(el("p", { class: "u-warnline", text: "Live feeds unavailable and no snapshot in this build: only the curated news built into the page is listed. Injuries, transactions and other news may be missing." }));
     var ul = el("ul", { class: "u-evlist" });
-    var built = eventRows(list.slice(0, feedShown), now);
-    built.rows.forEach(function (r) { ul.appendChild(r); });
+    var shown = list.slice(0, feedShown), built = eventRows(shown, now), firstBefore = -1;
+    shown.forEach(function (e, k) { if (firstBefore < 0 && e.before != null) firstBefore = k; });
+    built.rows.forEach(function (r) {
+      if (firstBefore >= 0 && r.getAttribute("data-id") === shown[firstBefore].id) ul.appendChild(el("li", { class: "u-ev u-ev-before", role: "presentation" }, [el("p", { class: "u-note", text: BEFORE_NOTE })]));
+      ul.appendChild(r);
+    });
     body.appendChild(ul);
     if (built.skipped) body.appendChild(el("p", { class: "u-warnline", text: built.skipped + " item" + (built.skipped > 1 ? "s" : "") + " could not be shown (malformed data)." }));
     body.appendChild(el("p", { class: "u-count", text: Math.min(feedShown, list.length) + " of " + list.length + " " + RANGE_PHRASE[st.timeRange] + focusPhrase(st.focus) }));
@@ -2597,9 +2707,9 @@ function eventRows(list, now) {
   list.forEach(function (e) { try { rows.push(eventRow(e, now)); } catch (err) { skipped++; uReport("event " + (e && e.id), err); } });
   return { rows: rows, skipped: skipped };
 }
-// Pure: which events the ticker shows (the highest importance in range).
+// Pure: which events the ticker shows (the highest importance in range). Items with an unknown time are left out.
 function tickerEvents(events, range, now) {
-  return filterByTime(events || [], range, now).filter(function (e) { return e.importance != null; })
+  return filterByTime(events || [], range, now).filter(function (e) { return e.importance != null && e.before == null; })
     .sort(function (a, b) { return b.importance - a.importance || b.ts - a.ts; }).slice(0, 12);
 }
 var tickerKey = null;
@@ -3007,6 +3117,8 @@ function applyView() {
   document.documentElement.classList.toggle("u-view-universe", !sim);
   byId("uBody").hidden = sim;
   var fb = byId("uFocus"); if (fb) fb.hidden = sim;
+  closeMenu(false);
+  if (!sim) fitZones();   // panel sizes depend on the command center's own page layout, which starts here
   var sv = byId("simView"); if (sv) sv.hidden = !sim;
   Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false"); });
   if (sim) { closePlayer(); closeDrawer(true); if (typeof ROOT.nflSimStart === "function") { ROOT.nflSimStart(); simStarted = true; } }
@@ -3164,6 +3276,7 @@ function renderStatus() {
   b.title = dataStatusText() + ". Click for system health.";
 }
 function focusHealth() {
+  if (LAYOUT && !isShown(LAYOUT, "health")) { commitLayout(setHidden(LAYOUT, "health", false)); announce("System health shown."); }   // the pill asks for it
   if (ROOT.matchMedia && ROOT.matchMedia("(max-width: 1099px)").matches) store.set({ mobileTab: "health" });
   var p = PANELS.health; if (!p) return;
   if (p.root.classList.contains("is-collapsed")) p.root.querySelector(".u-collapse").click();
@@ -3175,8 +3288,15 @@ function buildTabs(host) {
   host.setAttribute("role", "tablist");
   TAB_LABELS.forEach(function (t) { host.appendChild(el("button", { type: "button", role: "tab", "data-tab-btn": t[0], text: t[1], onclick: function () { store.set({ mobileTab: t[0] }); } })); });
 }
+// Phones: one panel at a time behind tabs, in the layout's tab order; a hidden panel has no tab.
 function renderTabs() {
-  var cur = store.get("mobileTab");
+  var cur = store.get("mobileTab"), host = byId("uTabs");
+  if (LAYOUT && host) {
+    var shown = LAYOUT.tabs.filter(function (id) { return isShown(LAYOUT, id); });
+    orderChildren(host, LAYOUT.tabs.map(function (id) { return host.querySelector('[data-tab-btn="' + id + '"]'); }));
+    LAYOUT.tabs.forEach(function (id) { var b = host.querySelector('[data-tab-btn="' + id + '"]'); if (b) b.hidden = !isShown(LAYOUT, id); });
+    if (shown.length && shown.indexOf(cur) < 0) { cur = shown[0]; store.set({ mobileTab: cur }); }
+  }
   byId("uBody").setAttribute("data-tab", cur);
   Array.prototype.forEach.call(document.querySelectorAll("[data-tab-btn]"), function (b) { b.setAttribute("aria-selected", b.getAttribute("data-tab-btn") === cur ? "true" : "false"); });
 }
@@ -3525,6 +3645,577 @@ Object.assign(NFLU, { isMediaBlock: isMediaBlock, videoAction: videoAction, podc
   PODCAST_AUDIO_RE: PODCAST_AUDIO_RE, playerFrameAttrs: playerFrameAttrs, audioAttrs: audioAttrs,
   filterVideos: filterVideos, filterPodcasts: filterPodcasts, teamVideos: teamVideos, gameVideos: gameVideos, channelOrder: channelOrder, videoCounts: videoCounts });
 
+// ---- src/universe/17-layout.js
+// Panel layout: the viewer can move panels (drag a header, or the grip and arrow keys), hide and show them (the Panels
+// menu), resize them (bottom and right edges) and change the map's share of the width (the divider). The layout is
+// saved per browser under "layout" in the saved preferences; storage may be blocked or empty, so every read goes through
+// sanitizeLayout, which keeps only known panel ids and clamped sizes (the same allowlisting as URL state) and falls back
+// to the defaults. The first half of this file is pure (tested in test/layout.test.js); the second half touches the page
+// and runs only from boot.
+//
+// Wide screens (>= 1100 px) have three zones: the left column (under the map controls), the panel column (right of the
+// map) and the bottom row. A zone is one column, or a grid when it is wide enough (the bottom row; the panel column once
+// the divider makes it wider), where a panel can also span columns. Phones keep one panel at a time behind tabs; there
+// the order is the tab order (`tabs`), which is separate from the wide arrangement, and hiding applies to both.
+var LAYOUT_V = 1;
+var LAYOUT_ZONES = ["left", "right", "bottom"];
+var ZONE_LABEL = { left: "left column", right: "panel column", bottom: "bottom row" };
+var PANEL_IDS = ["feed", "media", "games", "teams", "health"];   // also the default tab order on phones
+var PANEL_NAMES = { feed: "Intelligence feed", media: "Media", games: "Games", teams: "Teams", health: "System health" };
+var DEFAULT_ZONES = { left: ["teams"], right: ["feed", "media", "health"], bottom: ["games"] };
+// Sizes in CSS pixels. The grid numbers must match the wide layout in 00-universe.css: a 252 px left column, a
+// zero-width divider track and three 8 px gaps, a map at least 320 px and a panel column at least 300 px wide.
+var LIM = { minH: 120, maxH: 1600, stepH: 20, maxSpan: 4, minSplit: 0.3, maxSplit: 0.85, stepSplit: 0.02, colMin: 300, gap: 8,
+  fixedW: 276, mapMin: 320, panMin: 300, defPanW: 384 };
+
+// ---- pure ----
+function clampH(h) { return Math.max(LIM.minH, Math.min(LIM.maxH, Math.round(h))); }
+function clampSpan(w) { return Math.max(1, Math.min(LIM.maxSpan, Math.round(w))); }
+function clampSplit(s) { return Math.round(Math.max(LIM.minSplit, Math.min(LIM.maxSplit, s)) * 1000) / 1000; }
+function layoutIds(ids) { return Array.isArray(ids) && ids.length ? ids : PANEL_IDS; }
+function copyLayout(L) { return JSON.parse(JSON.stringify(L)); }
+function sameLayout(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+// keeps known, unique ids in order; `seen` is shared so one id cannot sit in two zones
+function cleanIdList(a, ids, seen) {
+  var out = [];
+  if (!Array.isArray(a)) return out;
+  for (var i = 0; i < a.length && i < 64; i++) {
+    var id = a[i];
+    if (typeof id === "string" && ids.indexOf(id) >= 0 && !seen[id]) { seen[id] = 1; out.push(id); }
+  }
+  return out;
+}
+function defaultLayout(ids) {
+  ids = layoutIds(ids);
+  var seen = {}, out = { v: LAYOUT_V, zones: {}, tabs: [], hidden: [], sizes: {}, split: null };
+  LAYOUT_ZONES.forEach(function (z) { out.zones[z] = cleanIdList(DEFAULT_ZONES[z], ids, seen); });
+  ids.forEach(function (id) { if (!seen[id]) { seen[id] = 1; out.zones.right.push(id); } });   // a panel with no default place
+  out.tabs = cleanIdList(PANEL_IDS.concat(ids), ids, {});
+  return out;
+}
+// raw: whatever was saved (or nothing). Returns a complete layout over exactly `ids`.
+function sanitizeLayout(raw, ids) {
+  ids = layoutIds(ids);
+  var def = defaultLayout(ids);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw) || raw.v !== LAYOUT_V) return def;
+  var out = { v: LAYOUT_V, zones: {}, tabs: [], hidden: [], sizes: {}, split: null }, seen = {}, ts = {};
+  var rz = raw.zones && typeof raw.zones === "object" && !Array.isArray(raw.zones) ? raw.zones : null;
+  LAYOUT_ZONES.forEach(function (z) { out.zones[z] = cleanIdList(rz ? rz[z] : def.zones[z], ids, seen); });
+  // a panel the saved layout does not place (one added since it was saved) goes where the defaults put it
+  LAYOUT_ZONES.forEach(function (z) { def.zones[z].forEach(function (id) { if (!seen[id]) { seen[id] = 1; out.zones[z].push(id); } }); });
+  out.tabs = cleanIdList(raw.tabs, ids, ts);
+  def.tabs.forEach(function (id) { if (!ts[id]) out.tabs.push(id); });
+  out.hidden = cleanIdList(raw.hidden, ids, {});
+  if (out.hidden.length >= ids.length) out.hidden = [];   // never everything hidden
+  var rs = raw.sizes && typeof raw.sizes === "object" && !Array.isArray(raw.sizes) ? raw.sizes : null;
+  if (rs) ids.forEach(function (id) {
+    var s = Object.prototype.hasOwnProperty.call(rs, id) ? rs[id] : null, e = {};
+    if (!s || typeof s !== "object") return;
+    if (typeof s.h === "number" && isFinite(s.h)) e.h = clampH(s.h);
+    if (typeof s.w === "number" && isFinite(s.w)) e.w = clampSpan(s.w);
+    if (e.h != null || e.w != null) out.sizes[id] = e;
+  });
+  if (typeof raw.split === "number" && isFinite(raw.split)) out.split = clampSplit(raw.split);
+  return out;
+}
+function zoneOf(L, id) { for (var i = 0; i < LAYOUT_ZONES.length; i++) if (L.zones[LAYOUT_ZONES[i]].indexOf(id) >= 0) return LAYOUT_ZONES[i]; return null; }
+function flatOrder(L) { var o = []; LAYOUT_ZONES.forEach(function (z) { o = o.concat(L.zones[z]); }); return o; }
+function isShown(L, id) { return L.hidden.indexOf(id) < 0; }
+// Puts id at `index` of `zone` (counted after taking it out of wherever it was). Never mutates L.
+function movePanel(L, id, zone, index) {
+  var out = copyLayout(L);
+  if (LAYOUT_ZONES.indexOf(zone) < 0 || !zoneOf(out, id)) return out;
+  LAYOUT_ZONES.forEach(function (z) { var i = out.zones[z].indexOf(id); if (i >= 0) out.zones[z].splice(i, 1); });
+  var list = out.zones[zone], at = typeof index === "number" && isFinite(index) ? Math.max(0, Math.min(list.length, Math.round(index))) : list.length;
+  list.splice(at, 0, id);
+  return out;
+}
+// The drop target of a drag: before another panel of that zone, or at its end (beforeId null or not in the zone).
+function placeBefore(L, id, zone, beforeId) {
+  var list = (L.zones[zone] || []).filter(function (x) { return x !== id; }), i = beforeId == null ? -1 : list.indexOf(beforeId);
+  return movePanel(L, id, zone, i < 0 ? list.length : i);
+}
+// One place earlier (delta < 0) or later, counting only shown panels. scope "tabs": the phone tab order. Otherwise the
+// wide order: left column, panel column, bottom row; past the end of a zone the panel moves into the next zone.
+function moveBy(L, id, delta, scope) {
+  var out = copyLayout(L), vis = function (x) { return isShown(out, x); };
+  if (!delta || !isShown(out, id)) return out;
+  var step = delta > 0 ? 1 : -1;
+  if (scope === "tabs") {
+    var v = out.tabs.filter(vis), p = v.indexOf(id), nb = v[p + step];
+    if (p < 0 || nb == null) return out;
+    out.tabs.splice(out.tabs.indexOf(id), 1);
+    out.tabs.splice(out.tabs.indexOf(nb) + (step > 0 ? 1 : 0), 0, id);
+    return out;
+  }
+  var z = zoneOf(out, id);
+  if (!z) return out;
+  var list = out.zones[z], vz = list.filter(vis), n = vz[vz.indexOf(id) + step];
+  if (n != null) {
+    list.splice(list.indexOf(id), 1);
+    list.splice(list.indexOf(n) + (step > 0 ? 1 : 0), 0, id);
+    return out;
+  }
+  var zi = LAYOUT_ZONES.indexOf(z) + step;
+  if (zi < 0 || zi >= LAYOUT_ZONES.length) return out;
+  list.splice(list.indexOf(id), 1);
+  if (step > 0) out.zones[LAYOUT_ZONES[zi]].unshift(id); else out.zones[LAYOUT_ZONES[zi]].push(id);
+  return out;
+}
+// At least one panel always stays shown.
+function setHidden(L, id, hide) {
+  var out = copyLayout(L), i = out.hidden.indexOf(id), all = flatOrder(out);
+  if (all.indexOf(id) < 0) return out;
+  if (hide && i < 0 && all.length - out.hidden.length > 1) out.hidden.push(id);
+  if (!hide && i >= 0) out.hidden.splice(i, 1);
+  return out;
+}
+// patch: {h} in pixels and/or {w} in columns; null clears that size (back to the default).
+function setSize(L, id, patch) {
+  var out = copyLayout(L), has = function (k) { return patch && Object.prototype.hasOwnProperty.call(patch, k); };
+  if (!zoneOf(out, id)) return out;
+  var e = Object.assign({}, out.sizes[id]);
+  if (has("h")) { if (patch.h == null) delete e.h; else if (typeof patch.h === "number" && isFinite(patch.h)) e.h = clampH(patch.h); }
+  if (has("w")) { if (patch.w == null) delete e.w; else if (typeof patch.w === "number" && isFinite(patch.w)) e.w = clampSpan(patch.w); }
+  if (e.h == null && e.w == null) delete out.sizes[id]; else out.sizes[id] = e;
+  return out;
+}
+function setSplit(L, s) {
+  var out = copyLayout(L);
+  if (s == null) out.split = null; else if (typeof s === "number" && isFinite(s)) out.split = clampSplit(s);
+  return out;
+}
+// How many columns a zone of this width holds (at least one, at most LIM.maxSpan).
+function zoneCols(width, colMin, gap) {
+  colMin = colMin || LIM.colMin; gap = gap == null ? LIM.gap : gap;
+  if (!(width > 0)) return 1;
+  return Math.max(1, Math.min(LIM.maxSpan, Math.floor((width + gap) / (colMin + gap))));
+}
+// Columns a panel spans: its own width if set, else an equal share of the zone's columns (at least one), so one panel
+// alone fills its row and two share it.
+function spanFor(L, id, zone, cols, nInZone) {
+  cols = Math.max(1, Math.floor(cols) || 1);
+  var s = L.sizes[id], w = s && s.w;
+  if (w == null) w = Math.max(1, Math.floor(cols / Math.max(1, nInZone || 1)));
+  return Math.max(1, Math.min(cols, w));
+}
+// Rows a grid zone needs for these spans, placed in order (a span that does not fit starts a new row, as CSS grid does).
+function gridRows(spans, cols) {
+  var rows = 0, used = cols;
+  spans.forEach(function (sp) { sp = Math.max(1, Math.min(cols, sp)); if (used + sp > cols) { rows++; used = 0; } used += sp; });
+  return Math.max(1, rows);
+}
+// The panel column's width for a map share (null: the default 384 px). The clamp keeps both sides usable at any width.
+function panelWidthCss(split) {
+  if (split == null || !isFinite(split)) return null;
+  return "clamp(" + LIM.panMin + "px, calc((100% - " + LIM.fixedW + "px) * " + (1 - clampSplit(split)).toFixed(3) + "), calc(100% - " + (LIM.fixedW + LIM.mapMin) + "px))";
+}
+// Map share for a divider dragged to x, given the map's left edge and the panel column's right edge.
+function splitAt(x, mapLeft, panelsRight) {
+  var avail = panelsRight - mapLeft - 2 * LIM.gap, mapW = x - mapLeft - LIM.gap;
+  return avail > 0 ? clampSplit(mapW / avail) : null;
+}
+function describePos(L, id, wide) {
+  var name = PANEL_NAMES[id] || id, vis = function (x) { return isShown(L, x); };
+  if (!wide) { var t = L.tabs.filter(vis); return name + ": tab " + (t.indexOf(id) + 1) + " of " + t.length; }
+  var z = zoneOf(L, id), v = z ? L.zones[z].filter(vis) : [];
+  return name + ": " + (v.indexOf(id) + 1) + " of " + v.length + " in the " + ZONE_LABEL[z];
+}
+function loadLayout(ids) { return sanitizeLayout(lsGet().layout, ids); }
+
+NFLU.layout = { V: LAYOUT_V, ZONES: LAYOUT_ZONES, PANEL_IDS: PANEL_IDS, PANEL_NAMES: PANEL_NAMES, LIM: LIM, defaultLayout: defaultLayout,
+  sanitizeLayout: sanitizeLayout, movePanel: movePanel, placeBefore: placeBefore, moveBy: moveBy, setHidden: setHidden, setSize: setSize,
+  setSplit: setSplit, zoneCols: zoneCols, spanFor: spanFor, gridRows: gridRows, panelWidthCss: panelWidthCss, splitAt: splitAt, describePos: describePos,
+  zoneOf: zoneOf, flatOrder: flatOrder, clampH: clampH, clampSpan: clampSpan, clampSplit: clampSplit, loadLayout: loadLayout };
+
+// ---- the page ----
+var LAYOUT = null;   // the current layout; null until initLayout ran (and stays null if it failed: the page keeps the default CSS layout)
+var lay = { ids: [], slots: {}, handles: {}, zones: {}, mark: null, live: null, menu: null, btn: null, drag: null, storage: false };
+var WIDE_MQ = "(min-width: 1100px)";
+function isWide() { try { return ROOT.matchMedia(WIDE_MQ).matches; } catch (e) { return (ROOT.innerWidth || 0) >= 1100; } }
+function storageWorks() { try { var k = LS_KEY + "-probe"; ROOT.localStorage.setItem(k, "1"); ROOT.localStorage.removeItem(k); return true; } catch (e) { return false; } }
+function announce(msg) { if (lay.live) lay.live.textContent = msg; }
+// Puts nodes into parent in this order, moving only the ones out of place (a moved node loses focus in some browsers).
+function orderChildren(parent, nodes) {
+  var ref = parent.firstElementChild;
+  nodes.forEach(function (n) { if (!n) return; if (n === ref) ref = ref.nextElementSibling; else parent.insertBefore(n, ref); });
+}
+function pauseMedia(node) { Array.prototype.forEach.call(node.querySelectorAll("audio,video"), function (m) { try { m.pause(); } catch (e) { /* ignore */ } }); }
+
+function initLayout() {
+  try {
+    lay.zones = { left: byId("uZoneLeft"), right: byId("uZoneRight"), bottom: byId("uZoneBottom") };
+    if (!lay.zones.left || !lay.zones.right || !lay.zones.bottom) return;
+    lay.ids = PANEL_IDS.filter(function (id) { return PANELS[id] && PANELS[id].root.parentNode; });
+    lay.storage = storageWorks();
+    LAYOUT = loadLayout(lay.ids);
+    lay.ids.forEach(function (id) {
+      var slot = PANELS[id].root.parentNode, name = PANEL_NAMES[id];
+      lay.slots[id] = slot;
+      slot.setAttribute("data-slot", id);
+      var rh = el("div", { class: "u-rh", role: "separator", tabindex: "0", "aria-orientation": "horizontal", "aria-label": "Height of " + name,
+        "aria-valuemin": String(LIM.minH), "aria-valuemax": String(LIM.maxH), title: "Drag to resize · arrow keys · double-click to reset" });
+      var rw = el("div", { class: "u-rw", role: "separator", tabindex: "0", "aria-orientation": "vertical", "aria-label": "Width of " + name + " in columns",
+        "aria-valuemin": "1", title: "Drag to resize · arrow keys · double-click to reset", hidden: true });
+      slot.appendChild(rh); slot.appendChild(rw);
+      lay.handles[id] = { h: rh, w: rw };
+      wireResize(id, rh, "h"); wireResize(id, rw, "w");
+    });
+    lay.mark = el("div", { class: "u-dropmark", "aria-hidden": "true", hidden: true });
+    byId("uapp").appendChild(lay.mark);
+    lay.live = byId("uLayoutLive");
+    byId("uBody").addEventListener("pointerdown", onHeadDown);
+    wireSplit(byId("uSplit"));
+    wireMenu();
+    var fitSoon = function () { (ROOT.requestAnimationFrame || setTimeout)(fitZones); };
+    if (ROOT.ResizeObserver) { var ro = new ROOT.ResizeObserver(fitSoon); LAYOUT_ZONES.forEach(function (z) { ro.observe(lay.zones[z]); }); }
+    else ROOT.addEventListener("resize", fitSoon);
+    try {
+      var mq = ROOT.matchMedia(WIDE_MQ), onBp = function () { closeMenu(false); applyLayout(); };
+      if (mq.addEventListener) mq.addEventListener("change", onBp); else if (mq.addListener) mq.addListener(onBp);
+    } catch (e) { /* no matchMedia: the window resize above still refits */ }
+    applyLayout();
+  } catch (e) {
+    uReport("layout", e);
+    LAYOUT = null;   // the fixed default layout from the style sheet still works
+  }
+}
+function saveLayout() { lsSet({ layout: LAYOUT }); }
+function commitLayout(L2) { LAYOUT = L2; saveLayout(); applyLayout(); }
+function applyLayout() {
+  if (!LAYOUT) return;
+  try {
+    var body = byId("uBody");
+    LAYOUT_ZONES.forEach(function (z) { orderChildren(lay.zones[z], LAYOUT.zones[z].map(function (id) { return lay.slots[id]; })); });
+    lay.ids.forEach(function (id) {
+      var s = lay.slots[id], p = PANELS[id], hide = !isShown(LAYOUT, id), h = LAYOUT.sizes[id] && LAYOUT.sizes[id].h;
+      if (hide && !s.hidden) pauseMedia(s);
+      s.hidden = hide;
+      if (p.setHidden) p.setHidden(hide);
+      if (h) { s.style.setProperty("--h", h + "px"); s.classList.add("has-h"); } else { s.style.removeProperty("--h"); s.classList.remove("has-h"); }
+      s.classList.toggle("is-folded", p.root.classList.contains("is-collapsed"));
+    });
+    LAYOUT_ZONES.forEach(function (z) {
+      var n = LAYOUT.zones[z].filter(function (id) { return lay.slots[id] && isShown(LAYOUT, id); }).length;
+      lay.zones[z].classList.toggle("is-empty", !n);
+      body.classList.toggle("u-no" + z, !n);
+    });
+    var pw = panelWidthCss(LAYOUT.split);
+    if (pw) body.style.setProperty("--u-panw", pw); else body.style.removeProperty("--u-panw");
+    renderTabs();
+    if (lay.menu && !lay.menu.hidden) drawMenu();
+    fitZones();
+  } catch (e) { uReport("layout", e); }
+}
+// Column counts, spans, handle states and the default height of grid cells: these depend on rendered sizes.
+function fitZones() {
+  if (!LAYOUT) return;
+  try {
+    var wide = isWide();
+    LAYOUT_ZONES.forEach(function (z) {
+      var zel = lay.zones[z], cols = !wide || z === "left" ? 1 : zoneCols(zel.clientWidth);
+      var vis = LAYOUT.zones[z].filter(function (id) { return lay.slots[id] && isShown(LAYOUT, id); });
+      zel.setAttribute("data-cols", String(cols)); zel.style.setProperty("--cols", String(cols));
+      if (z === "right" && cols > 1) {
+        // panels without a height of their own share the column's height by rows
+        var rows = gridRows(vis.map(function (id) { return spanFor(LAYOUT, id, z, cols, vis.length); }), cols);
+        zel.style.setProperty("--u-defh", Math.max(240, Math.floor((zel.clientHeight - LIM.gap * (rows - 1)) / rows)) + "px");
+      }
+      vis.forEach(function (id) {
+        var s = lay.slots[id], span = spanFor(LAYOUT, id, z, cols, vis.length), hd = lay.handles[id];
+        s.style.gridColumn = wide && cols > 1 ? "span " + span : "";
+        hd.w.hidden = !wide || cols < 2;
+        hd.w.setAttribute("aria-valuemax", String(cols)); hd.w.setAttribute("aria-valuenow", String(span));
+        hd.w.setAttribute("aria-valuetext", span + " of " + cols + " columns");
+        if (wide) { var ht = Math.round(s.getBoundingClientRect().height); hd.h.setAttribute("aria-valuenow", String(ht)); hd.h.setAttribute("aria-valuetext", ht + " pixels"); }
+      });
+    });
+    syncSplit();
+  } catch (e) { uReport("layout fit", e); }
+}
+// Panel() calls this when its collapse button is used.
+function onPanelFold(id) {
+  if (!LAYOUT || !lay.slots[id]) return;
+  lay.slots[id].classList.toggle("is-folded", PANELS[id].root.classList.contains("is-collapsed"));
+  fitZones();
+}
+function resetLayout() {
+  LAYOUT = defaultLayout(lay.ids);
+  lay.ids.forEach(function (id) { if (PANELS[id].resetCollapsed) PANELS[id].resetCollapsed(); });
+  lsSet({ layout: null, collapsed: {} });
+  applyLayout();
+  announce("Layout reset to the default.");
+}
+
+// ---- moving with the keyboard (the grip in each header) or the menu's arrows ----
+function layoutKey(id, e) {
+  var k = e.key, d = k === "ArrowUp" || k === "ArrowLeft" ? -1 : k === "ArrowDown" || k === "ArrowRight" ? 1 : 0;
+  if (!d || !LAYOUT) return;
+  e.preventDefault();
+  movePanelBy(id, d, e.currentTarget);
+}
+function movePanelBy(id, d, focusEl) {
+  var wide = isWide(), L2 = moveBy(LAYOUT, id, d, wide ? "wide" : "tabs");
+  if (sameLayout(L2, LAYOUT)) { announce((PANEL_NAMES[id] || id) + " cannot move further that way."); return; }
+  commitLayout(L2);
+  if (focusEl && focusEl.isConnected && document.activeElement !== focusEl) focusEl.focus();
+  if (wide && lay.slots[id] && lay.slots[id].scrollIntoView) lay.slots[id].scrollIntoView({ block: "nearest" });
+  announce(describePos(LAYOUT, id, wide) + ".");
+}
+
+// ---- dragging a panel by its header (wide screens) ----
+function onHeadDown(e) {
+  if (e.button !== 0 || !LAYOUT || !isWide() || lay.drag) return;
+  var t = e.target, head = t.closest ? t.closest(".u-phead") : null;
+  if (!head || t.closest("a,input,select,textarea,.u-ptools,.u-collapse")) return;
+  var slot = head.closest("[data-slot]");
+  if (!slot || !lay.slots[slot.getAttribute("data-slot")]) return;
+  lay.drag = { id: slot.getAttribute("data-slot"), slot: slot, head: head, pid: e.pointerId, x: e.clientX, y: e.clientY, on: false, target: null };
+  document.addEventListener("pointermove", onDragMove);
+  document.addEventListener("pointerup", onDragEnd);
+  document.addEventListener("pointercancel", cancelDrag);
+  document.addEventListener("keydown", onDragKey, true);
+}
+function onDragMove(e) {
+  var d = lay.drag;
+  if (!d || e.pointerId !== d.pid) return;
+  if (!d.on) {
+    if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
+    d.on = true;
+    try { d.head.setPointerCapture(e.pointerId); } catch (er) { /* the document listeners still follow the pointer */ }
+    document.documentElement.classList.add("u-dragging");
+    d.slot.classList.add("is-dragging");
+  }
+  e.preventDefault();
+  d.target = dropTarget(e.clientX, e.clientY);
+  showMark(d.target);
+  dragScroll(e.clientX, e.clientY);
+}
+function onDragEnd(e) {
+  var d = lay.drag;
+  if (!d || (e && e.pointerId !== d.pid)) return;
+  var t = d.target, on = d.on;
+  stopDrag();
+  if (!on || !t) return;
+  var L2 = placeBefore(LAYOUT, d.id, t.zone, t.before);
+  if (sameLayout(L2, LAYOUT)) return;
+  commitLayout(L2);
+  announce(describePos(LAYOUT, d.id, true) + ".");
+}
+function onDragKey(e) { if (e.key === "Escape" && lay.drag) { e.preventDefault(); e.stopPropagation(); cancelDrag(); } }
+function cancelDrag() { stopDrag(); }
+function stopDrag() {
+  var d = lay.drag;
+  lay.drag = null;
+  document.removeEventListener("pointermove", onDragMove);
+  document.removeEventListener("pointerup", onDragEnd);
+  document.removeEventListener("pointercancel", cancelDrag);
+  document.removeEventListener("keydown", onDragKey, true);
+  document.documentElement.classList.remove("u-dragging");
+  if (d) { d.slot.classList.remove("is-dragging"); try { d.head.releasePointerCapture(d.pid); } catch (e) { /* not captured */ } }
+  showMark(null);
+}
+// The part of a zone the viewer can see: its box cut to every scrolling ancestor, so a drop never lands in a zone's
+// scrolled-away part (the left column, for one, scrolls inside .u-left).
+function visibleRect(node) {
+  var r = node.getBoundingClientRect(), b = { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
+  for (var p = node.parentElement; p && p !== document.body; p = p.parentElement) {
+    var cs = getComputedStyle(p);
+    if (!/(auto|scroll|hidden)/.test(cs.overflow + cs.overflowX + cs.overflowY)) continue;
+    var q = p.getBoundingClientRect();
+    b.left = Math.max(b.left, q.left); b.top = Math.max(b.top, q.top); b.right = Math.min(b.right, q.right); b.bottom = Math.min(b.bottom, q.bottom);
+  }
+  return { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: Math.max(0, b.right - b.left), height: Math.max(0, b.bottom - b.top) };
+}
+// The zone under the pointer and the shown panel the dragged one would go before (null: the zone's end).
+function dropTarget(x, y) {
+  var d = lay.drag;
+  for (var i = 0; i < LAYOUT_ZONES.length; i++) {
+    var z = LAYOUT_ZONES[i], zel = lay.zones[z], r = visibleRect(zel);
+    if (!r.width || !r.height || x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+    var cols = +zel.getAttribute("data-cols") || 1;
+    var ids = LAYOUT.zones[z].filter(function (id) { return id !== d.id && lay.slots[id] && isShown(LAYOUT, id); });
+    for (var j = 0; j < ids.length; j++) {
+      var rr = lay.slots[ids[j]].getBoundingClientRect();
+      if (cols < 2 ? y < rr.top + rr.height / 2 : y < rr.top || (y <= rr.bottom && x < rr.left + rr.width / 2)) return { zone: z, before: ids[j], rect: rr, cols: cols, end: false };
+    }
+    return { zone: z, before: null, rect: ids.length ? lay.slots[ids[ids.length - 1]].getBoundingClientRect() : null, cols: cols, end: true };
+  }
+  return null;
+}
+function showMark(t) {
+  LAYOUT_ZONES.forEach(function (z) { if (lay.zones[z]) lay.zones[z].classList.toggle("is-droptarget", !!t && t.zone === z); });
+  var m = lay.mark;
+  if (!m) return;
+  if (!t || !t.rect) { m.hidden = true; return; }
+  var r = t.rect, s = m.style;
+  if (t.cols > 1) { s.left = (t.end ? r.right + 2 : r.left - 5) + "px"; s.top = r.top + "px"; s.width = "3px"; s.height = r.height + "px"; }
+  else { s.left = r.left + "px"; s.top = (t.end ? r.bottom + 2 : r.top - 5) + "px"; s.width = r.width + "px"; s.height = "3px"; }
+  m.hidden = false;
+}
+function dragScroll(x, y) {
+  LAYOUT_ZONES.forEach(function (z) {
+    var sc = z === "left" ? lay.zones[z].parentNode : lay.zones[z], r = sc.getBoundingClientRect();
+    if (sc.scrollHeight <= sc.clientHeight || x < r.left || x > r.right) return;
+    if (y < r.top + 40 && y > r.top - 20) sc.scrollTop -= 14; else if (y > r.bottom - 40 && y < r.bottom + 20) sc.scrollTop += 14;
+  });
+}
+
+// ---- resizing from the bottom (height) and right (width in columns) edges ----
+function wireResize(id, hd, axis) {
+  hd.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0 || !LAYOUT || !isWide()) return;
+    e.preventDefault(); e.stopPropagation();
+    var s = lay.slots[id], r = s.getBoundingClientRect(), zel = lay.zones[zoneOf(LAYOUT, id)];
+    var cols = +zel.getAttribute("data-cols") || 1, colW = (zel.clientWidth - LIM.gap * (cols - 1)) / cols, st = { x: e.clientX, y: e.clientY, v: null };
+    try { hd.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
+    document.documentElement.classList.add(axis === "h" ? "u-rowresize" : "u-colresize");
+    function mv(ev) {
+      if (axis === "h") { st.v = clampH(r.height + ev.clientY - st.y); s.style.setProperty("--h", st.v + "px"); s.classList.add("has-h"); }
+      else { st.v = Math.max(1, Math.min(cols, Math.round((r.width + ev.clientX - st.x + LIM.gap) / (colW + LIM.gap)))); s.style.gridColumn = "span " + st.v; }
+    }
+    function up() {
+      hd.removeEventListener("pointermove", mv); hd.removeEventListener("pointerup", up); hd.removeEventListener("pointercancel", up);
+      document.documentElement.classList.remove("u-rowresize", "u-colresize");
+      if (st.v != null) commitLayout(setSize(LAYOUT, id, axis === "h" ? { h: st.v } : { w: st.v }));
+    }
+    hd.addEventListener("pointermove", mv); hd.addEventListener("pointerup", up); hd.addEventListener("pointercancel", up);
+  });
+  hd.addEventListener("dblclick", function () {
+    if (!LAYOUT) return;
+    commitLayout(setSize(LAYOUT, id, axis === "h" ? { h: null } : { w: null }));
+    announce(PANEL_NAMES[id] + ": " + (axis === "h" ? "height" : "width") + " reset.");
+  });
+  hd.addEventListener("keydown", function (e) {
+    if (!LAYOUT) return;
+    var k = e.key, d = axis === "h" ? (k === "ArrowUp" ? -1 : k === "ArrowDown" ? 1 : 0) : (k === "ArrowLeft" ? -1 : k === "ArrowRight" ? 1 : 0);
+    if (!d) return;
+    e.preventDefault();
+    if (axis === "h") {
+      var cur = Math.round(lay.slots[id].getBoundingClientRect().height);
+      commitLayout(setSize(LAYOUT, id, { h: cur + d * (e.shiftKey ? 4 : 1) * LIM.stepH }));
+    } else {
+      var z = zoneOf(LAYOUT, id), zel = lay.zones[z], cols = +zel.getAttribute("data-cols") || 1;
+      var n = LAYOUT.zones[z].filter(function (x) { return isShown(LAYOUT, x); }).length, span = spanFor(LAYOUT, id, z, cols, n);
+      commitLayout(setSize(LAYOUT, id, { w: Math.max(1, Math.min(cols, span + d)) }));
+    }
+    if (document.activeElement !== hd) hd.focus();
+  });
+}
+
+// ---- the divider between the map and the panel column ----
+function currentSplit() {
+  var m = byId("uMap").getBoundingClientRect().width, p = lay.zones.right.getBoundingClientRect().width;
+  return m + p > 0 ? m / (m + p) : null;
+}
+function syncSplit() {
+  var sp = byId("uSplit");
+  if (!sp || !isWide()) return;
+  var v = currentSplit();
+  if (v == null) return;
+  sp.setAttribute("aria-valuenow", String(Math.round(v * 100)));
+  sp.setAttribute("aria-valuetext", "Map " + Math.round(v * 100) + "% of the width");
+}
+function wireSplit(sp) {
+  if (!sp) return;
+  sp.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0 || !LAYOUT || !isWide()) return;
+    e.preventDefault();
+    var body = byId("uBody"), mapL = byId("uMap").getBoundingClientRect().left, panR = lay.zones.right.getBoundingClientRect().right, v = null;
+    try { sp.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
+    document.documentElement.classList.add("u-colresize");
+    function mv(ev) { v = splitAt(ev.clientX, mapL, panR); if (v != null) body.style.setProperty("--u-panw", panelWidthCss(v)); }
+    function up() {
+      sp.removeEventListener("pointermove", mv); sp.removeEventListener("pointerup", up); sp.removeEventListener("pointercancel", up);
+      document.documentElement.classList.remove("u-colresize");
+      if (v != null) commitLayout(setSplit(LAYOUT, v));
+    }
+    sp.addEventListener("pointermove", mv); sp.addEventListener("pointerup", up); sp.addEventListener("pointercancel", up);
+  });
+  sp.addEventListener("dblclick", function () { if (!LAYOUT) return; commitLayout(setSplit(LAYOUT, null)); announce("Map width reset."); });
+  sp.addEventListener("keydown", function (e) {
+    if (!LAYOUT) return;
+    var k = e.key, cur = currentSplit(), v = null;
+    if (k === "ArrowLeft" || k === "ArrowRight") v = (cur == null ? 0.66 : cur) + (k === "ArrowLeft" ? -1 : 1) * (e.shiftKey ? 4 : 1) * LIM.stepSplit;
+    else if (k === "Home") v = LIM.minSplit; else if (k === "End") v = LIM.maxSplit;
+    if (v == null) return;
+    e.preventDefault();
+    commitLayout(setSplit(LAYOUT, v));
+  });
+}
+
+// ---- the Panels menu in the top bar ----
+function wireMenu() {
+  var btn = byId("uPanels"), menu = byId("uPanelsMenu");
+  if (!btn || !menu) return;
+  lay.btn = btn; lay.menu = menu;
+  btn.addEventListener("click", function () { if (menu.hidden) openMenu(); else closeMenu(true); });
+  menu.addEventListener("change", function (e) {
+    var id = e.target.getAttribute && e.target.getAttribute("data-show");
+    if (!id || !LAYOUT) return;
+    commitLayout(setHidden(LAYOUT, id, !e.target.checked));
+    announce(PANEL_NAMES[id] + (isShown(LAYOUT, id) ? " shown." : " hidden."));
+  });
+  menu.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("button") : null;
+    if (!b || !LAYOUT) return;
+    if (b.hasAttribute("data-mv")) movePanelBy(b.getAttribute("data-id"), +b.getAttribute("data-mv"));
+    else if (b.id === "uResetLayout") resetLayout();
+  });
+  document.addEventListener("pointerdown", function (e) { if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) closeMenu(false); });
+  // focus moving anywhere else (Tab out, or a drawer, the brief or a player opening and taking focus) closes it too,
+  // so the menu never stays open behind something that opened over it
+  document.addEventListener("focusin", function (e) { if (!menu.hidden && !menu.contains(e.target) && !btn.contains(e.target)) closeMenu(false); });
+  // capture, so Escape closes the menu without also closing the drawer behind it
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !menu.hidden) { e.stopPropagation(); closeMenu(true); } }, true);
+}
+function openMenu() {
+  if (!lay.menu || !LAYOUT) return;
+  drawMenu();
+  lay.menu.hidden = false; lay.menu.style.right = "";
+  lay.btn.setAttribute("aria-expanded", "true");
+  // the top bar rises above an open drawer only while its menu is open, so the menu is never covered and the bar
+  // (two rows on narrower screens) never covers the drawer's close button otherwise
+  var top = lay.btn.closest ? lay.btn.closest(".u-top") : null; if (top) top.classList.add("is-menu-open");
+  // keep it on screen when the button sits near the left edge (phones)
+  var r = lay.menu.getBoundingClientRect();
+  if (r.left < 8) lay.menu.style.right = Math.round(r.left - 8) + "px";
+  var first = lay.menu.querySelector("input,button");
+  if (first) first.focus();
+}
+function closeMenu(focusBtn) {
+  if (!lay.menu || lay.menu.hidden) return;
+  lay.menu.hidden = true;
+  lay.btn.setAttribute("aria-expanded", "false");
+  var top = lay.btn.closest ? lay.btn.closest(".u-top") : null; if (top) top.classList.remove("is-menu-open");
+  if (focusBtn) lay.btn.focus();
+}
+function drawMenu() {
+  var m = lay.menu, wide = isWide(), order = wide ? flatOrder(LAYOUT) : LAYOUT.tabs, nShown = order.filter(function (id) { return isShown(LAYOUT, id); }).length;
+  var scope = wide ? "wide" : "tabs";
+  keepFocus(m, function () {
+    clearNode(m);
+    m.appendChild(el("p", { class: "u-mtitle", text: wide ? "Panels" : "Panels and tabs" }));
+    m.appendChild(el("ul", { class: "u-mlist" }, order.map(function (id) {
+      var shown = isShown(LAYOUT, id), name = PANEL_NAMES[id], last = shown && nShown <= 1;
+      var canUp = shown && !sameLayout(moveBy(LAYOUT, id, -1, scope), LAYOUT), canDown = shown && !sameLayout(moveBy(LAYOUT, id, 1, scope), LAYOUT);
+      return el("li", { class: "u-mrow" + (shown ? "" : " is-off") }, [
+        el("label", { for: "u-show-" + id, title: last ? "One panel always stays shown" : "" }, [
+          el("input", { type: "checkbox", id: "u-show-" + id, "data-show": id, "data-fk": "show-" + id, checked: shown, disabled: last }),
+          el("span", { text: name }),
+          wide ? el("small", { text: ZONE_LABEL[zoneOf(LAYOUT, id)] }) : null]),
+        // aria-disabled rather than disabled, so the focused arrow keeps focus when its panel reaches the end
+        el("button", { type: "button", class: "u-mv", "data-mv": "-1", "data-id": id, "data-fk": "up-" + id, "aria-disabled": canUp ? "false" : "true", "aria-label": "Move " + name + " earlier", text: "↑" }),
+        el("button", { type: "button", class: "u-mv", "data-mv": "1", "data-id": id, "data-fk": "down-" + id, "aria-disabled": canDown ? "false" : "true", "aria-label": "Move " + name + " later", text: "↓" })]);
+    })));
+    m.appendChild(el("p", { class: "u-note", text: wide
+      ? "Drag a panel by its header to move it, or focus its grip and use the arrow keys. Drag a panel's bottom or right edge to resize it, and the line beside the map to change the map's width; double-click an edge or the line to reset it."
+      : "The arrows change the order of the tabs." }));
+    m.appendChild(el("p", { class: "u-note", text: lay.storage ? "The layout is saved in this browser." : "This browser is not keeping settings for this page, so the layout resets when the page reloads." }));
+    m.appendChild(el("button", { type: "button", class: "u-btn u-small u-mreset", id: "uResetLayout", "data-fk": "reset-layout", text: "Reset layout" }));
+  });
+}
+
 // ---- src/universe/99-boot.js
 // Boot: state from defaults, then saved preferences, then the URL (the URL wins); render from the embedded snapshot at
 // once; start the simulation and, when served by a server, the polling. Without a DOM (tests) nothing here runs.
@@ -3566,6 +4257,7 @@ function boot() {
   buildTeamsPanel(byId("uTeamsHost"));
   buildGamesPanel(byId("uGamesHost"));
   renderFooter(byId("uFoot"));
+  initLayout();   // the viewer's panel arrangement (17-layout.js), once every panel exists
 
   byId("uAsk").addEventListener("click", openBrief);
   byId("uStatus").addEventListener("click", focusHealth);

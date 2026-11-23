@@ -3,13 +3,13 @@
 > Update this file at the beginning and end of every substantial work session. Do not invent progress.
 
 ## Last updated
-- Date: 2026-11-21 (end of the first NFL Universe session)
+- Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit, plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the integration branch's history.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
-## Nov. 23, 2026: daily refresh unblocked (branch `claude/kind-bohr-75erpe`, not yet on `main`)
+## Nov. 23, 2026: daily refresh unblocked (branch `claude/kind-bohr-75erpe`, on `main` via pull request #1)
 - The Nov. 23 refresh did not commit. Running `npm run refresh` by hand showed why: the MCP and command-center suites checked the synthetic fixtures' matchups against the live build, and Sunday's results turned those matchups into played games.
 - Fix: both suites now pin the engine's season data to `test/fixtures/engine-data.js` (the Nov. 22 build; `NFLU_ENGINE_DATA` for the MCP server). See `test/fixtures/README.md`. `test/run.js` still runs on the current data.
 - Checked: `npm test` passes on the committed Nov. 22 data and on a fresh Nov. 23 build. The fresh build was not committed (five sources were unreachable from the cloud container), so the data on `main` is still Nov. 22 until the scheduled refresh runs with this fix merged.
@@ -28,7 +28,7 @@
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.
 - No Sleeper code. The FantasyPros fetch has never run.
-- Tests: `npm test` runs four suites: engine and feed parser, 37 data-fabric tests, 4 MCP tests, 197 command-center checks. All pass on the integration branch, and the fabric and interface suites were each checked to fail against deliberately broken code.
+- Tests: `npm test` runs four suites: engine and feed parser, 38 data-fabric tests, 4 MCP tests, 202 command-center checks. All pass on the integration branch, and the fabric and interface suites were each checked to fail against deliberately broken code.
 
 ## Built this session (integration branch)
 - **Project operating system:** constitution in `CLAUDE.md`, `.claude/agents/` (12), `.claude/rules/` (6), and the living docs, all filled from evidence.
@@ -43,6 +43,11 @@
 - **MCP server (`mcp/`):** 14 read-only tools over stdio.
 - **Server hardening:** localhost binding, Host check on the API, malformed-request handling, `<` escaped in embedded data.
 
+## Nov. 22 (integration branch; on `main` since Nov. 23)
+- **Feed after a fresh start:** items with no time of their own that were already there when a server started (injury statuses, line moves, weather flags) used to show as brand new and bury real headlines. They are now marked `data.beforeWatch`, listed last as "before <time>", and left out of the ticker and the brief.
+- **Panels that move, hide and resize:** merged here from `worktree-panel-layout` (see "Panel layout" below), reviewed and fixed.
+- **Live game window, first check (Nov. 22, 1:12 pm ET, seven games in the first quarter):** the server's payload, the page and `/api/live` all showed every game in progress with score, clock, down and distance and ESPN's win probability. The page showed LIVE, live scores on the map and the games strip, and kickoff and score events in the feed. The game panel showed the live chance used by the simulation next to the page's own in-game model (KC 93% from ESPN, 96% from ours). Two weaknesses: (1) the server refreshes only when asked, so after a quiet spell its first answer is the old data, labelled stale, and kickoff and score events take the time the server noticed them, not when they happened; (2) several scores between two checks become one score event. ESPN and nflverse disagree on two kickoff times (PIT at PHI, JAX at NYG); ESPN's were right.
+
 ## Media center (M8), on `main` since Nov. 21 (`0523d28`)
 - Official YouTube channels of the NFL and all 32 teams (evidence level recorded per team in `shared/teams.json`), six official NFL podcasts.
 - Media panel with latest videos, live-page links and podcast players; videos in team and game panels; Video map layer.
@@ -50,6 +55,31 @@
 - Independent review: all findings fixed.
 - Published copy (claude.ai artifact): the viewer blocks outside images, players and audio, so the page now detects the refusal and shows videos and episodes as links that open on YouTube or the episode page. Merged into `main` on Nov. 21, 2026, so the daily republish keeps it; also published by hand as version 20. Not yet seen inside the real viewer (the browser pane was not signed in to claude.ai); checked in a local copy under the same kind of policy.
 - Ten team channel ids rest on directory listings plus feed content (ATL, CAR, CIN, CLE, GB, IND, MIN, NYJ, PHI, TB); a quick manual check from each team's website is worthwhile.
+
+## Panel layout (Nov. 22; reviewed; on `main` since Nov. 23)
+- Checked with the focus bar after merging it in (Nov. 23): focus and panels work together at 1440 px and 375 px wide, no horizontal scroll; all five test suites pass (222 command-center and 128 layout checks).
+- Independent review: nothing blocking; four non-blocking findings, all fixed and checked in the browser. The top bar covered the drawer's close button when it wrapped; it now rises above the drawer only while the Panels menu is open. Resize handles made the columns scroll; they now sit inside their panel. A drop could land in the scrolled-away part of the left column; drops now use the zone's visible part. The menu stayed open behind a player or drawer; focus leaving it now closes it. Four source checks guard these (128 layout checks).
+- Left open from the review: no DOM-level tests of the page side (hiding, held renders, tabs, drag and resize handlers); a second touch on a resize handle adds a second set of listeners; divider arrow keys still change the saved share at the column's limits.
+- Re-checked by the orchestrator in the browser at 1440 px and 375 px wide: hide and show, menu and header-drag reordering, keyboard and mouse resizing, the divider, reload persistence, phone tabs without horizontal scroll, Reset layout, and `?view=sim`.
+- What the viewer can do:
+  - move panels by dragging a header, or with the grip and arrow keys;
+  - hide and show panels, and reorder them, from the Panels menu in the top bar;
+  - resize panels from the bottom and right edges (arrow keys too; double-click resets);
+  - drag the divider between the map and the panel column (wide screens);
+  - reset everything with Reset layout.
+- How it works:
+  - Wide screens have three zones: left column, panel column, bottom row. A zone wide enough for two or more 300 px columns becomes a grid, where panels can span columns.
+  - Phones keep the tab layout; the tab order is kept separately and hiding applies to both.
+  - Hidden panels are not drawn until shown again. One panel always stays shown.
+  - Saved per browser as `layout` in `nflu-v1`, sanitised against the known panel ids. Blocked or broken storage gives the defaults.
+- Code: `src/universe/17-layout.js` (pure logic plus the page side), with small changes to `06-panel.js`, `15-shell.js`, `99-boot.js` (one line), the CSS and the shell markup.
+- Tests: `test/layout.test.js`, 124 checks at hand-back (128 after the review fixes), now part of `npm test`. Eight deliberately broken copies of the logic were each caught.
+- Checked in the browser pane, against the local server with real data:
+  - at 1440 px: drag reorder across zones, hide and show, height and width resize, divider, keyboard moves, reset, survival across reloads;
+  - at 1100 px: the divider stops at its limits;
+  - at 375 px: tabs follow the order and the hidden panels, no horizontal scroll;
+  - `?view=sim` is unchanged.
+- Not checked: touch dragging on a real tablet; the published claude.ai copy.
 
 ## Reviews
 - **Data fabric:** independent review found 3 blocking and 9 non-blocking issues. All fixed; the tests now include negative cases checked against deliberately broken code.
@@ -61,7 +91,7 @@
 ## Checked in the browser (Nov. 21, real data through the local server)
 - **Desktop 1440 px:** the full layout; brief with 10 findings; Giants deep link (69% playoffs from 20,000 seasons); game detail with the win-probability chart; simulator view intact with its live feed.
 - **Phone 375 px:** no horizontal scroll. Snapshot-then-live status works.
-- **Not yet seen:** an in-progress game, because none was being played during the session.
+- **In-progress games:** first seen on Nov. 22 (see above).
 
 ## Open items
 - Team labels collide in the Northeast; Network and Schedule map modes and History are placeholders.
@@ -69,7 +99,7 @@
 - Not built yet: depth charts in injury weights beyond the quarterback; player canonical ids (candidate crosswalk is GPL data, owner decision); tiebreaker steps from nflseedR; time-machine replay from `seenAt`.
 - Not verified:
   - live loading of the new agents and rules (needs a signed-in session: run `/context` and `/agents`);
-  - behavior during a live game;
+  - a full game from kickoff to final (only the first quarter was checked so far);
   - where the daily refresh runs.
 
 ## Decisions waiting on the owner
@@ -81,7 +111,7 @@
 - The next daily refresh runs `scripts/fabric-snapshot.js` (needs network; never fails the refresh) and all four test suites, and the page it publishes opens on the command center. The published copy is static, so it shows the public snapshot with its age, never ESPN data.
 
 ## Next actions
-1. Watch one live game window with `npm start` open and confirm scores, the live dot, and kickoff and score events.
+1. Keep the server's scoreboard fresh during game windows without waiting for a page to ask, and date kickoff events by the scheduled kickoff; then confirm a game through to its final.
 2. Then M5 (intelligence depth) and M6 (live game center) from `MASTER_PLAN.md`.
 
 ## Commands actually run (this session)

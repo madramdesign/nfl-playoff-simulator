@@ -340,6 +340,42 @@ test("headlines without a publication time keep their first-seen time", async ()
     assert.strictEqual(ts1, ts2);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+test("items with no time of their own that were there at a fresh start are marked, not shown as new", async () => {
+  const os = require("os"), fs = require("fs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-watch-"));
+  try {
+    const t0 = Date.parse("2026-11-22T17:00:00Z"), start = new Date(t0).toISOString();
+    let t = t0, extra = "";
+    const f = (url) => (new URL(url).host.includes("yahoo") ? Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => RSS.replace("</channel>", extra + "</channel>") }) : fakeFetch()(url));
+    const fab = createFabric({ scopes: ["public", "local"], cacheDir: dir, season: 2026, now: () => t, fetchImpl: f });
+    let u = await fab.universe({ fresh: true });
+    assert.deepStrictEqual(C.validateUniverse(u, T), []);
+    const marked = u.events.filter((e) => e.data.beforeWatch);
+    assert.ok(marked.some((e) => e.url === "https://example.com/b"), "a headline with no time, first seen at the start, is marked");
+    assert.ok(marked.some((e) => e.type === "injury"), "an injury status with no time, there at the start, is marked");
+    assert.ok(marked.every((e) => e.data.beforeWatch === start && e.type !== "game"), "marked with the start of watching; game events never");
+    assert.ok(u.events.some((e) => e.type === "news" && !e.data.beforeWatch), "headlines with a publication time are not marked");
+    const k = u.events.findIndex((e) => e.data.beforeWatch);
+    assert.ok(k > 0 && u.events.slice(k).every((e) => e.data.beforeWatch), "every marked item comes after every item with a real time");
+    // two hours later a new headline with no time appears: it is new, not part of the backlog
+    t += 2 * 3600000; extra = "<item><title>Fixture club signs a kicker</title><link>https://example.com/late</link></item>";
+    u = await fab.universe({ fresh: true });
+    const late = u.events.find((e) => e.url === "https://example.com/late");
+    assert.ok(late && !late.data.beforeWatch && Date.parse(late.ts) === t, "an item first seen later keeps its first-seen time and no mark");
+    // the marks survive a restart
+    const again = createFabric({ scopes: ["public", "local"], cacheDir: dir, season: 2026, now: () => t + 60000, fetchImpl: f });
+    u = await again.universe({ fresh: true });
+    assert.strictEqual(u.events.find((e) => e.url === "https://example.com/b").data.beforeWatch, start);
+    assert.ok(!u.events.find((e) => e.url === "https://example.com/late").data.beforeWatch);
+    // a folder saved before the marks existed: its earliest first-seen time is taken as the start
+    const sf = path.join(again.cacheDir, "state.json"), s = JSON.parse(fs.readFileSync(sf, "utf8"));
+    delete s.firstData; fs.writeFileSync(sf, JSON.stringify(s));
+    const old = createFabric({ scopes: ["public", "local"], cacheDir: dir, season: 2026, now: () => t + 120000, fetchImpl: f });
+    u = await old.universe({ fresh: true });
+    assert.strictEqual(u.events.find((e) => e.url === "https://example.com/b").data.beforeWatch, start);
+    assert.ok(!u.events.find((e) => e.url === "https://example.com/late").data.beforeWatch);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("one failing source degrades only itself", async () => {
   const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["yahoo", "nfl/injuries"])) });
   const u = await f.universe();

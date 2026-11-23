@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-22 (panel layout)
+- Command-center panels can be moved, hidden, resized and reset:
+  - move: drag a panel's header, or focus its grip and use the arrow keys;
+  - hide, show and reorder: the Panels menu in the top bar;
+  - resize: drag a panel's bottom or right edge (arrow keys too; double-click resets);
+  - map width: drag the divider between the map and the panel column;
+  - Reset layout restores the defaults.
+- The layout is saved per browser and checked against the known panels when read back; without storage the page uses the defaults.
+- Phones keep the one-column tabs, which follow the chosen order and hidden panels.
+- `src/universe/17-layout.js`; 124 new checks in `test/layout.test.js` (in `npm test`).
+
+## 2026-11-22 (feed: old items no longer look new after a fresh start)
+- A server starting with an empty history stamped every item without its own time (injury statuses, line moves, weather flags) with the start time, so they sat at the top of the feed and the ticker as "2m ago" and pushed real headlines down. Such items are now marked `data.beforeWatch`, shown as "before 12:37 PM", listed after everything with a real time, and left out of the ticker and the brief. Folders saved before this change take their earliest first-seen time as the start. One new fabric test and 5 interface checks (202), each shown to fail against broken code; checked once against the real sources (14 of 234 items marked, today's headlines on top).
+
 ## 2026-11-21 (media links where players are blocked)
 - Where the host refuses outside media (the claude.ai artifact viewer), the Media panel, team and game panels switch to links: videos open on YouTube, episodes on their episode page, each in a new tab. Detected from the browser's own refusal reports; the normal page is unchanged. 23 new interface checks (197), each new rule shown to fail against deliberately broken code.
 
