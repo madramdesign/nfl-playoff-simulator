@@ -3,9 +3,9 @@
 var store = null;
 var URL_DEFAULTS = { view: "universe", mode: "geo", layers: DEFAULT_LAYERS, timeRange: DEFAULT_RANGE };
 function initialState(search, saved) {
-  var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS };
+  var allow = { teams: TEAMS.map(function (t) { return t.a; }), layers: LAYER_IDS, focus: FOCUS.ids };
   var s = sanitizeState({ mode: saved.mode, layers: saved.layers, timeRange: saved.timeRange }, allow), u = parseUrlState(search, allow);
-  var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, team: null, game: null }, s, u);
+  var st = Object.assign({ view: "universe", mode: HAS_GEO ? "geo" : "div", layers: DEFAULT_LAYERS.slice(), timeRange: DEFAULT_RANGE, focus: null, team: null, game: null }, s, u);
   if (st.mode === "geo" && !HAS_GEO) st.mode = "div";
   if (st.team && st.game) st.game = null;
   return st;
@@ -27,6 +27,7 @@ function boot() {
   buildRail(byId("uRail"));
   buildMap(byId("uMap"));
   buildTabs(byId("uTabs"));
+  buildFocusBar(byId("uFocus"));
   buildFeedPanel(byId("uFeedHost"));
   // the media host sits between the feed and health in the right column (one column and a "Media" tab on phones)
   var mediaHost = el("div", { class: "u-host", id: "uMediaHost" }), hh = byId("uHealthHost");
@@ -59,23 +60,24 @@ function boot() {
 
   store.subscribe(function (st, ch) {
     var has = function () { for (var i = 0; i < arguments.length; i++) if (ch.indexOf(arguments[i]) >= 0) return true; return false; };
-    if (has("view", "mode", "layers", "timeRange", "team", "game")) writeUrlSoon(st, URL_DEFAULTS);
+    if (has("view", "mode", "layers", "timeRange", "focus", "team", "game")) writeUrlSoon(st, URL_DEFAULTS);
     if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, timeRange: st.timeRange });
     if (has("view")) applyView();
     if (has("model", "origin")) requestBaseSim();
-    if (has("mode", "layers", "timeRange", "model", "sim", "search", "team", "game")) drawMapSoon();
-    if (has("feedTypes", "timeRange", "model", "search")) renderFeed();
-    if (has("timeRange", "model")) renderTicker(byId("uTicker"));
-    if (has("model", "sim", "search")) renderGames();
-    if (has("sim", "model", "search", "team")) renderTeamsPanel();
+    if (has("focus")) { renderFocusBar(); fitFocus(); }
+    if (has("mode", "layers", "timeRange", "model", "sim", "search", "team", "game", "focus")) drawMapSoon();
+    if (has("feedTypes", "timeRange", "model", "search", "focus")) renderFeed();
+    if (has("timeRange", "model", "focus")) renderTicker(byId("uTicker"));
+    if (has("model", "sim", "search", "focus")) renderGames();
+    if (has("sim", "model", "search", "team", "focus")) renderTeamsPanel();
     if (has("payload", "origin", "pollFails", "sim", "simBusy", "simError", "fetchedAt", "breaker")) { renderHealth(); renderStatus(); refreshBadges(); }
     if (has("mode", "layers", "timeRange", "sim", "simBusy", "simError", "deepProgress", "deepError", "payload", "origin")) renderRail();
     if (has("team", "game", "view") || (has("sim", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
-    if (has("model", "timeRange", "search", "team", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
+    if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
   });
 
-  applyView(); renderRail(); renderTabs(); renderStatus();
+  applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus();
   drawMap(); renderFeed(); renderMedia(); renderTicker(byId("uTicker")); renderGames(); renderTeamsPanel(); renderHealth(); refreshBadges(); renderDrawer();
   requestBaseSim(true);
   startPolling();

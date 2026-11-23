@@ -414,3 +414,16 @@ a.u-tk:hover{text-decoration:underline}
 .u-nowplaying{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--u-line,var(--line));background:var(--u-panel2,var(--card))}
 .u-nowplaying audio{max-width:100%;flex:1 1 220px}
 .u-vtitle,.u-podtitle{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+
+/* focus bar: league, conference, division, team */
+.u-focus{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px;padding:6px 16px;background:var(--u-panel);border-bottom:1px solid var(--line)}
+.u-focus[hidden]{display:none}
+.u-focus.is-on{box-shadow:inset 3px 0 0 var(--accent)}
+.u-flabel{font:700 10.5px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.u-fgroup{flex-wrap:nowrap}
+.u-focus .u-seg button.is-path{border-color:var(--accent);color:var(--accent)}
+.u-fsep{color:var(--muted);font-size:15px;line-height:1}
+.u-fnote{color:var(--muted);font-size:12px;margin-left:4px}
+.u-fopen{margin-left:auto;padding:4px 9px}
+.u-table tr.is-focus td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+@media (max-width:640px){.u-focus{padding:6px 16px}.u-fnote{flex-basis:100%;margin-left:0}.u-fopen{margin-left:0}}

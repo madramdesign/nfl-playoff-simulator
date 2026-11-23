@@ -22,6 +22,7 @@ function applyView() {
   document.documentElement.classList.toggle("u-view-sim", sim);
   document.documentElement.classList.toggle("u-view-universe", !sim);
   byId("uBody").hidden = sim;
+  var fb = byId("uFocus"); if (fb) fb.hidden = sim;
   var sv = byId("simView"); if (sv) sv.hidden = !sim;
   Array.prototype.forEach.call(document.querySelectorAll("[data-view]"), function (b) { b.setAttribute("aria-pressed", b.getAttribute("data-view") === v ? "true" : "false"); });
   if (sim) { closePlayer(); closeDrawer(true); if (typeof ROOT.nflSimStart === "function") { ROOT.nflSimStart(); simStarted = true; } }
@@ -64,6 +65,34 @@ function renderDrawer() {
   d.hidden = false; document.documentElement.classList.add("u-drawer-open");
   body.scrollTop = top;
   if (fresh) { drawerKey = key; var x = d.querySelector(".u-x"); if (x) x.focus({ preventScroll: true }); }
+}
+
+// ---- focus bar: NFL, then conference, division and team, each level shown once the one above it is chosen ----
+function buildFocusBar(host) {
+  if (!host) return;
+  host.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest("[data-focus]") : null;
+    if (b) { store.set({ focus: b.getAttribute("data-focus") || null }); return; }
+    var o = e.target.closest ? e.target.closest("[data-focus-open]") : null;
+    if (o) openTeam(+o.getAttribute("data-focus-open"));
+  });
+}
+function renderFocusBar() {
+  var host = byId("uFocus"); if (!host) return;
+  var f = focusInfo(store.get("focus")), conf = f.conf ? FOCUS.byId[f.conf] : null, dv = f.div ? FOCUS.byId[f.div] : null;
+  var btn = function (id, text, on, title) { return el("button", { type: "button", class: !on && id && (id === f.conf || id === f.div) ? "is-path" : null, "data-focus": id || "", "data-fk": "focus-" + (id || "nfl"), "aria-pressed": on ? "true" : "false", title: title || null, text: text }); };
+  var group = function (label, kids) { return el("div", { class: "u-seg u-fgroup", role: "group", "aria-label": label }, kids); };
+  var sep = function () { return el("span", { class: "u-fsep", "aria-hidden": "true", text: "\u203a" }); };
+  keepFocus(host, function () {
+    clearNode(host);
+    host.appendChild(el("span", { class: "u-flabel", text: "Focus" }));
+    host.appendChild(group("League and conference", [btn(null, "NFL", f.level === "league", "The whole league")].concat(FOCUS.confs.map(function (c) { return btn(c.id, c.label, f.level === "conf" && f.id === c.id, c.teams.length + " teams"); }))));
+    if (conf) { host.appendChild(sep()); host.appendChild(group(conf.label + " divisions", conf.divs.map(function (d) { return btn(d.id, d.short, f.level === "div" && f.id === d.id, d.label); }))); }
+    if (dv) { host.appendChild(sep()); host.appendChild(group(dv.label + " teams", dv.teams.map(function (i) { return btn(TEAMS[i].a, TEAMS[i].a, f.team === i, TEAMS[i].name); }))); }
+    host.appendChild(el("span", { class: "u-fnote", text: f.level === "league" ? "All 32 teams" : f.level === "team" ? f.label + " \u00b7 " + dv.label : f.label + " \u00b7 " + f.teams.length + " teams" }));
+    if (f.level === "team") host.appendChild(el("button", { type: "button", class: "u-btn u-fopen", "data-fk": "focus-open", "data-focus-open": f.team, text: "Team center" }));
+  });
+  host.classList.toggle("is-on", f.level !== "league");
 }
 
 // ---- left rail ----

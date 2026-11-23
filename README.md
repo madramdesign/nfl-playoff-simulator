@@ -20,6 +20,10 @@ Then open http://localhost:3000. The server listens on this machine only. To ope
 
 `render.yaml` deploys `server.js` as a free Render web service with public sources only (`FABRIC_SCOPES=public`), so the hosted site has no ESPN data and no live scores. Open https://render.com/deploy?repo=https://github.com/madramdesign/nfl-playoff-simulator, sign in with GitHub and apply. Free services sleep after 15 minutes without traffic and take about a minute to wake. See `docs/DECISIONS.md` DEC-018.
 
+## Focus
+
+The bar under the top of the command center narrows everything to one scope: the league, a conference, a division or a team. The choice is kept in the link (`?focus=NFC`, `?focus=NFC-EAST`, `?focus=NYG`), so a focused view can be bookmarked or shared.
+
 ## NFL Universe data fabric
 
 `server.js` also serves the NFL Universe data layer (`lib/fabric/`), which gathers schedule and lines (nflverse), the weekly injury report (nflverse), game-day weather (Open-Meteo), headlines (ESPN and Yahoo RSS), the curated items in `data/news.json`, and, on your own machine only, ESPN's live scoreboard, news, injuries and transactions.

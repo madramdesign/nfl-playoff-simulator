@@ -112,7 +112,7 @@ function filterByTime(items, range, now) {
 // ---- URL state ----
 var VIEWS = ["universe", "sim"];
 var MAP_MODES = ["geo", "div", "intel"];
-var URL_KEYS = ["view", "mode", "layers", "timeRange", "team", "game"];
+var URL_KEYS = ["view", "mode", "layers", "timeRange", "focus", "team", "game"];
 var GAME_ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 var LAYER_ID_RE = /^[a-z][a-z0-9-]{0,23}$/;
 
@@ -128,7 +128,7 @@ function parseQuery(search) {
 }
 function uniqList(a) { var o = []; a.forEach(function (x) { if (o.indexOf(x) < 0) o.push(x); }); return o; }
 // raw: {key: string} (from the URL) or values saved earlier (layers may be an array). Anything not on an allowlist is dropped.
-// allow: {teams: [abbr], layers: [id]}; without lists, the shape checks above are used.
+// allow: {teams: [abbr], layers: [id], focus: [id]}; without lists, the shape checks above are used.
 function sanitizeState(raw, allow) {
   allow = allow || {}; raw = raw || {};
   var out = {};
@@ -147,6 +147,10 @@ function sanitizeState(raw, allow) {
   if (typeof raw.team === "string" && raw.team) {
     var t = raw.team.toUpperCase();
     if (allow.teams ? allow.teams.indexOf(t) >= 0 : /^[A-Z]{2,3}$/.test(t)) out.team = t;
+  }
+  if (typeof raw.focus === "string" && raw.focus) {
+    var f = raw.focus.toUpperCase();
+    if (allow.focus ? allow.focus.indexOf(f) >= 0 : /^[A-Z]{2,3}(-[A-Z]{4,5})?$/.test(f)) out.focus = f;
   }
   if (typeof raw.game === "string" && GAME_ID_RE.test(raw.game)) out.game = raw.game;
   return out;
