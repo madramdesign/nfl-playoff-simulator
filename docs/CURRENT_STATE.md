@@ -9,6 +9,11 @@
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
+## Nov. 23, 2026: daily refresh unblocked (branch `claude/kind-bohr-75erpe`, not yet on `main`)
+- The Nov. 23 refresh did not commit. Running `npm run refresh` by hand showed why: the MCP and command-center suites checked the synthetic fixtures' matchups against the live build, and Sunday's results turned those matchups into played games.
+- Fix: both suites now pin the engine's season data to `test/fixtures/engine-data.js` (the Nov. 22 build; `NFLU_ENGINE_DATA` for the MCP server). See `test/fixtures/README.md`. `test/run.js` still runs on the current data.
+- Checked: `npm test` passes on the committed Nov. 22 data and on a fresh Nov. 23 build. The fresh build was not committed (five sources were unreachable from the cloud container), so the data on `main` is still Nov. 22 until the scheduled refresh runs with this fix merged.
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.

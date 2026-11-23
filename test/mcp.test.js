@@ -9,6 +9,9 @@ const { spawn } = require("child_process");
 const root = path.join(__dirname, "..");
 const SERVER = path.join(root, "mcp", "server.js");
 const FIXTURE = path.join(root, "test", "fixtures", "universe.sample.json");
+// The fixture's matchups are checked against the engine's remaining games, so the engine's season data is pinned to
+// the build the fixture was written against (see test/fixtures/README.md). Spawned servers inherit it.
+process.env.NFLU_ENGINE_DATA = path.join(root, "test", "fixtures", "engine-data.js");
 const { validate } = require(path.join(root, "mcp", "validate.js"));
 const { createTools } = require(path.join(root, "mcp", "tools.js"));
 const TOOL_NAMES = ["get_games", "get_live_games", "get_injuries", "get_news", "get_events", "get_odds", "get_weather", "get_team", "get_standings",

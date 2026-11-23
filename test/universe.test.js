@@ -1,7 +1,13 @@
 // Pure logic of the command center (src/universe/*), loaded from the built page with no DOM. Run: node test/universe.test.js
 const fs = require("fs"), path = require("path"), assert = require("assert");
 const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"), "utf8");
-const engine = html.match(/<script id="engine">([\s\S]*?)<\/script>/)[1];
+const builtEngine = html.match(/<script id="engine">([\s\S]*?)<\/script>/)[1];
+// The fixtures' matchups are checked against the engine's remaining games, so the season data is pinned to the build
+// they were written against (test/fixtures/README.md). The code under test is still the current build's.
+assert.ok(/^var D=.*$/m.test(builtEngine), "the engine script carries its data on one `var D=` line");
+new Function(builtEngine + ";return simulate")();   // the current build's own data still loads
+const pinnedData = fs.readFileSync(path.join(__dirname, "fixtures", "engine-data.js"), "utf8").trim();
+const engine = builtEngine.replace(/^var D=.*$/m, () => pinnedData);
 const universe = html.match(/<script id="universe">([\s\S]*?)<\/script>/)[1];
 assert.ok(html.indexOf('<script id="engine">') < html.indexOf('<script id="universe">'), "the engine stays the first script");
 assert.ok(!/document|window/.test(engine.replace(/^var D=.*$/m, "")), "the engine script does not touch the DOM");
