@@ -352,6 +352,19 @@ ok(Math.abs(U.helmetScale(false, 0.37) * 24 * 0.37 - 18) < 1e-9, "on a phone-siz
 ok(U.helmetScale(false, 0.05) === 2.4 && U.helmetScale(false, NaN) === 0.95 && U.helmetScale(false, 0) === 0.95, "capped, and safe with no measurement");
 ok(U.LAYERS.some((l) => l.id === "helmets" && l.defaultOn && l.modes.join() === "geo" && l.group === "Teams"), "the Helmets layer is registered, on by default, geographic map only");
 
+// ---- Sleeper fantasy trends and depth-chart starters ----
+const fanPayload = { fantasy: { source: "sleeper-trending", lookbackHours: 24, week: 11, unmatched: { adds: 1, drops: 0 },
+  adds: [{ name: "Fixture Passer", team: "NYG", pos: "QB", count: 500 }, { name: "Nobody", team: "XXX", pos: "QB", count: 9 }, { name: "", team: "NYG", count: 1 }, { name: "Denver Broncos defense", team: "DEN", pos: "DEF", count: 40 }],
+  drops: [{ name: "Fixture Wideout", team: "BUF", pos: "WR", count: 300 }, { name: "NaN count", team: "NYG", count: "x" }] } };
+const FN = U.normFantasy(fanPayload);
+ok(FN.present && FN.week === 11 && FN.lookbackHours === 24 && FN.unmatched.adds === 1, "the fantasy block is read");
+eq(FN.adds.map((x) => [x.name, x.rank]), [["Fixture Passer", 1], ["Denver Broncos defense", 2]], "unknown teams, empty names and bad counts are dropped; ranks count what is kept");
+eq(U.teamFantasy(FN, idx("NYG")).adds.map((x) => x.name), ["Fixture Passer"], "one team's entries");
+eq(U.teamFantasy(FN, idx("BUF")).drops.map((x) => x.count), [300], "and its drops");
+ok(U.normFantasy(null).present === false && U.normFantasy({}).adds.length === 0 && U.buildModel(live).fantasy.present === false, "no block: marked absent");
+eq([U.starterNote({ starter: true, starterSource: "depth chart" }), U.starterNote({ starter: false, starterSource: "depth chart" }), U.starterNote({ starter: true, starterSource: "last start" }), U.starterNote({ starter: null }), U.starterNote({ starter: true }), U.starterNote(null)],
+  [" · starter (depth chart)", " · backup (depth chart)", " · starter (started last game)", "", " · starter", ""], "starter labels say where they come from");
+
 // ---- estimated event times (data.tsEstimated): flagged, with the gap when the feed gives one ----
 ok(U.estimateNote({ data: {} }) === null && U.estimateNote({}) === null && U.estimateNote(null) === null && U.estimateNote({ data: { tsEstimated: "yes" } }) === null, "only a real estimate flag counts");
 ok(U.estimateNote({ data: { tsEstimated: true } }) === "Estimated time.", "an estimate without a gap");

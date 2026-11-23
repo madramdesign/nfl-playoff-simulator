@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -42,6 +42,11 @@
 - **Command center (`src/universe/`):** map (geographic, divisions, intelligence), 17 layers, URL state, time ranges, intelligence feed, games strip, ticker, team and game panels, system health, rule-based brief, simulation in a Web Worker (20,000 seasons, 100,000 on request).
 - **MCP server (`mcp/`):** 14 read-only tools over stdio.
 - **Server hardening:** localhost binding, Host check on the API, malformed-request handling, `<` escaped in embedded data.
+
+## Nov. 23 (on `main`): depth charts, player crosswalk, Sleeper trends
+- New public sources `nflverse-depth`, `nflverse-rosters`, `sleeper-trending` (registry rows with terms and Nov. 23 checks). Injured players get starter or backup from the current depth chart; each team panel shows its players among Sleeper's 25 most added and dropped (24 hours), credited to Sleeper.
+- Checked: real sources in a fresh run (4.3 s; contract and public-snapshot checks clean; 142 of 143 injured players matched by id; all 50 trending players named); the Raiders panel in the browser.
+- Not done: an MCP tool for the trends; the depth charts shown as charts (only used for starter labels so far); the 80 MB depth file has not been tried from the cloud refresh, which already could not reach some sources.
 
 ## Nov. 23 (on `main`): helmets on the map
 - New default layer on the geographic map: on a game day both teams' helmets at the stadium, facing each other; live games pulse and show the score; teams not playing are at home. Our own helmet drawing in team colours (club logos are not openly licensed: `NFL_DATA_SOURCE_REGISTRY.md`). Code: `src/universe/07-helmets.js`; the page's team entries now carry the second colour (`alt`).

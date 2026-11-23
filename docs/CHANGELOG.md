@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-23 (new sources: depth charts, player crosswalk, Sleeper trends)
+- Three free, keyless sources wired into the data fabric, all public scope: nflverse depth charts (`nflverse-depth`, the newest snapshot per team from an 80 MB season file, every 12 hours), nflverse weekly rosters (`nflverse-rosters`, the player crosswalk across nflverse, ESPN and Sleeper ids) and Sleeper's trending players (`sleeper-trending`, 24-hour adds and drops, hourly).
+- Injured players are now marked starter or backup from their team's current depth chart, matched by player id (142 of 143 on Nov. 23); the descriptive injury burden uses it. The page labels each injured player and says where the label comes from.
+- New optional `fantasy` block in `/api/universe` and the public snapshot, checked by the contract; each team panel shows its players among Sleeper's most added and dropped, credited to Sleeper.
+- 6 new fabric tests and 6 new page checks; five deliberately broken versions each caught. Checked against the real sources (4.3 s, contract clean) and in the browser.
+
 ## 2026-11-23 (map: helmets where teams play today)
 - New default map layer "Helmets: where teams play today" (geographic map). On a game day both teams' helmets stand at the game's stadium (the visiting team in the home team's city, or at the neutral site), facing each other; a live game gets a pulse and its score, a finished one its final score. Teams not playing today stay at home. The schedule gives no travel or practice locations, so none are shown.
 - The helmet is this project's own drawing in each team's two colours from `shared/teams.json`, not a club logo or helmet design (no club marks are openly licensed; see the source registry).

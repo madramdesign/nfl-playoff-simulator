@@ -64,6 +64,29 @@ const ESPN_INJ = { injuries: [{ id: "19", injuries: [
   { status: "Injured Reserve", date: "2026-11-20T01:38Z", athlete: { displayName: "Fixture Corner", position: { abbreviation: "CB" } }, details: {} },
   { status: "Out", date: "2026-11-20T01:38Z", athlete: { displayName: "Gabe Fixture", position: { abbreviation: "WR" } }, details: {} },
   { status: "Active", athlete: { displayName: "Healthy Player" } }] }] };
+// Depth charts and weekly rosters in nflverse's real column layout (checked Nov. 23, 2026); rows deliberately out of
+// date order, an older NYG snapshot, and an unknown team.
+const DEPTH_CSV = [
+  "dt,team,player_name,espn_id,gsis_id,pos_grp_id,pos_grp,pos_id,pos_name,pos_abb,pos_slot,pos_rank",
+  "2026-11-20T10:00:00Z,NYG,Fixture Corner,,00-0000002,1,Base 3-4 D,1,Left Cornerback,LCB,1,1",
+  "2026-11-22T10:00:00Z,NYG,Fixture Passer,123,00-0000001,2,3WR 1TE,1,Quarterback,QB,1,1",
+  "2026-11-22T10:00:00Z,NYG,Backup Passer,,00-0000004,2,3WR 1TE,1,Quarterback,QB,1,2",
+  "2026-11-22T10:00:00Z,NYG,Fixture Corner,,00-0000002,1,Base 3-4 D,1,Left Cornerback,LCB,1,2",
+  "2026-11-22T10:00:00Z,NYG,Fixture Returner,,00-0000006,3,Special Teams,3,Kick Returner,KR,1,1",
+  "2026-11-21T09:00:00Z,KC,Fixture Tackle,,00-0000005,2,3WR 1TE,4,Left Tackle,LT,1,1",
+  "2026-11-22T09:00:00Z,XXX,Nobody,,,2,3WR 1TE,1,Quarterback,QB,1,1",
+].join("\n");
+const ROSTER_CSV = [
+  "season,team,position,status,full_name,gsis_id,espn_id,sleeper_id,week",
+  "2026,NYG,QB,ACT,Fixture Passer,00-0000001,123,111,10",
+  "2026,NYG,QB,ACT,Fixture Passer,00-0000001,123,111,11",
+  "2026,BUF,WR,ACT,Fixture Wideout,00-0000009,,222,11",
+  "2026,NYG,CB,ACT,Fixture Corner,00-0000002,,,11",
+  "2025,NYG,QB,ACT,Old Season,00-0000010,,333,17",
+].join("\n");
+const SLEEPER_STATE = { week: 11, season: "2026", season_type: "regular" };
+const SLEEPER_ADD = [{ player_id: "111", count: 500 }, { player_id: "DEN", count: 40 }, { player_id: "999", count: 10 }, { player_id: "111", count: 1 }, { player_id: "bad id!", count: 5 }, { count: 3 }, { player_id: "777", count: -4 }];
+const SLEEPER_DROP = [{ player_id: "222", count: 300 }];
 const TX = { transactions: [{ date: "2026-11-20T08:00Z", description: "Placed QB Fixture Passer on injured reserve.", team: { id: "19" } }, { date: "2026-11-20T08:00Z", description: "Waived RB Nobody.", team: { id: "999" } }] };
 const SUMMARY = { header: { competitions: [{ status: { period: 3, displayClock: "8:03", type: { state: "in" } }, competitors: [{ homeAway: "home", score: "17", team: { abbreviation: "BUF" } }, { homeAway: "away", score: "10", team: { abbreviation: "MIA" } }] }] },
   winprobability: [{ homeWinPercentage: 0.8 }, { homeWinPercentage: 0.84 }, { homeWinPercentage: 7 }],
@@ -221,6 +244,11 @@ function fakeFetch(broken = new Set()) {
     for (const k of broken) if (url.includes(k)) return { ok: false, status: 503, json: async () => ({}), text: async () => "" };
     if (host.includes("nfldata")) return body(null, GAMES_CSV);
     if (host.includes("injuries_")) return body(null, INJ_CSV);
+    if (host.includes("depth_charts_")) return body(null, DEPTH_CSV);
+    if (host.includes("roster_weekly_")) return body(null, ROSTER_CSV);
+    if (host.endsWith("api.sleeper.app/v1/state/nfl")) return body(SLEEPER_STATE);
+    if (host.endsWith("/trending/add")) return body(SLEEPER_ADD);
+    if (host.endsWith("/trending/drop")) return body(SLEEPER_DROP);
     if (host.includes("open-meteo")) { const n = new URL(url).searchParams.get("latitude").split(",").length; return body(n === 1 ? meteo(1, 9)[0] : meteo(n, 9)); }
     if (host.includes("yahoo") || host.includes("espn.com/espn/rss")) return body(null, RSS);
     if (host.endsWith("/scoreboard")) return body(SB);
@@ -373,6 +401,75 @@ test("the heartbeat checks every 20 s in a game window and every 5 min otherwise
   const done = JSON.parse(JSON.stringify(SB));
   done.events.forEach((e) => { e.competitions[0].status = { period: 4, displayClock: "0:00", type: { state: "post" } }; });
   assert.deepStrictEqual(await run(done), [0, 300000, 300000], "no window: every 5 minutes");
+});
+test("depth charts: each team's newest snapshot only, by rank; bad input is refused", () => {
+  const d = pub.normalizeDepthCharts(DEPTH_CSV);
+  assert.deepStrictEqual(d.asOf, { NYG: "2026-11-22T10:00:00Z", KC: "2026-11-21T09:00:00Z" }, "newest snapshot per team, rows out of date order; unknown teams dropped");
+  assert.strictEqual(d.teams.NYG.length, 4, "the older NYG snapshot is left out");
+  assert.strictEqual(d.teams.NYG.find((r) => r.name === "Fixture Corner").rank, 2, "rank from the newest snapshot");
+  assert.deepStrictEqual(d.teams.NYG.find((r) => r.name === "Fixture Passer"), { name: "Fixture Passer", gsisId: "00-0000001", espnId: "123", group: "3WR 1TE", slot: "QB", rank: 1 });
+  assert.throws(() => pub.normalizeDepthCharts("team,dt\nNYG,x"), /unexpected columns/);
+  assert.throws(() => pub.normalizeDepthCharts(""), /no rows/);
+  assert.throws(() => pub.normalizeDepthCharts(DEPTH_CSV.split("\n")[0] + "\n2026-11-22T10:00:00Z,XXX,Nobody,,,1,g,1,n,QB,1,1"), /no usable rows/);
+});
+test("weekly rosters: the newest week of the season, indexed by nflverse and Sleeper ids", () => {
+  const r = pub.normalizeRosters(ROSTER_CSV, 2026);
+  assert.strictEqual(r.week, 11);
+  assert.strictEqual(r.players, 3, "three players in week 11; last season's row is ignored");
+  assert.deepStrictEqual(r.bySleeper["111"], { name: "Fixture Passer", team: "NYG", pos: "QB", status: "ACT", gsisId: "00-0000001", espnId: "123", sleeperId: "111" });
+  assert.ok(!r.bySleeper["333"] && r.bySleeper["222"].team === "BUF" && r.byGsis["00-0000002"].sleeperId === null, "no Sleeper id: indexed by nflverse id only");
+  assert.throws(() => pub.normalizeRosters(ROSTER_CSV, 2030), /no roster rows/);
+});
+test("Sleeper: state and trending lists are checked, de-duplicated, and team defences recognised", () => {
+  const sl = require(path.join(root, "lib/fabric/adapters/sleeper.js"));
+  assert.deepStrictEqual(sl.normalizeState(SLEEPER_STATE), { week: 11, season: 2026, seasonType: "regular" });
+  assert.throws(() => sl.normalizeState({ week: "x" }), /no week/);
+  assert.throws(() => sl.normalizeState(null), /not an object/);
+  assert.deepStrictEqual(sl.normalizeTrending(SLEEPER_ADD), [{ sleeperId: "111", count: 500, defense: null }, { sleeperId: "DEN", count: 40, defense: "DEN" }, { sleeperId: "999", count: 10, defense: null }],
+    "duplicates, bad ids, missing ids and negative counts dropped");
+  assert.throws(() => sl.normalizeTrending({}), /not a list/);
+  assert.ok(/lookback_hours=24&limit=25$/.test(sl.URLS.trending("add")) && sl.URLS.state === "https://api.sleeper.app/v1/state/nfl", "read-only endpoints, 24 hours, top 25");
+});
+test("depth charts mark injured starters; Sleeper trends are named through the roster crosswalk", async () => {
+  const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch() });
+  const u = await f.universe();
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  const nyg = u.injuries.NYG, p = (n) => nyg.players.find((x) => x.name === n);
+  assert.strictEqual(nyg.depthAsOf, "2026-11-22T10:00:00Z");
+  assert.ok(p("Fixture Passer").starter === true && p("Fixture Passer").starterSource === "depth chart" && p("Fixture Passer").depthRank === 1, "matched by ESPN id: starter");
+  assert.ok(p("Fixture Corner").starter === false && p("Fixture Corner").depthRank === 2, "rank 2 on the newest chart: backup, though an older chart had him first");
+  assert.strictEqual(p("Backup Passer").starter, false);
+  assert.strictEqual(nyg.qbOut, true, "the depth chart's starting quarterback is out");
+  assert.deepStrictEqual(u.fantasy, { source: "sleeper-trending", lookbackHours: 24, week: 11,
+    adds: [{ name: "Fixture Passer", team: "NYG", pos: "QB", count: 500, sleeperId: "111", gsisId: "00-0000001" }, { name: "Denver Broncos defense", team: "DEN", pos: "DEF", count: 40, sleeperId: "DEN", gsisId: null }],
+    drops: [{ name: "Fixture Wideout", team: "BUF", pos: "WR", count: 300, sleeperId: "222", gsisId: "00-0000009" }], unmatched: { adds: 1, drops: 0 }, crosswalk: "nflverse-rosters" },
+    "named through the crosswalk; a defence by its team; a player the crosswalk lacks is counted, not named");
+  const pubU = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch() }).universe();
+  assert.deepStrictEqual(C.validatePublicSnapshot(pubU, T), [], "all three sources are public: allowed in the published snapshot");
+  assert.ok(pubU.fantasy && pubU.injuries.NYG.depthAsOf, "and present there");
+});
+test("each new source can fail alone", async () => {
+  const noSleeper = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["api.sleeper.app"])) }).universe();
+  assert.ok(!("fantasy" in noSleeper) && noSleeper.sources["sleeper-trending"].status === "down", "Sleeper down: no fantasy block, the source reported down");
+  assert.deepStrictEqual(C.validateUniverse(noSleeper, T), []);
+  const noRoster = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["roster_weekly_"])) }).universe();
+  assert.deepStrictEqual(noRoster.fantasy.adds.map((x) => x.name), ["Denver Broncos defense"], "no crosswalk: only the team defence can be named");
+  assert.deepStrictEqual(noRoster.fantasy.unmatched, { adds: 2, drops: 1 });
+  assert.strictEqual(noRoster.fantasy.crosswalk, null);
+  const noDepth = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["depth_charts_"])) }).universe();
+  assert.ok(noDepth.injuries.NYG.depthAsOf === null && noDepth.injuries.NYG.players.every((x) => x.starterSource !== "depth chart"), "no depth chart: the older starter rules apply");
+  assert.strictEqual(noDepth.injuries.NYG.players.find((x) => x.name === "Fixture Passer").starter, true, "the last starting quarterback is still known");
+});
+test("the contract checks the fantasy block", () => {
+  const ok = { v: 1, generatedAt: "2026-11-22T00:00:00Z", season: 2026, week: 11, seasonType: "regular", sources: { "sleeper-trending": { id: "sleeper-trending", label: "x", tier: 2, scope: "public", status: "ok", breaker: "closed", lastOk: null, lastError: null, ageSec: 0, latencyMs: 1, fails: 0, records: 1, maxStaleSec: 1 } },
+    games: [], events: [], injuries: {}, transactions: [], fantasy: { source: "sleeper-trending", lookbackHours: 24, week: 11, adds: [{ name: "A", team: "NYG", pos: "QB", count: 5, sleeperId: "1" }], drops: [], unmatched: { adds: 0, drops: 0 } } };
+  const errsFor = (patch) => C.validateUniverse(Object.assign({}, ok, { fantasy: Object.assign({}, ok.fantasy, patch) }), T).filter((e) => /fantasy/.test(e));
+  assert.deepStrictEqual(errsFor({}), []);
+  assert.ok(errsFor({ adds: [{ name: "A", team: "XXX", count: 5, sleeperId: "1" }] }).length, "unknown team");
+  assert.ok(errsFor({ adds: [{ name: "", team: "NYG", count: -1, sleeperId: "" }] }).length >= 3, "empty name, negative count, no id");
+  assert.ok(errsFor({ source: "nowhere" }).length && errsFor({ unmatched: null }).length && errsFor({ lookbackHours: 0 }).length && errsFor({ drops: "x" }).length);
+  const loc = JSON.parse(JSON.stringify(ok)); loc.sources["sleeper-trending"].scope = "local";
+  assert.ok(C.validatePublicSnapshot(loc, T).some((e) => /^fantasy: from non-public/.test(e)), "a local fantasy source never reaches a public snapshot");
 });
 test("headlines without a publication time keep their first-seen time", async () => {
   const os = require("os"), fs = require("fs");

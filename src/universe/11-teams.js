@@ -55,6 +55,13 @@ function bars(rows) {
     return el("div", { class: "u-barrow" + (r[2] ? " " + r[2] : "") }, [el("span", { text: r[0] }), el("div", { class: "u-bar" }, [el("i", { style: { width: (mx ? r[1] / mx * 100 : 0).toFixed(1) + "%" } })]), el("span", { class: "u-num", text: fmtPct(r[1]) })]);
   }));
 }
+// Pure: " · starter" / " · backup" for an injured player, with where that comes from; "" when unknown.
+function starterNote(p) {
+  if (!p || (p.starter !== true && p.starter !== false)) return "";
+  var src = p.starterSource === "depth chart" ? "depth chart" : p.starterSource === "last start" ? "started last game" : p.starterSource === "ESPN" ? "ESPN" : null;
+  return " · " + (p.starter ? "starter" : "backup") + (src ? " (" + src + ")" : "");
+}
+NFLU.starterNote = starterNote;
 function section(title, kids, id) { return el("section", { class: "u-sec", id: id || null }, [el("h3", { text: title }), kids]); }
 function renderTeamCenter(i, body) {
   var st = store.get(), T = TEAMS[i], r = st.sim && st.sim.r, M = st.model, rec = recordOf(i, M), seed = seedToday(i), late = feedFinalsCount(M);
@@ -91,9 +98,19 @@ function renderTeamCenter(i, body) {
   var injKids = [];
   if (inj) {
     injKids.push(el("p", { class: "u-note", text: "Burden index " + inj.burden.toFixed(2) + ": " + (inj.out || 0) + " out, " + (inj.doubtful || 0) + " doubtful, " + (inj.questionable || 0) + " questionable, " + (inj.ir || 0) + " on injured reserve. Descriptive only, not part of the forecast." }));
-    injKids.push(el("ul", { class: "u-list" }, (inj.players || []).map(function (p) { return el("li", {}, [el("b", { text: p.name }), " " + (p.pos || "") + " · " + p.status + (p.type ? " (" + p.type + ")" : "") + (p.source ? " · " + sourceLabel(p.source) : "")]); })));
+    injKids.push(el("ul", { class: "u-list" }, (inj.players || []).map(function (p) { return el("li", {}, [el("b", { text: p.name }), " " + (p.pos || "") + " · " + p.status + (p.type ? " (" + p.type + ")" : "") + starterNote(p) + (p.source ? " · " + sourceLabel(p.source) : "")]); })));
+    if (inj.depthAsOf && isFinite(Date.parse(inj.depthAsOf))) injKids.push(el("p", { class: "u-note", text: "Starter or backup: from the team's depth chart (nflverse), as of " + new Date(Date.parse(inj.depthAsOf)).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "." }));
   } else injKids.push(el("p", { class: "u-note", text: st.payload ? "No injury report for this team in the current data. That is not the same as no injuries." : "No injury feed: no server and no embedded snapshot." }));
   body.appendChild(section("Injuries", injKids));
+  var fan = M && M.fantasy;
+  if (fan && fan.present) {
+    var tf = teamFantasy(fan, i), hrs = fan.lookbackHours || 24, fkids = [];
+    var line = function (x, verb) { return el("li", {}, [el("b", { text: x.name }), " " + (x.pos || "") + " · " + verb + " in " + x.count.toLocaleString() + " leagues (No. " + x.rank + " of " + (verb === "added" ? fan.adds : fan.drops).length + ")"]); };
+    if (tf.adds.length || tf.drops.length) fkids.push(el("ul", { class: "u-list" }, tf.adds.map(function (x) { return line(x, "added"); }).concat(tf.drops.map(function (x) { return line(x, "dropped"); }))));
+    else fkids.push(el("p", { class: "u-note", text: "None of this team's players is among the " + fan.adds.length + " most added or " + fan.drops.length + " most dropped." }));
+    fkids.push(el("p", { class: "u-credit", text: "Trending data: Sleeper, last " + hrs + " hours across Sleeper fantasy leagues. Fan activity, not news or a forecast." }));
+    body.appendChild(section("Fantasy trends", fkids));
+  }
   var evs = (M ? M.events : []).filter(function (e) { return e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
   body.appendChild(section("News and transactions", evs.length ? el("ul", { class: "u-evlist" }, eventRows(evs, now).rows) : el("p", { class: "u-note", text: "No events for this team in the current data." })));
   body.appendChild(teamMediaSection(i));

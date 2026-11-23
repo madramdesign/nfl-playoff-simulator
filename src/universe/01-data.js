@@ -122,13 +122,37 @@ function buildEvents(payload) {
 }
 
 // ---- the whole model for one payload ----
+// Pure: the payload's fantasy block (Sleeper's most added and dropped players), checked again here. Each list keeps
+// Sleeper's order; `rank` is the 1-based place in it. present is false when the payload has no block.
+function normFantasy(payload) {
+  var f = payload && payload.fantasy && typeof payload.fantasy === "object" ? payload.fantasy : null;
+  var out = { present: !!f, week: null, lookbackHours: null, adds: [], drops: [], unmatched: { adds: 0, drops: 0 }, source: null };
+  if (!f) return out;
+  out.week = Number.isInteger(f.week) ? f.week : null;
+  out.lookbackHours = num(f.lookbackHours);
+  out.source = typeof f.source === "string" ? f.source : null;
+  ["adds", "drops"].forEach(function (k) {
+    (Array.isArray(f[k]) ? f[k] : []).forEach(function (x) {
+      if (!x || typeof x !== "object" || typeof x.name !== "string" || !x.name || TIDX[x.team] == null || num(x.count) == null) return;
+      out[k].push({ name: x.name, team: TIDX[x.team], pos: typeof x.pos === "string" ? x.pos : "", count: num(x.count), rank: out[k].length + 1 });
+    });
+    if (f.unmatched && num(f.unmatched[k]) != null) out.unmatched[k] = num(f.unmatched[k]);
+  });
+  return out;
+}
+// Pure: one team's entries in the fantasy lists.
+function teamFantasy(F, i) {
+  var pick = function (l) { return (l || []).filter(function (x) { return x.team === i; }); };
+  return { adds: pick(F && F.adds), drops: pick(F && F.drops) };
+}
+NFLU.normFantasy = normFantasy; NFLU.teamFantasy = teamFantasy;
 function buildModel(payload) {
   var g = buildGames(payload), inj = dict(), srcs = dict();
   if (payload && payload.sources) Object.keys(payload.sources).forEach(function (k) { var s = payload.sources[k]; if (s && typeof s === "object") srcs[k] = s; });
   if (payload && payload.injuries) Object.keys(payload.injuries).forEach(function (a) { var t = payload.injuries[a]; if (TIDX[a] != null && t && typeof t === "object") inj[TIDX[a]] = t; });
   var gameByKey = dict();
   g.games.forEach(function (x) { gameByKey[x.key] = x; if (x.gid) gameByKey[x.gid] = x; if (x.id) gameByKey[x.id] = x; });
-  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload),
+  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload),
     generatedAt: payload ? Date.parse(payload.generatedAt) : null, fixture: !!(payload && payload._fixture), season: payload ? payload.season : null };
 }
 // Loose shape check for a payload from the network: the full contract lives in lib/contract.js (server side).
