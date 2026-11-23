@@ -34,7 +34,7 @@ Everything ships as one static HTML file (about 80 KB). There is no backend stat
 
 - Three views of team strength: sportsbook-spread ratings, results ratings (opponent-adjusted scoring margin with fumble luck removed, plus EPA), and an even blend. A posted moneyline overrides ratings for that game.
 - 8,000 simulated seasons per run; picks and what-if strength changes feed straight in.
-- NFL tiebreakers through strength of schedule, then simulated scores for the points steps.
+- NFL tiebreakers through strength of schedule, then real and simulated scores for the points steps: combined points rankings, net points in common games (division) or conference games (wild card), net points in all games (the two middle steps were added Nov. 23, 2026). Net touchdowns is still skipped: no touchdown data, and no touchdown model for unplayed games.
 - Playoff bracket to the Super Bowl, seed odds, draft order with traded picks, schedule strength, clinch and elimination flags.
 - Elo as a displayed second opinion.
 
