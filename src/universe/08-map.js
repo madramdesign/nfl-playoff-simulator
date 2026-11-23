@@ -348,7 +348,8 @@ function drawMap() {
   var now = refNow(), ctx = {
     mode: mode, k: mode === "geo" ? view.k : 1, detail: mode !== "geo" || view.k >= DETAIL_K, pos: positions(mode, po), po: po, r0: simr || null,
     r: mode === "div" ? 9 : mode === "intel" ? 7.5 : 6.5, M: st.model, now: now, range: st.timeRange,
-    events: focusEvents(searchEvents(filterByTime(st.model ? st.model.events : [], st.timeRange, now), q), fset), query: q, sel: { team: selTeam, game: st.game },
+    // [S-C time machine] event badges follow the replay (18-history.js); ctx.now stays the real now for games and lines
+    events: focusEvents(searchEvents(filterByTime(feedSource(st), st.timeRange, feedNow(st)), q), fset), phrase: rangePhrase(st), query: q, sel: { team: selTeam, game: st.game },
     dim: function (i) { return (!!match && !match[i]) || (!!fset && !fset[i]); }
   };
   drawBase(mode, po);

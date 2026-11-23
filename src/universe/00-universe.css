@@ -427,3 +427,33 @@ a.u-tk:hover{text-decoration:underline}
 .u-fopen{margin-left:auto;padding:4px 9px}
 .u-table tr.is-focus td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
 @media (max-width:640px){.u-focus{padding:6px 16px}.u-fnote{flex-basis:100%;margin-left:0}.u-fopen{margin-left:0}}
+
+/* ---- [S-C time machine] replay control in the rail and the replay banner (src/universe/18-history.js) ---- */
+.u-hist{margin-top:8px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.u-hist-label{font:600 11px var(--body);color:var(--ink)}
+.u-hist-when{width:100%;min-width:0;box-sizing:border-box;font:500 12.5px var(--body);color:var(--ink);background:var(--u-panel2);border:1px solid var(--line);border-radius:7px;padding:5px 8px}
+.u-hist-slide{width:100%;min-width:0;margin:0;accent-color:var(--accent)}
+.u-hist-when:disabled,.u-hist-slide:disabled{opacity:.5;cursor:not-allowed}
+.u-hist-row{display:flex;align-items:center;flex-wrap:wrap;gap:6px 8px}
+.u-hist-state{font-size:11.5px;color:var(--muted);min-width:0}
+html.u-replaying .u-hist-state{color:var(--u-warn);font-weight:600}
+.u-hist .u-note{margin:0}
+.u-replay{display:flex;align-items:center;flex-wrap:wrap;gap:4px 12px;padding:7px 16px;background:var(--u-warnbg);color:var(--ink);border-bottom:2px solid var(--u-warn);position:sticky;top:0;z-index:29}
+.u-replay[hidden]{display:none}
+.u-rp-main{margin:0;font:600 13px var(--body);min-width:0}
+.u-rp-tag{display:inline-block;font:700 10.5px var(--display);letter-spacing:.12em;text-transform:uppercase;color:var(--u-warnbg);background:var(--u-warn);border-radius:4px;padding:2px 6px;margin-right:8px;vertical-align:1px}
+.u-rp-info{margin:0;flex-basis:100%;font-size:11.5px;line-height:1.4;color:var(--ink)}
+.u-replay .u-rp-back{background:var(--u-panel)}
+.u-replaynote{font-weight:600}
+html.u-replaying .u-tk-label{color:var(--u-warn)}
+html.u-replaying #uFeedHost .u-panel{box-shadow:inset 0 2px 0 var(--u-warn)}
+/* the feed's freshness badge describes its sources now; during a replay it reads REPLAY instead */
+html.u-replaying #uFeedHost .u-phead .u-badge{font-size:0;border-color:var(--u-warn)}
+html.u-replaying #uFeedHost .u-phead .u-badge::after{content:"REPLAY · not live";font-size:10px;color:var(--u-warn)}
+@media (max-width:1099px){.u-replay.is-min .u-rp-info{display:none}}
+@media (min-width:1100px){
+  .u-replay{position:static;flex:0 0 auto}
+  .u-rp-more{display:none}
+  html.u-drawer-open .u-replay{padding-right:calc(min(470px,100vw) + 16px)}
+}
+@media (max-width:560px){.u-replay{padding:6px 16px}.u-rp-main{font-size:12.5px}.u-rp-info{font-size:11px}}

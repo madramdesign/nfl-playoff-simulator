@@ -351,4 +351,98 @@ const pPlay = { audio: OMNY, url: "https://omny.fm/shows/fixture/ep-1" };
 eq([U.podcastAction(pPlay, false), U.podcastAction(pPlay, true), U.podcastAction({ audio: OMNY, url: null }, true), U.podcastAction({ audio: null, url: pPlay.url }, false), U.podcastAction({}, true)],
   ["play", "page", "file", "page", "none"], "episodes play in the page unless the host blocks audio; then the episode page, else the feed's own audio file");
 
+// ---- [S-C time machine] replaying the feed as of an earlier moment (src/universe/18-history.js); synthetic events only ----
+{
+  const T0 = Date.parse("2025-11-22T18:00:00Z"), HR = 3600e3, isoAt = (h) => new Date(T0 + h * HR).toISOString();
+  // tsH: when it happened, seenH: when this system first saw it (hours from T0; null = no first-seen time recorded)
+  const rawEv = (id, tsH, seenH, teams, extra) => Object.assign({ id, type: "news", ts: isoAt(tsH), teams, title: "Synthetic " + id, url: "https://example.test/" + id,
+    source: "rss-fixture", publisher: "Fixture", importance: 50, confidence: 0.7, sourceCount: 1, sources: [] }, seenH == null ? {} : { seenAt: isoAt(seenH) }, extra || {});
+  const rawList = [rawEv("seen-before", -3, -2, ["NYG"]), rawEv("happened-before-seen-after", -5, 1, ["DAL"]), rawEv("old", -30, -29, ["BUF"]), rawEv("later", 2, 2, ["NYG"]),
+    rawEv("no-seen", -4, null, ["NYG"]), rawEv("seen-at-T", -1, 0, ["PHI"]), rawEv("afc", -3, -2, ["BUF"], { importance: 90 })];
+  const evs = U.historyEvents(null, [], rawList, []), ids = (l) => l.map((e) => e.id).sort();
+
+  // asOf in the URL: strict form, canonical minute, nothing malformed, nothing in the future
+  const nowT = T0 + 10 * HR;
+  eq(U.parseAsOf("2025-11-22T18:00Z", nowT), "2025-11-22T18:00Z", "a UTC minute is a valid replay time");
+  eq([U.parseAsOf("2025-11-22T18:00:59Z", nowT), U.parseAsOf("2025-11-22T18:00:59.999Z", nowT)], ["2025-11-22T18:00Z", "2025-11-22T18:00Z"], "seconds are dropped, never rounded up");
+  ok(U.asOfMs("2025-11-22T18:00Z") === T0 && U.toAsOf(T0 + 59999) === "2025-11-22T18:00Z", "the canonical form converts to and from milliseconds");
+  ["2025-11-22", "2025-11-22T18:00", "2025-11-22T18:00+01:00", "2025-11-22 18:00Z", "2025-02-31T10:00Z", "2025-11-22T25:00Z", "2025-13-01T00:00Z", "1999-12-31T23:59Z", "yesterday", "", " 2025-11-22T18:00Z",
+    "2025-11-22T18:00Z<script>", "2025-11-22T18:00Z\n", "1763834400000", 1763834400000, null, undefined, {}, ["2025-11-22T18:00Z"]]
+    .forEach((v) => ok(U.parseAsOf(v, nowT) === null, "malformed replay time dropped: " + JSON.stringify(v)));
+  ok(U.parseAsOf(U.toAsOf(nowT + 60e3), nowT) === null && U.parseAsOf("2999-01-01T00:00Z") === null, "a replay time in the future is dropped");
+  ok(U.parseAsOf(U.toAsOf(nowT), nowT) === U.toAsOf(nowT), "the present minute is allowed");
+  const allowT = Object.assign({ now: nowT }, allow);
+  eq(U.parseUrlState("?asOf=2025-11-22T18:00Z&timeRange=24h", allowT), { timeRange: "24h", asOf: "2025-11-22T18:00Z" }, "?asOf= is read from the URL");
+  eq(U.parseUrlState(U.serializeUrlState({ asOf: "2025-11-22T18:00Z", focus: "NYG" }, defaults), allowT), { focus: "NYG", asOf: "2025-11-22T18:00Z" }, "asOf round-trips through the URL beside the focus");
+  eq(U.serializeUrlState(Object.assign({ asOf: null }, defaults), defaults), "", "no replay leaves the URL clean");
+  eq([U.parseUrlState("?asOf=2025-11-22T18%3A00Z", allowT).asOf, U.parseUrlState("?asOf=2025-11-23T09:00Z", allowT).asOf, U.parseUrlState("?asOf=now", allowT).asOf, U.parseUrlState("?asOf=", allowT).asOf],
+    ["2025-11-22T18:00Z", undefined, undefined, undefined], "an encoded colon is fine; a future or malformed asOf is dropped");
+  eq([U.initialState("?asOf=2025-11-22T18:00Z", {}).asOf, U.initialState("?asOf=2999-01-01T00:00Z", {}).asOf, U.initialState("?asOf=%3Cscript%3E", {}).asOf, U.initialState("", {}).asOf],
+    ["2025-11-22T18:00Z", null, null, null], "the page starts in a replay only for a valid past asOf; otherwise now");
+  ok(U.initialState("?asOf=2025-11-22T18:00Z&focus=NFC-EAST&timeRange=24h", {}).focus === "NFC-EAST", "asOf sits beside focus and time range in the initial state");
+
+  // the leakage rule: shown only if first seen at or before T; the event time alone never qualifies
+  const at = U.replayFilter(evs, T0);
+  eq(ids(at.events), ["afc", "old", "seen-at-T", "seen-before"], "shown at T: exactly the items first seen at or before T");
+  ok(evs.some((e) => e.id === "happened-before-seen-after" && e.ts < T0 && e.seen > T0) && !at.events.some((e) => e.id === "happened-before-seen-after"), "an item that happened before T but was first seen after T is hidden");
+  eq([at.later, at.unknown], [2, 1], "two items first seen later are hidden; one with no first-seen time is left out and counted");
+  ok(at.events.every((e) => e.seen <= T0), "nothing shown was seen after T");
+  eq(ids(U.replayFilter(evs, T0 + 1 * HR).events).length, 5, "an hour later, the late-arriving item has arrived");
+  eq([U.replayFilter(evs, T0 - 100 * HR).events.length, U.replayFilter(evs, NaN).events.length, U.replayFilter(null, T0).events.length, U.replayFilter([null, {}, { seen: "x" }], T0).unknown], [0, 0, 0, 3], "before the record, a bad time, no list and malformed items all show nothing");
+
+  // ranges count back from T, not from the real now
+  eq(ids(U.replayWindow(evs, T0, "24h")), ["afc", "seen-at-T", "seen-before"], "24 hours means the 24 hours before T: the 30-hour-old item is out");
+  eq(ids(U.replayWindow(evs, T0, "48h")), ["afc", "old", "seen-at-T", "seen-before"], "48 hours before T reaches it");
+  eq(ids(U.replayWindow(evs, T0, "1h")), ["seen-at-T"], "the last hour before T");
+  eq(U.filterByTime(U.replayFilter(evs, T0).events, "24h", T0 + 400 * HR), [], "the same items fall outside 24 hours counted from a later now, which is why T is the reference");
+  ok(U.replayWindow(evs, T0, "season").length === 4 && U.replayWindow(evs, T0, "bogus").length === 4, "season keeps everything seen by T; an unknown range falls back to the default");
+
+  // composition with focus, type chips and search
+  eq(ids(U.focusEvents(U.replayWindow(evs, T0, "24h"), U.focusSet("NFC-EAST"))), ["seen-at-T", "seen-before"], "focus narrows the replay; the NFC East item seen later stays hidden");
+  eq(ids(U.focusEvents(U.replayWindow(evs, T0, "48h"), U.focusSet("AFC"))), ["afc", "old"], "another focus, same replay");
+  eq(ids(U.focusEvents(U.filterFeed(U.replayFilter(evs, T0).events, ["breaking"], "24h", T0, ""), U.focusSet("BUF"))), ["afc"], "feed chips, range from T and focus compose");
+  eq(ids(U.filterFeed(U.replayFilter(evs, T0).events, [], "7d", T0, "giants")), ["seen-before"], "search composes with the replay");
+  eq(U.tickerEvents(U.focusEvents(U.replayFilter(evs, T0).events, U.focusSet("NYG")), "24h", T0).map((e) => e.id), ["seen-before"], "the ticker reads the same replayed list");
+
+  // the archive merge: one record per id, the earliest first-seen record wins whole
+  const first = rawEv("dup", -6, -5, ["NYG"], { title: "As first recorded", sourceCount: 1 }), revised = rawEv("dup", -6, 3, ["NYG"], { title: "Revised later", sourceCount: 4 });
+  const merged = U.mergeSeen([[revised, rawEv("solo", -1, -1, [])], [first, first], [null, "x", { title: "no id" }], "not a list"]);
+  eq(merged.map((e) => e.id), ["dup", "solo"], "duplicates by id collapse; malformed entries are ignored");
+  ok(merged[0].seenAt === isoAt(-5) && merged[0].title === "As first recorded" && merged[0].sourceCount === 1, "the earliest seenAt wins, with the record as it stood then");
+  eq(U.mergeSeen([[first], [revised]])[0].title, "As first recorded", "whatever the order of the lists");
+  eq(U.mergeSeen([[rawEv("t", 0, 1, [], { title: "first list" })], [rawEv("t", 0, 1, [], { title: "second list" })]])[0].title, "first list", "on a tie the earlier list is kept");
+  eq(U.mergeSeen([[rawEv("m", 0, null, [])], [rawEv("m", 0, 2, [], { title: "has a seen time" })]])[0].title, "has a seen time", "a record with a first-seen time beats one without");
+  eq([U.mergeSeen(null), U.mergeSeen([])], [[], []], "nothing in, nothing out");
+  // the embedded archive: full records, and {id, seenAt} references into the snapshot beside it
+  const snap = [rawEv("in-snap", -2, 4, ["DAL"], { title: "Body from the snapshot" })];
+  const arc = { v: 1, events: [rawEv("arch-only", -8, -7, ["BUF"]), { id: "in-snap", seenAt: isoAt(-1) }, { id: "gone", seenAt: isoAt(-1) }, null, { seenAt: isoAt(-1) }] };
+  eq(U.expandArchive(arc, snap).map((e) => [e.id, e.seenAt, e.title]), [["arch-only", isoAt(-7), "Synthetic arch-only"], ["in-snap", isoAt(-1), "Body from the snapshot"]], "a reference takes its body from the snapshot and its first-seen time from the archive; a dangling one is dropped, not invented");
+  eq([U.expandArchive(null, snap), U.expandArchive({ v: 2, events: [] }, snap), U.expandArchive({ v: 1 }, snap)], [[], [], []], "a missing or unknown archive yields nothing");
+  const all = U.historyEvents(arc, snap, [rawEv("in-snap", -2, 5, ["DAL"]), rawEv("live-only", -1, -0.5, ["NYG"]), { id: "bad", seenAt: isoAt(0) }], []);
+  eq(ids(all), ["arch-only", "in-snap", "live-only"], "archive, snapshot and current payload merge into one list; a record with no title is skipped");
+  ok(all.find((e) => e.id === "in-snap").seen === T0 - HR, "and the archive's earlier first-seen time is the one used");
+  eq(ids(U.replayFilter(all, T0).events), ["arch-only", "in-snap", "live-only"], "so the item counts as seen at T although the live payload saw it later");
+  const span = U.historySpan(all);
+  ok(span.from === T0 - 7 * HR && span.to === T0 - 0.5 * HR && span.n === 3 && U.historySpan([]) === null && U.historySpan([{ seen: NaN }]) === null, "the record's span is its first and last first-seen times; an empty record has none");
+  // the page's own curated news has a date but no first-seen time: left out of a replay and counted, unless the record has the same link
+  const pageA = { id: "page-news-0", type: "news", ts: T0 - 40 * HR, tsMs: T0 - 40 * HR, seen: T0 - 40 * HR, teams: [], players: [], title: "Curated", url: "https://example.test/curated", origin: "page", dateOnly: true, importance: null };
+  const pageB = Object.assign({}, pageA, { id: "page-news-1", url: "https://example.test/arch-only" });
+  const withPage = U.historyEvents(arc, snap, [], [pageA, pageB]), rp = U.replayFilter(withPage, T0);
+  ok(withPage.length === 3 && rp.unknown === 1 && !rp.events.some((e) => e.origin === "page"), "a dated-only curated item is never placed in the replay by its date; a duplicate link is dropped");
+  ok(pageA.seen === T0 - 40 * HR, "and the model's own item is not altered");
+
+  // wording: the banner says what is and is not replayed, where the record begins and what was left out
+  eq(U.replayRangePhrase("7d", null), "in the last 7 days", "the usual range wording when not replaying");
+  eq([U.replayRangePhrase("7d", "Nov 22, 1:00 PM"), U.replayRangePhrase("season", "Nov 22, 1:00 PM")], ["in the 7 days before Nov 22, 1:00 PM", "this season up to Nov 22, 1:00 PM"], "ranges are worded from the replay time");
+  const bt = U.replayBannerText({ when: "Sat, Nov 22, 1:00 PM EST", from: "Fri, Nov 21, 11:06 AM EST", shown: 4, unknown: 2, before: false });
+  eq(bt.main, "Replaying the feed as of Sat, Nov 22, 1:00 PM EST", "the banner names the replay time");
+  ok(/the intelligence feed, the ticker and the map's news, transaction and breaking badges/.test(bt.info) && /Not replayed, still current, because no dated copies of them exist: scores, lines, injuries, the simulation and playoff chances/.test(bt.info), "it lists what is replayed and what stays current");
+  ok(/record begins Fri, Nov 21, 11:06 AM EST/.test(bt.info) && /4 items had been seen by then\./.test(bt.info) && /2 items with no recorded first-seen time are left out\./.test(bt.info), "it gives the record's start, the count seen and the count left out");
+  const bt1 = U.replayBannerText({ when: "x", from: "y", shown: 0, unknown: 1, before: true });
+  ok(/before the record begins, so nothing is shown/.test(bt1.info) && /1 item with no recorded first-seen time is left out/.test(bt1.info) && !/had been seen/.test(bt1.info), "a time before the record says so");
+  ok(/No dated event record is available/.test(U.replayBannerText({ when: "x", from: null, shown: 0, unknown: 0 }).info), "and so does a page with no record");
+  eq(U.feedEmptyText([], "24h", "", U.replayRangePhrase("24h", "Nov 22, 1:00 PM")), "No events in the 24 hours before Nov 22, 1:00 PM.", "the feed's empty message is worded from the replay time");
+  eq(U.feedEmptyText([], "24h", ""), "No events in the last 24 hours.", "and unchanged otherwise");
+}
+
 console.log("ok: command center logic passes (" + n + " checks)");

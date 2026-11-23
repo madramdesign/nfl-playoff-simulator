@@ -107,7 +107,6 @@ function buildRail(host) {
   [["Network", "Team network view: planned for a later phase"], ["Schedule", "Schedule view: planned for a later phase"]].forEach(function (x) { modes.appendChild(el("button", { type: "button", disabled: true, title: x[1], text: x[0] + " · soon" })); });
   var range = el("select", { id: "uRange", "aria-label": "Time range" });
   TIME_RANGES.forEach(function (r) { range.appendChild(el("option", { value: r, text: RANGE_LABEL[r] })); });
-  range.appendChild(el("option", { value: "history", disabled: true, title: "Replaying the feed as it stood at an earlier time needs the dated event archive; planned for a later phase", text: "History (later phase)" }));
   range.addEventListener("change", function () { if (TIME_RANGES.indexOf(range.value) >= 0) store.set({ timeRange: range.value }); });
   var layers = el("div", { class: "u-layers" });
   LAYER_GROUPS.forEach(function (gname) {
@@ -127,7 +126,7 @@ function buildRail(host) {
   host.appendChild(toggle);
   host.appendChild(el("div", { class: "u-railbody" }, [
     el("h3", { text: "Map" }), modes,
-    el("h3", {}, [el("label", { for: "uRange", text: "Time range" })]), range,
+    el("h3", {}, [el("label", { for: "uRange", text: "Time range" })]), range, historyControl(),   // [S-C time machine] 18-history.js
     el("h3", { text: "Layers" }), layers,
     el("h3", { text: "Simulation" }), simBox]));
 }

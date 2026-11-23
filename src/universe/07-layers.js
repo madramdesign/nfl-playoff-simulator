@@ -196,7 +196,7 @@ function renderInjuries(c, g) {
 function renderCounts(c, g, types, cls, slot) {
   var n = {};
   c.events.forEach(function (e) { if (types.indexOf(e.type) < 0) return; e.teams.forEach(function (t) { n[t] = (n[t] || 0) + 1; }); });
-  for (var k in n) badgeAt(c, g, +k, ["e", "se", "sw"][slot - 1] || "e", "u-b-" + cls, c.detail || c.mode !== "geo" ? String(n[k]) : null, TEAMS[+k].name + ": " + n[k] + " " + (cls === "tx" ? "transaction" : "news item") + (n[k] > 1 ? "s" : "") + " " + RANGE_PHRASE[c.range]);
+  for (var k in n) badgeAt(c, g, +k, ["e", "se", "sw"][slot - 1] || "e", "u-b-" + cls, c.detail || c.mode !== "geo" ? String(n[k]) : null, TEAMS[+k].name + ": " + n[k] + " " + (cls === "tx" ? "transaction" : "news item") + (n[k] > 1 ? "s" : "") + " " + (c.phrase || RANGE_PHRASE[c.range]));   // c.phrase: [S-C time machine]
 }
 function renderQB(c, g) {
   TEAMS.forEach(function (t, i) {
