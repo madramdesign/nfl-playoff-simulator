@@ -53,7 +53,7 @@ Gaps: no maintained open-source NFL news aggregator or injury tracker was found.
 Conclusion: no free source gives multi-book line history for a public page. The cheapest workable route is The Odds API's free tier with our own snapshots (open, close and movement come from recording them). That needs a key, so it is the owner's decision.
 
 ## What this changes in the plan
-- **Tiebreakers:** port the three skipped steps from nflseedR's documented procedure (MIT), with attribution and tests.
+- **Tiebreakers:** two of the three skipped steps were implemented on Nov. 23, 2026 from the NFL procedure (net points in common and in conference games); net touchdowns remains. A comparison against nflseedR's documented procedure (MIT) is still open.
 - **Live win probability:** refit a model in the nflfastR style (possession, timeouts, down, distance) only with a backtest, per the house rule.
 - **Players:** a canonical player table needs an id crosswalk; the best candidate is GPL-licensed data, so it waits for an owner decision.
 - **MCP:** follow gtonic/nfl_mcp's idea of a scheduled check that alerts when a source's shape changes, and cyanheads' habit of listing unavailable sources inside each answer.

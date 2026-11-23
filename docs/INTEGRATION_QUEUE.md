@@ -26,8 +26,8 @@
 ## Queue, Nov. 23, 2026
 | Order | Stream | Branch | Review | Merged |
 |---|---|---|---|---|
-| 1 | S-A tiebreakers | agent worktree | pending | no |
-| 2 | S-B calibration | agent worktree | pending | no |
+| 1 | S-A tiebreakers | `worktree-agent-a46ce6d7bb3789620` (`9d22ae8`) | diff read by the orchestrator; `npm test` after merge | yes, Nov. 23 |
+| 2 | S-B calibration | `worktree-agent-a71a23f748c18a6f0` (`8e8fe41`) | diff read by the orchestrator; `npm test` after merge | yes, Nov. 23 |
 | 3 | S-D intelligence depth | agent worktree | pending | no |
 | 4 | S-C time machine | agent worktree | pending | no |
 

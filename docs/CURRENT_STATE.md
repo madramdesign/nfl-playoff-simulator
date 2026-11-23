@@ -36,6 +36,12 @@
 - Checked: `npm test` (227 command-center checks) and a browser look at the NFC East.
 - Four streams dispatched to agents in worktrees: see `docs/AGENT_COORDINATION.md`.
 
+## Nov. 23, 2026: tiebreakers and calibration merged (branch `claude/kind-bohr-75erpe`)
+- S-A: net points in common games (division ties) and in conference games (wild-card ties) are now applied in their official positions. Net touchdowns stays skipped. Same-seed results on the real season were identical before and after over 600,000 seasons; not checked against nflseedR.
+- S-B: `scripts/calibration.py` (`npm run calibration`, test in `npm test`) scores saved forecasts against results with a date-level leakage rule. Real run: 11 games, too few to read anything from.
+- Follow-up done by the orchestrator: `scripts/snapshot.js` now saves every remaining game's home-win chance in each mode (`probs`), and the calibration script scores those as `model: <mode>` series. Before this, snapshots held only the sportsbook probability.
+- `npm test` now has six `ok` lines (late tiebreakers and calibration added).
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.
@@ -78,7 +84,7 @@
 ## Open items
 - Team labels collide in the Northeast; Network and Schedule map modes and History are placeholders.
 - The page is 400 KB (no minification; the snapshot is embedded).
-- Not built yet: depth charts in injury weights beyond the quarterback; player canonical ids (candidate crosswalk is GPL data, owner decision); tiebreaker steps from nflseedR; time-machine replay from `seenAt`.
+- Not built yet: depth charts in injury weights beyond the quarterback; player canonical ids (candidate crosswalk is GPL data, owner decision); net touchdowns as a tiebreaker (no touchdown model for unplayed games); time-machine replay from `seenAt`.
 - Not verified:
   - live loading of the new agents and rules (needs a signed-in session: run `/context` and `/agents`);
   - behavior during a live game.
