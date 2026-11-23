@@ -21,12 +21,12 @@ const margin95 = (n) => r3(1.96 * 0.5 / Math.sqrt(n));   // worst case, at a 50%
 
 // Sources each kind of answer depends on (ids from lib/fabric/index.js). Sources actually referenced by the returned
 // items are added on top, so a new source still shows up.
-const GAME_SOURCES = ["nflverse-games", "espn-scoreboard", "open-meteo"];
+const GAME_SOURCES = ["nflverse-games", "espn-scoreboard", "open-meteo", "nws"];
 const LIVE_SOURCES = ["espn-scoreboard", "nflverse-games"];
 const INJURY_SOURCES = ["nflverse-injuries", "espn-injuries"];
 const NEWS_SOURCES = ["rss-yahoo", "rss-espn", "espn-news", "curated-news"];
 const ODDS_SOURCES = ["nflverse-games", "espn-scoreboard"];
-const WEATHER_SOURCES = ["open-meteo", "nflverse-games", "espn-scoreboard"];
+const WEATHER_SOURCES = ["open-meteo", "nws", "nflverse-games", "espn-scoreboard"];
 
 // What kind of statement each event type is (facts, claims and estimates stay apart: CLAUDE.md).
 const BASIS = {
@@ -310,12 +310,14 @@ const TOOLS = [
     openWorld: true,
     async run(a, ctx) {
       const u = await ctx.universe();
-      const om = statusOf(u, "open-meteo");
+      // the weather source that is answering, if either is (the National Weather Service backs up Open-Meteo)
+      const usable = (s) => s && (s.status === "ok" || s.status === "stale");
+      const om = [statusOf(u, "open-meteo"), statusOf(u, "nws")].find(usable) || statusOf(u, "open-meteo") || statusOf(u, "nws");
       const rows = u.games.map((g) => {
         const row = { id: g.id, gid: g.gid || null, away: g.away, home: g.home, kickoff: g.kickoff, state: g.state, venue: g.venue, indoor: !!(g.venue && g.venue.indoor),
           weather: g.weather ? weatherView(g.weather, u) : null };
         if (!g.weather) row.note = row.indoor ? "Indoor or closed roof; no weather applies." : !om ? "No weather source is in scope." : om.status !== "ok" && om.status !== "stale" ? "The weather source is " + om.status + "." :
-          "No forecast: forecasts are fetched only for outdoor games that have not finished and kick off within 8 days.";
+          "No forecast: forecasts are fetched only for outdoor games that have not finished and kick off within 8 days (about 6 days, and United States stadiums only, when the backup source is in use).";
         return row;
       });
       return ctx.answer([...pick(u, WEATHER_SOURCES), ...refsOf(u, u.games)], { count: rows.length, flagged: rows.filter((r) => r.weather && r.weather.flags.length).map((r) => ({ id: r.id, away: r.away, home: r.home, flags: r.weather.flags })),

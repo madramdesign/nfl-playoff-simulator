@@ -75,3 +75,16 @@ Findings that outlive one agent's context are written down, not kept in conversa
 | Research about other projects | `docs/GITHUB_RESEARCH.md`, `docs/WORLDMONITOR_ARCHITECTURE_ANALYSIS.md` |
 | Something seen in the data, with source and time | an event in `data/fabric/events/` |
 | What a stream did and left open | `docs/AGENT_STATUS/<stream>.md` |
+
+## Nov. 23, 2026 dispatch (orchestrator: main session on `claude/kind-bohr-75erpe`)
+Four implementation agents, each in its own Git worktree branched from the commit that records this table. None may commit `public/index.html` or anything under `data/` (the orchestrator rebuilds the page at integration). Each reports with `docs/AGENT_HANDOFF_TEMPLATE.md`.
+
+| Stream | Agent | Task | May change | Must not change | Test command | Status |
+|---|---|---|---|---|---|---|
+| S-A tiebreakers | simulation | The three skipped tiebreaker steps (net points in common games, in conference games, net touchdowns) where the data supports them | engine script in `src/template.html`, `scripts/build.py` if data is needed, `test/run.js`, tiebreaker docs | `src/universe/*`, `lib/`, `mcp/` | `npm test` | dispatched |
+| S-B calibration | analytics | Track saved forecasts (`data/snapshots/`) against results; a script and a report, no model change | `scripts/calibration.py` (new), `test/` for it, `docs/` | engine, `src/universe/*`, `lib/` | its own test, `npm test` | dispatched |
+| S-C time machine | frontend | Replay the feed as it stood at an earlier time from `seenAt` | `src/universe/18-history.js` (new), small hooks in `15-shell.js`, `99-boot.js`, `09-feed.js`, `00-core.js`, CSS, `server.js` route if needed, `scripts/build.py` embed if needed, tests | engine, `04-intel.js`, `17-watch.js` | `npm test` | dispatched |
+| S-D intelligence depth | intelligence | Watchlist with in-page alerts (dedupe, cooldown), what changed across time windows, conflicting reports side by side | `src/universe/17-watch.js` (new), small hooks in `15-shell.js`, `99-boot.js`, `11-teams.js`, CSS, tests | engine, `18-history.js`, `lib/` unless the payload lacks a field (then stop and report) | `npm test` | dispatched |
+
+Shared files (`99-boot.js`, `15-shell.js`, `00-universe.css`, `test/universe.test.js`): S-C and S-D both touch them. Each keeps its edits there to a few clearly marked lines and appends tests and CSS at the end of the file; the orchestrator resolves the merge.
+

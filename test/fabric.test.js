@@ -143,6 +143,23 @@ test("weather picks the kickoff hour and flags wind and rain", () => {
   const any = w[targets[0].id]; assert.deepStrictEqual(any.flags, ["wind", "rain"]); assert.strictEqual(any.source, "open-meteo");
   assert.throws(() => pub.normalizeWeather(meteo(1, 5), targets), /expected/);
 });
+const NWS_POINT = { properties: { forecastHourly: "https://api.weather.gov/gridpoints/OKX/30,46/forecast/hourly" } };
+const nwsHourly = (kickoff, over = {}) => ({ properties: { periods: [-2, -1, 0, 1, 2].map((h) => Object.assign({ startTime: new Date(Date.parse(kickoff) + h * 3600000).toISOString().replace(".000Z", "+00:00"),
+  temperature: 40 + h, temperatureUnit: "F", windSpeed: "5 mph", probabilityOfPrecipitation: { value: 10 }, shortForecast: "Sunny" }, h === 0 ? over : {})) } });
+test("National Weather Service forecast: kickoff hour, wind ranges, snow wording, bad shapes", () => {
+  const t = { id: "g1", kickoff: "2026-11-29T18:00:00Z", roof: "outdoors" };
+  let w = pub.normalizeNws(nwsHourly(t.kickoff, { temperature: 20, windSpeed: "10 to 20 mph", probabilityOfPrecipitation: { value: 70 }, shortForecast: "Snow Showers Likely" }), t);
+  assert.strictEqual(w.source, "nws"); assert.strictEqual(w.tempF, 20); assert.strictEqual(w.windMph, 20, "the higher figure of a range");
+  assert.deepStrictEqual(w.flags, ["wind", "rain", "snow", "cold"]); assert.strictEqual(w.gustMph, null); assert.strictEqual(w.snowIn, null, "no amounts are invented");
+  w = pub.normalizeNws(nwsHourly(t.kickoff, { temperature: 0, temperatureUnit: "C", windSpeed: "", probabilityOfPrecipitation: { value: null } }), t);
+  assert.strictEqual(w.tempF, 32); assert.strictEqual(w.windMph, null); assert.strictEqual(w.precipProb, null); assert.deepStrictEqual(w.flags, []);
+  assert.strictEqual(pub.normalizeNws(nwsHourly("2026-12-20T18:00:00Z"), t), null, "no forecast hour near kickoff means no forecast");
+  assert.strictEqual(pub.normalizeNws(nwsHourly(t.kickoff), Object.assign({}, t, { roof: "retractable" })).summary, "Retractable roof: may be closed");
+  assert.throws(() => pub.normalizeNws({ properties: {} }, t), /no forecast periods/);
+  assert.strictEqual(pub.nwsHourlyUrl(NWS_POINT), NWS_POINT.properties.forecastHourly);
+  assert.throws(() => pub.nwsHourlyUrl({ properties: { forecastHourly: "https://evil.example/gridpoints/OKX/30,46/forecast/hourly" } }), /no hourly forecast address/, "only an api.weather.gov address is followed");
+  assert.throws(() => pub.nwsHourlyUrl({}), /no hourly forecast address/);
+});
 
 // ---------- ESPN adapters (local scope) ----------
 test("ESPN scoreboard: live state, possession, open and current lines", () => {
@@ -222,6 +239,8 @@ function fakeFetch(broken = new Set()) {
     if (host.includes("nfldata")) return body(null, GAMES_CSV);
     if (host.includes("injuries_")) return body(null, INJ_CSV);
     if (host.includes("open-meteo")) { const n = new URL(url).searchParams.get("latitude").split(",").length; return body(n === 1 ? meteo(1, 9)[0] : meteo(n, 9)); }
+    if (host.startsWith("api.weather.gov/points/")) return host.includes("51.") ? { ok: false, status: 404, json: async () => ({}), text: async () => "" } : body(NWS_POINT);
+    if (host.startsWith("api.weather.gov/gridpoints/")) return body(nwsHourly("2026-11-22T18:00:00Z", { windSpeed: "22 mph", shortForecast: "Windy" }));
     if (host.includes("yahoo") || host.includes("espn.com/espn/rss")) return body(null, RSS);
     if (host.endsWith("/scoreboard")) return body(SB);
     if (host.endsWith("/news")) return body(NEWS);
@@ -240,6 +259,22 @@ test("public fabric output passes the public-snapshot contract", async () => {
   assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
   assert.ok(!Object.keys(u.sources).some((id) => id.startsWith("espn-")), "no ESPN JSON sources in public scope");
   assert.ok(u.events.some((e) => e.type === "weather"), "flagged weather becomes an event");
+  assert.ok(u.games.some((g) => g.weather) && u.games.every((g) => !g.weather || g.weather.source === "open-meteo"), "Open-Meteo is used while it answers");
+  assert.strictEqual(u.sources.nws.status, "ok"); assert.strictEqual(u.sources.nws.records, 0); assert.ok(/Not requested/.test(u.sources.nws.note), "the backup is not asked when it is not needed");
+});
+test("weather falls back to the National Weather Service when Open-Meteo refuses", async () => {
+  const seen = [];
+  const base = fakeFetch(new Set(["open-meteo"]));
+  const f = createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: async (url, o) => { seen.push(url); return base(url, o); } });
+  const u = await f.universe();
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
+  assert.strictEqual(u.sources["open-meteo"].status, "down", "the refused source is still reported down");
+  assert.strictEqual(u.sources.nws.status, "ok"); assert.ok(u.sources.nws.records >= 1 && /Backup for/.test(u.sources.nws.note));
+  const wx = u.games.filter((g) => g.weather);
+  assert.ok(wx.length >= 1 && wx.every((g) => g.weather.source === "nws" && !g.venue.indoor), "outdoor games carry the backup forecast, named as such");
+  const ev = u.events.find((e) => e.type === "weather");
+  assert.ok(ev && ev.source === "nws" && ev.publisher === "National Weather Service" && ev.sources[0].url === "https://www.weather.gov/", "weather events credit the source that gave them");
+  assert.ok(seen.filter((x) => x.includes("api.weather.gov")).every((x) => /^https:\/\/api\.weather\.gov\/(points|gridpoints)\//.test(x)), "only the two documented addresses are called");
 });
 test("full fabric merges ESPN onto nflverse and flags injury disagreement", async () => {
   const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch() });
@@ -352,7 +387,7 @@ test("everything down still yields a valid, empty, honest payload", async () => 
   const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: async () => { throw new Error("offline"); } });
   const u = await f.universe();
   assert.deepStrictEqual(C.validateUniverse(u, T), []);
-  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo"].includes(s.id));
+  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws"].includes(s.id));
   assert.ok(net.length >= 8 && net.every((s) => s.status === "down"), "every network source reports down");
   assert.strictEqual(u.sources["open-meteo"].records, 0); assert.ok(/unavailable/i.test(u.sources["open-meteo"].note || ""), "weather says why it has nothing");
   assert.strictEqual(u.sources["curated-news"].status, "ok", "the local file still reads"); assert.strictEqual(u.games.length, 0);
