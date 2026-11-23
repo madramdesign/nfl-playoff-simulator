@@ -24,6 +24,12 @@
 - Not narrowed by focus: the "What is happening in the NFL?" brief, system health and the simulator view.
 - Checked: `npm test` (217 command-center checks, 20 of them new) and a browser run at desktop and phone widths against the local server.
 
+## Nov. 23, 2026: weather and the cloud refresh fixed (branch `claude/kind-bohr-75erpe`)
+- Cause and fix in DEC-019: hosts allowed on the cloud environment, the refresh now goes through the proxy, and `nws` (National Weather Service) backs up Open-Meteo.
+- Checked: `npm test` (39 fabric tests, 3 new); `npm run refresh` in the cloud container: nflverse, both RSS feeds, curated news, YouTube (127 videos), podcasts (18) and `nws` all ok; Open-Meteo down with "answered 429"; the one unfinished outdoor game carries a National Weather Service forecast.
+- Not checked: the backup with several games at once (only one outdoor game was left this week), an international game, and the scheduled task's own next run.
+- Where the daily refresh runs is now known: the cloud scheduled task "NFL simulator daily refresh", 4:35 a.m. Eastern, in the Default cloud environment.
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.
@@ -69,8 +75,7 @@
 - Not built yet: depth charts in injury weights beyond the quarterback; player canonical ids (candidate crosswalk is GPL data, owner decision); tiebreaker steps from nflseedR; time-machine replay from `seenAt`.
 - Not verified:
   - live loading of the new agents and rules (needs a signed-in session: run `/context` and `/agents`);
-  - behavior during a live game;
-  - where the daily refresh runs.
+  - behavior during a live game.
 
 ## Decisions waiting on the owner
 1. Language-model provider and cost ceiling, or none (DEC-009).

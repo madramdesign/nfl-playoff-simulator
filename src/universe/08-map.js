@@ -7,7 +7,7 @@ var MODE_NAMES = ["Sportsbooks", "Results", "Blend"];
 // sources: optional map to read labels from (defaults to the current payload's).
 function sourceLabel(id, sources) {
   var S = sources || (store && store.get("payload") ? store.get("payload").sources : null), s = id && hasOwn(S, id) ? S[id] : null;
-  return s && typeof s.label === "string" ? s.label : id === "open-meteo" ? "Open-Meteo" : id || "unknown source";
+  return s && typeof s.label === "string" ? s.label : id === "open-meteo" ? "Open-Meteo" : id === "nws" ? "National Weather Service" : id || "unknown source";
 }
 // Is this in-progress game live on this page right now (see gameIsLive in 01-data.js)?
 function isLiveGame(x) { return !!store && gameIsLive(x, store.get("model"), liveMeta(), Date.now()); }
@@ -82,6 +82,7 @@ function weatherText(w) {
 // DEC-013: a visible credit beside weather; Open-Meteo requires the link.
 function weatherCredit(srcId) {
   if (srcId === "open-meteo") return el("span", { class: "u-credit" }, ["Weather: ", el("a", { href: "https://open-meteo.com/", target: "_blank", rel: "noopener", text: "Open-Meteo" })]);
+  if (srcId === "nws") return el("span", { class: "u-credit" }, ["Weather: ", el("a", { href: "https://www.weather.gov/", target: "_blank", rel: "noopener", text: "National Weather Service" })]);
   return el("span", { class: "u-credit", text: "Weather: " + sourceLabel(srcId) });
 }
 
@@ -374,7 +375,7 @@ function drawLegend(mode, st) {
   if (on("playoff")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-ring" }), "Ring: playoff chance"));
   if (on("live") || on("upcoming") || on("final")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-link" }), "Line: away to home this week; red is live"));
   if (on("injuries") || on("news") || on("qb") || on("transactions")) L.appendChild(row(el("span", { class: "u-lsw u-lsw-badges" }), "Badges: injuries, news, transactions, QB (descriptive)"));
-  if (on("weather")) L.appendChild(el("div", { class: "u-lgrow" }, [el("span", { class: "u-lsw u-lsw-wx" }), weatherCredit("open-meteo")]));
+  if (on("weather")) L.appendChild(el("div", { class: "u-lgrow" }, [el("span", { class: "u-lsw u-lsw-wx" }), weatherCredit((st.model && st.model.games.map(function (x) { return x.weather && x.weather.source; }).filter(Boolean)[0]) || "open-meteo")]));
   if (mode === "geo") L.appendChild(el("div", { class: "u-lgrow u-lgnote", text: view.k >= DETAIL_K ? "Zoomed in: team labels and counts" : "Zoom in for team labels and counts" }));
 }
 function searchTeams(q) {

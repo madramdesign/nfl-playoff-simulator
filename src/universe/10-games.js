@@ -8,7 +8,7 @@ function gameStateLabel(x) {
 // A game still listed as not started more than 15 minutes after kickoff: the data is behind, and the card says so.
 function kickoffPassed(x) { var t = Date.parse(x.kickoff || ""); return x.state === "pre" && isFinite(t) && Date.now() - t > 15 * 60e3; }
 function buildGamesPanel(host) {
-  var gids = ["espn-scoreboard", "nflverse-games", "open-meteo"];
+  var gids = ["espn-scoreboard", "nflverse-games", "open-meteo", "nws"];
   gamesPanel = Panel({ id: "games", title: "This week", sources: gids, badge: buildOrFeedBadge(gids), cls: "u-gamespanel" });
   gamesPanel.loading("Loading games…");
   host.appendChild(gamesPanel.root);

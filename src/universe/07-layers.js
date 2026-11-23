@@ -11,7 +11,7 @@ var LAYERS = [
   { id: "live", label: "Live games", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["espn-scoreboard"], render: function (c, g) { renderGameLinks(c, g, "in"); } },
   { id: "odds", label: "Line movement", group: "Games", defaultOn: false, modes: LINK_MODES, sourceIds: ["espn-scoreboard", "nflverse-games"], render: renderOdds },
   { id: "disagree", label: "Model disagreement", group: "Model", defaultOn: false, modes: LINK_MODES, sourceIds: [], render: renderDisagree },
-  { id: "weather", label: "Weather flags", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["open-meteo"], render: renderWeather },
+  { id: "weather", label: "Weather flags", group: "Games", defaultOn: true, modes: LINK_MODES, sourceIds: ["open-meteo", "nws"], render: renderWeather },
   { id: "playoff", label: "Playoff odds (ring)", group: "Model", defaultOn: true, modes: ["geo", "div"], sourceIds: [], render: renderPlayoffRing },
   { id: "teams", label: "Teams (colored by power)", group: "Teams", defaultOn: true, modes: ALL_MODES, sourceIds: [], render: renderTeams },
   { id: "superbowl", label: "Super Bowl odds", group: "Model", defaultOn: false, modes: ALL_MODES, sourceIds: [], render: renderSuperBowl },

@@ -26,7 +26,7 @@ The bar under the top of the command center narrows everything to one scope: the
 
 ## NFL Universe data fabric
 
-`server.js` also serves the NFL Universe data layer (`lib/fabric/`), which gathers schedule and lines (nflverse), the weekly injury report (nflverse), game-day weather (Open-Meteo), headlines (ESPN and Yahoo RSS), the curated items in `data/news.json`, and, on your own machine only, ESPN's live scoreboard, news, injuries and transactions.
+`server.js` also serves the NFL Universe data layer (`lib/fabric/`), which gathers schedule and lines (nflverse), the weekly injury report (nflverse), game-day weather (Open-Meteo, with the National Weather Service as backup), headlines (ESPN and Yahoo RSS), the curated items in `data/news.json`, and, on your own machine only, ESPN's live scoreboard, news, injuries and transactions.
 
 | Endpoint | What it returns |
 |---|---|
