@@ -54,3 +54,8 @@ Python 3 standard library only. The intended home of the JSON is `data/calibrati
 - Playoff, division and Super Bowl chances are saved but not scored: each resolves once a season, 32 outcomes a year.
 - Snapshots started on Nov. 20, 2026, so earlier weeks of 2026 have no saved forecast.
 - Forecast horizon (days before the game) is not broken out.
+
+
+## The model's own probabilities (from Nov. 23, 2026)
+Snapshots saved before Nov. 24, 2026 hold only `lines`, the sportsbook probability, so for those days the scores describe the market input and not the ratings. From then on `scripts/snapshot.js` also saves `probs`: the home-win chance of every remaining game in each win-chance mode (`sportsbooks`, `results`, `blend`). `scripts/calibration.py` scores each as its own series, named `model: <mode>`, under the same leakage rule and with the same sample-size warning. Comparing the series is only meaningful on the games they share and only once there are enough of them.
+\n

@@ -114,4 +114,16 @@ with tempfile.TemporaryDirectory() as d:
     near(doc["modes"]["blend"]["latestPerGame"]["brier"], m, "JSON matches the computed score")
     ok(len(doc["snapshots"]) == 4 and doc["rules"]["minGamesForAnyReading"] == cal.MIN_GAMES, "JSON lists snapshots and rules")
 
+# --- newer snapshots also record each mode's own game probabilities (`probs`); they are scored as separate series
+# under the same leakage rule. Sep. 10 snapshot: G2 (home won) and G3 (away won) at 0.5 each -> Brier 0.25; G0 was
+# already played and must not be scored.
+first = dict(snaps[0], probs={"results": {"2026_01_G0": 0.9, "2026_02_G2": 0.5, "2026_02_G3": 0.5}})
+per2, modes2 = cal.evaluate([first], games)
+mr = modes2["model: results"]["latestPerGame"]
+ok(mr["n"] == 2, "a mode's own probabilities are scored on the same two games")
+near(mr["brier"], 0.25, "and scored by hand: two 50% forecasts")
+ok(per2[0]["model"]["model: results"]["excluded"]["notAfterSnapshot"] == 1, "the leakage rule applies to them too")
+near(modes2["blend"]["latestPerGame"]["brier"], by["2026-09-10"]["scores"]["brier"], "the sportsbook-line series is unchanged by their presence")
+ok(cal.evaluate(snaps, games)[1].keys() == modes.keys(), "snapshots without `probs` score exactly as before")
+
 print(f"ok: calibration tracking passes ({checks} checks)")

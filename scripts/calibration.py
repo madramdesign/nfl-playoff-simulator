@@ -67,7 +67,7 @@ def load_snapshots(directory):
             if fd is None: raise ValueError("file name is not a date")
             # the later of the file's name and its own `date` field, so a mislabelled file cannot be scored early
             snaps.append({"file": n, "day": max(fd, sd) if sd else fd, "dateMismatch": sd != fd, "mode": str(s.get("mode") or "unspecified"),
-                          "lines": s["lines"], "played": s.get("played") if isinstance(s.get("played"), int) else None})
+                          "lines": s["lines"], "probs": {k: v for k, v in (s.get("probs") or {}).items() if isinstance(v, dict)} if isinstance(s.get("probs"), dict) else {}, "played": s.get("played") if isinstance(s.get("played"), int) else None})
         except (OSError, ValueError) as err: skipped.append({"file": n, "why": str(err)})
     return snaps, skipped
 
@@ -107,10 +107,18 @@ def score(rows, independent=True):
         if hit: out["reliability"].append({"lo": k / BUCKETS, "hi": (k + 1) / BUCKETS, "n": len(hit), "meanForecast": mean([r["p"] for r in hit]), "observed": mean([r["y"] for r in hit])})
     return out
 
+def series_of(s):
+    """What a snapshot recorded: its `lines` map (the sportsbook probability, under the snapshot's mode name, as before),
+    then, in newer snapshots, the per-mode game probabilities in `probs` under "model: <mode>"."""
+    return [(s["mode"], s["lines"], True)] + [("model: " + k, v, False) for k, v in sorted(s["probs"].items())]
+
 def evaluate(snaps, games):
-    """Applies the leakage rule and scores. Returns (per-snapshot list, per-mode summary)."""
+    """Applies the leakage rule and scores. Returns (per-snapshot list, per-series summary)."""
     per, by_mode = [], {}
-    for s in snaps:
+    for s0 in snaps:
+      extra = {}
+      for name, forecasts, primary in series_of(s0):
+        s = dict(s0, lines=forecasts, mode=name)
         excluded = dict.fromkeys(REASONS, 0); rows = []
         seasons = [games[g]["season"] for g in s["lines"] if g in games and not games[g].get("ambiguous")]
         season = max(set(seasons), key=seasons.count) if seasons else None
@@ -126,18 +134,19 @@ def evaluate(snaps, games):
             elif g["result"] == "tie": excluded["tie"] += 1
             else: rows.append({"id": gid, "p": p, "y": g["result"], "base": base, "snap": s["day"]})
         known = sum(1 for g in games.values() if not g.get("ambiguous") and g["reg"] and g["season"] == season and g["day"] is not None and g["day"] < s["day"] and g["result"] is not None) if season else None
+        by_mode.setdefault(s["mode"], []).extend(rows)
+        if not primary: extra[name] = {"recorded": len(forecasts), "excluded": excluded, "scores": score(rows)}; continue
         per.append({"date": s["day"].isoformat(), "file": s["file"], "dateMismatch": s["dateMismatch"], "mode": s["mode"], "recorded": len(s["lines"]),
                     "excluded": excluded, "homeBaseRate": {"rate": base, "n": base_n},
                     # a cross-check, not a filter: how many results the snapshot says it had against how many the games file dates before it
                     "playedCheck": {"snapshot": s["played"], "gamesFileBeforeDate": known},
-                    "scores": score(rows)})
-        by_mode.setdefault(s["mode"], []).extend(rows)
+                    "scores": score(rows), "model": extra})
     modes = {}
     for m, rows in by_mode.items():
         latest = {}
         for r in rows:                                   # one forecast a game: the last snapshot before its game day
             if r["id"] not in latest or r["snap"] > latest[r["id"]]["snap"]: latest[r["id"]] = r
-        modes[m] = {"snapshots": sum(1 for s in snaps if s["mode"] == m),
+        modes[m] = {"snapshots": sum(1 for s in snaps if m in [n for n, _, _ in series_of(s)]),
                     "latestPerGame": score(sorted(latest.values(), key=lambda r: r["id"])),
                     "allForecasts": score(rows, independent=False)}
     return per, modes
