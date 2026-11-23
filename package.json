@@ -8,8 +8,8 @@
     "build": "python3 scripts/build.py",
     "test": "node test/run.js && node test/universe.test.js",
     "snapshot": "node scripts/snapshot.js",
-    "refresh": "node scripts/fabric-snapshot.js && python3 scripts/build.py && npm test && node scripts/snapshot.js",
-    "fabric-snapshot": "node scripts/fabric-snapshot.js"
+    "refresh": "NODE_USE_ENV_PROXY=1 node scripts/fabric-snapshot.js && python3 scripts/build.py && npm test && node scripts/snapshot.js",
+    "fabric-snapshot": "NODE_USE_ENV_PROXY=1 node scripts/fabric-snapshot.js"
   },
   "engines": {
     "node": ">=18"

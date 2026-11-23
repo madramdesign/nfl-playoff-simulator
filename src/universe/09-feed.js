@@ -45,7 +45,7 @@ function eventRow(e, now) {
   ]);
 }
 function buildFeedPanel(host) {
-  var fids = ["rss-*", "espn-*", "curated-news", "nflverse-*", "open-meteo"];
+  var fids = ["rss-*", "espn-*", "curated-news", "nflverse-*", "open-meteo", "nws"];
   feedPanel = Panel({ id: "feed", title: "Intelligence feed", sources: fids, badge: buildOrFeedBadge(fids) });
   var chips = el("div", { class: "u-chips", role: "group", "aria-label": "Event types" });
   FEED_CHIPS.forEach(function (c) {
