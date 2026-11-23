@@ -1,0 +1,19 @@
+# Render Blueprint: runs server.js as a public web service (docs/DECISIONS.md DEC-018).
+# Public sources only: FABRIC_SCOPES=public keeps ESPN's JSON endpoints off, as DEC-006 requires for anything published.
+services:
+  - type: web
+    name: nfl-universe
+    runtime: node
+    plan: free
+    branch: main
+    autoDeploy: true            # the daily refresh commit to main redeploys the page
+    buildCommand: node --version   # no dependencies to install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        value: 0.0.0.0
+      - key: FABRIC_SCOPES
+        value: public
+      - key: TRUST_PROXY
+        value: "1"
