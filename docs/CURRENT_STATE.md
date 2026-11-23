@@ -3,7 +3,7 @@
 > Update this file at the beginning and end of every substantial work session. Do not invent progress.
 
 ## Last updated
-- Date: 2026-11-21 (end of the first NFL Universe session)
+- Date: 2026-11-23 (cloud session: refresh fix, hosting prep, focus, weather backup, tiebreakers, calibration, time machine, intelligence depth; newest entries first below)
 - Branches:
   - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit, plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the integration branch's history.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
@@ -46,6 +46,14 @@
 - S-C: "Replay the feed as of" control in the left rail and `?asOf=` in the URL (DEC-020). New `src/universe/18-history.js` and `scripts/event-archive.js`; the build embeds `D.eventArchive`.
 - Checked after merge: `npm test` (42 fabric tests, 296 command-center checks) and a browser look at a replay combined with a focus. Not tested: Safari and Firefox date inputs.
 - The brief and the team drawer still list current events during a replay; the banner says so.
+
+## Nov. 23, 2026: intelligence depth merged; all four streams integrated (branch `claude/kind-bohr-75erpe`)
+- S-D: watchlist stars, a bell with in-page alerts, a "What changed" panel and conflicting injury reports side by side (DEC-021). New `src/universe/17-watch.js`.
+- Merge conflicts were the two expected appends (CSS and tests); both blocks kept.
+- Teams table on wide screens now shows abbreviations only so every column fits.
+- Checked after the last merge: `npm test`, six `ok` lines (42 fabric tests, 365 command-center checks, 65 calibration checks); the page at 1440 and 390 px with a focus, a starred team and the simulator view: no page errors, no horizontal overflow.
+- Not exercised: an alert raised by a real poll (alerts were driven through the store), a real two-source injury conflict, screen readers, Safari and Firefox.
+- Open: add a disagreeing injury to `test/fixtures/make-fixtures.js`; a replay marker in the brief and team drawer; compare tiebreakers with nflseedR; the hosted Render site is unverified.
 
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
