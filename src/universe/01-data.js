@@ -116,10 +116,79 @@ function buildEvents(payload) {
     seen[e.id] = 1; if (n.url) urls[n.url] = 1; evs.push(n);
   });
   evs = evs.concat(pageNewsEvents(urls));
-  // newest first; items with an unknown time (already there when watching began) after every item with a real time
-  evs.sort(function (a, b) { return (a.before != null ? 1 : 0) - (b.before != null ? 1 : 0) || b.ts - a.ts || (b.importance || 0) - (a.importance || 0); });
+  evs.sort(eventOrder);
   return evs;
 }
+// newest first; items with an unknown time (already there when watching began) after every item with a real time
+function eventOrder(a, b) { return (a.before != null ? 1 : 0) - (b.before != null ? 1 : 0) || b.ts - a.ts || (b.importance || 0) - (a.importance || 0); }
+
+// ---- model events (F22): worked out by this page from the build's data, never taken from a feed ----
+// Two kinds, both dated by the build's day and labelled as model estimates: a team's playoff chance moving since the
+// saved forecast by 3 points or more and by more than the two simulations' noise (playoff_move), and a game where the
+// ratings and the posted line disagree by DISAGREE_MIN or more (model). Their importance stays under BREAKING_MIN: a
+// model estimate is never breaking news.
+var MOVE_MIN = 0.03, MODEL_IMP_MAX = 65;
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-11-24" -> "Nov 24"; anything else unchanged
+function savedDate(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? MONTHS[+m[2] - 1] + " " + (+m[3]) : d; }
+// "Nov. 23, 2026" (the build's date) -> that day at 00:00 UTC in ms, like the dated items in the curated news file
+function builtDay(s) {
+  var m = /^([A-Z][a-z]{2})[a-z]*\.? (\d{1,2}), (\d{4})$/.exec(String(s || "").trim()), k = m ? MONTHS.indexOf(m[1]) : -1;
+  return k < 0 ? null : Date.UTC(+m[3], k, +m[2]);
+}
+// Pure: each team's playoff chance in the saved forecast P and now. why: explainChange()'s result (with the split) or,
+// for a forecast too old to split, {now: [chance by team], n}. [{team, was, now, total, parts or null}]
+function playoffMoves(P, why) {
+  if (!P || !why || !Array.isArray(P.teams) || !Array.isArray(P.playoffs)) return [];
+  if (Array.isArray(why.teams)) return why.teams.map(function (x) { return { team: x.team, was: x.was, now: x.now, total: x.total, parts: { own: x.own, others: x.others, lines: x.lines, ratings: x.ratings, rest: x.rest } }; });
+  if (!Array.isArray(why.now)) return [];
+  return TEAMS.map(function (t, i) {
+    var j = P.teams.indexOf(t.a), was = j >= 0 ? num(P.playoffs[j]) : null, now = num(why.now[i]);
+    return was == null || now == null ? null : { team: i, was: was, now: now, total: now - was, parts: null };
+  }).filter(Boolean);
+}
+// The 95% margin of the difference between two independent simulations' shares (n1 and n2 seasons).
+function moveMargin(was, now, n1, n2) { return 1.96 * Math.sqrt(was * (1 - was) / n1 + now * (1 - now) / n2); }
+var PART_NAMES = { own: "own results", others: "other teams' results", lines: "betting lines", ratings: "team ratings" };
+function modelEvent(x) {
+  return Object.assign({ subtype: null, players: [], url: null, confidence: null, sourceCount: 1, sources: [], gameId: null, data: {}, dateOnly: true, origin: "model", before: null, source: "page-model" }, x,
+    { tsMs: x.ts, seen: x.ts });
+}
+function playoffMoveEvents(P, why, day) {
+  var n1 = P && P.sims >= 1000 ? P.sims : 20000, n2 = why && why.n >= 1000 ? why.n : 20000, out = [];
+  playoffMoves(P, why).forEach(function (m) {
+    var d = m.total;
+    if (!isFinite(d) || Math.abs(d) < Math.max(MOVE_MIN, moveMargin(m.was, m.now, n1, n2))) return;
+    var T = TEAMS[m.team], parts = m.parts ? Object.keys(PART_NAMES).map(function (k) { return [k, m.parts[k]]; })
+      .filter(function (p) { return Math.abs(p[1]) >= 0.01; }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); }).slice(0, 2) : [];
+    out.push(modelEvent({ id: "pm-" + (P.date || "prev") + "-" + T.a, type: "playoff_move", subtype: d > 0 ? "up" : "down", ts: day, teams: [m.team],
+      title: T.nick + " playoff chance " + fmtPct(m.was) + " \u2192 " + fmtPct(m.now) + " (" + fmtSigned(d * 100, 0) + " points) since the forecast saved on " + savedDate(P.date) +
+        (parts.length ? ": " + parts.map(function (p) { return PART_NAMES[p[0]] + " " + fmtSigned(p[1] * 100, 0); }).join(", ") : ""),
+      publisher: "This page's simulation", importance: Math.min(MODEL_IMP_MAX, Math.round(30 + 2.5 * Math.abs(d) * 100)), data: { was: m.was, now: m.now, parts: m.parts } }));
+  });
+  return out;
+}
+// Games not yet started (by the feed, when it knows them) where the two ratings and the posted line disagree.
+function marketGapEvents(day, M) {
+  var out = [];
+  disagreementGames().forEach(function (dg) {
+    var g = GAMES[dg.gi], x = M && M.gameByKey ? M.gameByKey[g[0]] : null; if (x && x.state && x.state !== "pre") return;
+    var rb = dg.ratings, H = TEAMS[g[3]], pts = Math.round(Math.abs(dg.diff) * 100);
+    out.push(modelEvent({ id: "mm-" + g[0] + "-" + pts, type: "model", subtype: "market-gap", ts: day, teams: [g[2], g[3]], gameId: g[0],
+      title: "Model and market disagree on " + TEAMS[g[2]].a + " at " + H.a + ": the ratings give the " + H.nick + " " + fmtPct(rb) + ", the posted line " + fmtPct(g[6]) + " (" + pts + " points)",
+      publisher: "This page's ratings", importance: Math.min(MODEL_IMP_MAX, 30 + 2 * pts), data: { model: rb, market: g[6] } }));
+  });
+  return out;
+}
+// The model with this page's model events in its event list (replacing any from before). why: the comparison run.
+function withModelEvents(M, why) {
+  if (!M || !Array.isArray(M.events)) return M;
+  var day = builtDay(D.built); if (day == null) return M;
+  var evs = M.events.filter(function (e) { return e.origin !== "model"; }).concat(marketGapEvents(day, M), D.prev && why && why.unavailable !== "error" && why.unavailable !== "none" ? playoffMoveEvents(D.prev, why, day) : []);
+  evs.sort(eventOrder);
+  return Object.assign({}, M, { events: evs });
+}
+NFLU.builtDay = builtDay; NFLU.playoffMoves = playoffMoves; NFLU.playoffMoveEvents = playoffMoveEvents; NFLU.marketGapEvents = marketGapEvents; NFLU.withModelEvents = withModelEvents; NFLU.savedDate = savedDate;
 
 // ---- the whole model for one payload ----
 // Pure: the payload's fantasy block (Sleeper's most added and dropped players), checked again here. Each list keeps

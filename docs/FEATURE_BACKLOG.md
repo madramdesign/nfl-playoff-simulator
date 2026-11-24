@@ -606,7 +606,7 @@ Risk: gaps in the record must show as gaps.
 
 ## FEATURE-F22 — Model and playoff-move events
 
-Status: Ready
+Status: Done (Nov. 23, 2026), page side. The page adds `playoff_move` events (a team's playoff chance moved 3 points or more since the saved forecast, and by more than the two simulations' 95% noise margin; the split from F04 named when the forecast is version 2) and `model` events (ratings and posted line 8 points or more apart, games not yet started). Dated by the build's day, labelled "model estimate", importance capped at 65 so they are never breaking, the brief's top story or a map ring. Clicking one opens the team or the game. They are worked out in the browser from the build's data, not stored in the fabric's event files.
 Priority: P1 · Score 75.8 · Size S
 Category: Intelligence
 Tag: EXISTING—IMPROVE (contract defines `model` and `playoff_move`; nothing emits them; the "Model" filter is empty)

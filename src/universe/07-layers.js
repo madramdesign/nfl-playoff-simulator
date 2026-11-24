@@ -187,7 +187,7 @@ function renderQB(c, g) {
 }
 function renderBreaking(c, g) {
   var hit = {};
-  c.events.forEach(function (e) { if (e.importance != null && e.importance >= BREAKING_MIN) e.teams.forEach(function (t) { if (!hit[t] || e.importance > hit[t].importance) hit[t] = e; }); });
+  c.events.forEach(function (e) { if (e.importance != null && e.importance >= BREAKING_MIN && e.origin !== "model") e.teams.forEach(function (t) { if (!hit[t] || e.importance > hit[t].importance) hit[t] = e; }); });
   for (var k in hit) { var p = c.pos[+k]; g.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: c.r + 8, class: "u-pulse", "data-tip": "Breaking: " + hit[k].title + " (" + hit[k].publisher + ")" })); }
 }
 Object.assign(NFLU, { LAYERS: LAYERS, LAYER_IDS: LAYER_IDS, DEFAULT_LAYERS: DEFAULT_LAYERS, validateLayerRegistry: validateLayerRegistry, LAYER_GROUPS: LAYER_GROUPS });

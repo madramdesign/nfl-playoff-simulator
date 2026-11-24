@@ -65,9 +65,6 @@ NFLU.starterNote = starterNote;
 function section(title, kids, id) { return el("section", { class: "u-sec", id: id || null }, [el("h3", { text: title }), kids]); }
 // Pure: one team's entry from explainChange() in words. Rows: [label, change in points, detail]; a part under 0.05
 // points is shown as 0. Results and moved games are named with the team's own view.
-var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-// "2026-11-24" -> "Nov 24"; anything else unchanged
-function savedDate(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? MONTHS[+m[2] - 1] + " " + (+m[3]) : d; }
 function whyRows(x, date) {
   if (!x) return null;
   var pts = function (v) { return Math.abs(v) < 0.0005 ? "0" : fmtSigned(v * 100, 1); }, me = x.team;
@@ -143,7 +140,7 @@ function renderTeamCenter(i, body) {
     fkids.push(el("p", { class: "u-credit", text: "Trending data: Sleeper, last " + hrs + " hours across Sleeper fantasy leagues. Fan activity, not news or a forecast." }));
     body.appendChild(section("Fantasy trends", fkids));
   }
-  var evs = (M ? M.events : []).filter(function (e) { return e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
+  var evs = (M ? M.events : []).filter(function (e) { return e.origin !== "model" && e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
   body.appendChild(section("News and transactions", evs.length ? el("ul", { class: "u-evlist" }, eventRows(evs, now).rows) : el("p", { class: "u-note", text: "No events for this team in the current data." })));
   body.appendChild(teamMediaSection(i));
   var ng = nextGameOf(i, M);

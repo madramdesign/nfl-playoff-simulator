@@ -331,6 +331,8 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-
 .u-table{width:100%;border-collapse:collapse;font-size:12px}
 .u-table th{font:500 10.5px var(--body);color:var(--muted);text-align:left;padding:3px 4px;border-bottom:1px solid var(--line)}
 .u-table td{padding:4px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+.u-ev-open{font:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer;width:100%}
+.u-ev-basis{font-style:italic}
 .u-why td{white-space:normal;vertical-align:top}.u-why td.u-num{white-space:nowrap}.u-why .u-note{margin:2px 0 0}
 .u-table .u-num,.u-num{text-align:right;font-variant-numeric:tabular-nums}
 .u-table tr.is-sel td{color:var(--accent);font-weight:600}
@@ -467,6 +469,7 @@ svg.u-map:not([data-mode="geo"])~.u-mapctl{display:none}
 .u-more{font-size:10.5px;color:var(--muted)}
 .u-ev-title{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;color:var(--ink);text-decoration:none;font-weight:500;overflow-wrap:anywhere}
 a.u-ev-title:hover{text-decoration:underline}
+.u-ev-title.u-ev-open{text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px}.u-ev-title.u-ev-open:hover{text-decoration-color:currentColor}
 .u-ev-meta{display:flex;flex-wrap:wrap;gap:2px 10px;font-size:11px;color:var(--muted);margin-top:3px}
 .u-ev-pub{color:var(--ink);opacity:.8}
 .u-imp{height:3px;background:var(--line);border-radius:2px;margin-top:5px;overflow:hidden}
@@ -1378,10 +1381,79 @@ function buildEvents(payload) {
     seen[e.id] = 1; if (n.url) urls[n.url] = 1; evs.push(n);
   });
   evs = evs.concat(pageNewsEvents(urls));
-  // newest first; items with an unknown time (already there when watching began) after every item with a real time
-  evs.sort(function (a, b) { return (a.before != null ? 1 : 0) - (b.before != null ? 1 : 0) || b.ts - a.ts || (b.importance || 0) - (a.importance || 0); });
+  evs.sort(eventOrder);
   return evs;
 }
+// newest first; items with an unknown time (already there when watching began) after every item with a real time
+function eventOrder(a, b) { return (a.before != null ? 1 : 0) - (b.before != null ? 1 : 0) || b.ts - a.ts || (b.importance || 0) - (a.importance || 0); }
+
+// ---- model events (F22): worked out by this page from the build's data, never taken from a feed ----
+// Two kinds, both dated by the build's day and labelled as model estimates: a team's playoff chance moving since the
+// saved forecast by 3 points or more and by more than the two simulations' noise (playoff_move), and a game where the
+// ratings and the posted line disagree by DISAGREE_MIN or more (model). Their importance stays under BREAKING_MIN: a
+// model estimate is never breaking news.
+var MOVE_MIN = 0.03, MODEL_IMP_MAX = 65;
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-11-24" -> "Nov 24"; anything else unchanged
+function savedDate(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? MONTHS[+m[2] - 1] + " " + (+m[3]) : d; }
+// "Nov. 23, 2026" (the build's date) -> that day at 00:00 UTC in ms, like the dated items in the curated news file
+function builtDay(s) {
+  var m = /^([A-Z][a-z]{2})[a-z]*\.? (\d{1,2}), (\d{4})$/.exec(String(s || "").trim()), k = m ? MONTHS.indexOf(m[1]) : -1;
+  return k < 0 ? null : Date.UTC(+m[3], k, +m[2]);
+}
+// Pure: each team's playoff chance in the saved forecast P and now. why: explainChange()'s result (with the split) or,
+// for a forecast too old to split, {now: [chance by team], n}. [{team, was, now, total, parts or null}]
+function playoffMoves(P, why) {
+  if (!P || !why || !Array.isArray(P.teams) || !Array.isArray(P.playoffs)) return [];
+  if (Array.isArray(why.teams)) return why.teams.map(function (x) { return { team: x.team, was: x.was, now: x.now, total: x.total, parts: { own: x.own, others: x.others, lines: x.lines, ratings: x.ratings, rest: x.rest } }; });
+  if (!Array.isArray(why.now)) return [];
+  return TEAMS.map(function (t, i) {
+    var j = P.teams.indexOf(t.a), was = j >= 0 ? num(P.playoffs[j]) : null, now = num(why.now[i]);
+    return was == null || now == null ? null : { team: i, was: was, now: now, total: now - was, parts: null };
+  }).filter(Boolean);
+}
+// The 95% margin of the difference between two independent simulations' shares (n1 and n2 seasons).
+function moveMargin(was, now, n1, n2) { return 1.96 * Math.sqrt(was * (1 - was) / n1 + now * (1 - now) / n2); }
+var PART_NAMES = { own: "own results", others: "other teams' results", lines: "betting lines", ratings: "team ratings" };
+function modelEvent(x) {
+  return Object.assign({ subtype: null, players: [], url: null, confidence: null, sourceCount: 1, sources: [], gameId: null, data: {}, dateOnly: true, origin: "model", before: null, source: "page-model" }, x,
+    { tsMs: x.ts, seen: x.ts });
+}
+function playoffMoveEvents(P, why, day) {
+  var n1 = P && P.sims >= 1000 ? P.sims : 20000, n2 = why && why.n >= 1000 ? why.n : 20000, out = [];
+  playoffMoves(P, why).forEach(function (m) {
+    var d = m.total;
+    if (!isFinite(d) || Math.abs(d) < Math.max(MOVE_MIN, moveMargin(m.was, m.now, n1, n2))) return;
+    var T = TEAMS[m.team], parts = m.parts ? Object.keys(PART_NAMES).map(function (k) { return [k, m.parts[k]]; })
+      .filter(function (p) { return Math.abs(p[1]) >= 0.01; }).sort(function (a, b) { return Math.abs(b[1]) - Math.abs(a[1]); }).slice(0, 2) : [];
+    out.push(modelEvent({ id: "pm-" + (P.date || "prev") + "-" + T.a, type: "playoff_move", subtype: d > 0 ? "up" : "down", ts: day, teams: [m.team],
+      title: T.nick + " playoff chance " + fmtPct(m.was) + " \u2192 " + fmtPct(m.now) + " (" + fmtSigned(d * 100, 0) + " points) since the forecast saved on " + savedDate(P.date) +
+        (parts.length ? ": " + parts.map(function (p) { return PART_NAMES[p[0]] + " " + fmtSigned(p[1] * 100, 0); }).join(", ") : ""),
+      publisher: "This page's simulation", importance: Math.min(MODEL_IMP_MAX, Math.round(30 + 2.5 * Math.abs(d) * 100)), data: { was: m.was, now: m.now, parts: m.parts } }));
+  });
+  return out;
+}
+// Games not yet started (by the feed, when it knows them) where the two ratings and the posted line disagree.
+function marketGapEvents(day, M) {
+  var out = [];
+  disagreementGames().forEach(function (dg) {
+    var g = GAMES[dg.gi], x = M && M.gameByKey ? M.gameByKey[g[0]] : null; if (x && x.state && x.state !== "pre") return;
+    var rb = dg.ratings, H = TEAMS[g[3]], pts = Math.round(Math.abs(dg.diff) * 100);
+    out.push(modelEvent({ id: "mm-" + g[0] + "-" + pts, type: "model", subtype: "market-gap", ts: day, teams: [g[2], g[3]], gameId: g[0],
+      title: "Model and market disagree on " + TEAMS[g[2]].a + " at " + H.a + ": the ratings give the " + H.nick + " " + fmtPct(rb) + ", the posted line " + fmtPct(g[6]) + " (" + pts + " points)",
+      publisher: "This page's ratings", importance: Math.min(MODEL_IMP_MAX, 30 + 2 * pts), data: { model: rb, market: g[6] } }));
+  });
+  return out;
+}
+// The model with this page's model events in its event list (replacing any from before). why: the comparison run.
+function withModelEvents(M, why) {
+  if (!M || !Array.isArray(M.events)) return M;
+  var day = builtDay(D.built); if (day == null) return M;
+  var evs = M.events.filter(function (e) { return e.origin !== "model"; }).concat(marketGapEvents(day, M), D.prev && why && why.unavailable !== "error" && why.unavailable !== "none" ? playoffMoveEvents(D.prev, why, day) : []);
+  evs.sort(eventOrder);
+  return Object.assign({}, M, { events: evs });
+}
+NFLU.builtDay = builtDay; NFLU.playoffMoves = playoffMoves; NFLU.playoffMoveEvents = playoffMoveEvents; NFLU.marketGapEvents = marketGapEvents; NFLU.withModelEvents = withModelEvents; NFLU.savedDate = savedDate;
 
 // ---- the whole model for one payload ----
 // Pure: the payload's fantasy block (Sleeper's most added and dropped players), checked again here. Each list keeps
@@ -1600,7 +1672,7 @@ function pollNow() {
   }).then(function (u) {
     if (!looksLikeUniverse(u)) throw new Error("unexpected payload shape");
     poll.fails = 0; poll.breaker = "closed"; poll.everOk = true; poll.lastLatency = Date.now() - t0;
-    store.set({ payload: u, origin: "live", fetchedAt: Date.now(), pollFails: 0, pollError: null, breaker: "closed", model: buildModel(u) });
+    store.set({ payload: u, origin: "live", fetchedAt: Date.now(), pollFails: 0, pollError: null, breaker: "closed", model: withModelEvents(buildModel(u), store.get("why")) });
   }).catch(function (err) {
     poll.fails++;
     if (poll.breaker === "half-open" || poll.fails >= BREAKER_TRIP) { poll.breaker = "open"; poll.openedAt = Date.now(); }
@@ -1749,19 +1821,21 @@ function simRecord(r, where, t0, inp, mode, deep) {
   return { r: r, n: r.n, where: where, ms: Date.now() - t0, finals: inp.finals, ties: inp.ties, lives: inp.lives, feedLive: inp.feedLive, staleLive: inp.staleLive,
     watch: inp.watch, at: Date.now(), mode: mode, deep: deep, key: inp.key };
 }
-// Why the playoff chances moved since the saved forecast (F04): one run in the blend, from the build's data with no picks,
-// live games or what-ifs, watching the games whose chance has moved. Once per page load, when first asked for, and only
-// when the saved forecast carries the figures (version 2).
+// The comparison with the saved forecast (F04 "Why it moved", F22 playoff-move events): one run in the blend, from the
+// build's data with no picks, live games or what-ifs, watching the games whose chance has moved. Once per page load,
+// after the first simulation or when a team panel first asks. The split needs a version-2 forecast; an older one still
+// gives each team's chance now ({unavailable: "old", now, n}).
 var whyAsked = false;
 function requestWhySim() {
   if (whyAsked) return;
   whyAsked = true;
-  var w = changeWatch(D.prev);
   // later, never inside the render that asked (a store change re-renders the drawer)
-  if (!w) { setTimeout(function () { store.set({ why: { unavailable: D.prev ? "old" : "none", date: D.prev ? D.prev.date : null } }); }, 0); return; }
-  runSim({ picks: GAMES.map(function () { return 0; }), watch: w, n: SIM_BASE_N, mode: 2 }, function (err, r) {
-    var e = err || !r ? null : explainChange(D.prev, r);
-    store.set({ why: e ? e : { unavailable: err ? "error" : "old", date: D.prev.date, error: err ? String(err.message || err) : null } });
+  if (!D.prev) { setTimeout(function () { store.set({ why: { unavailable: "none", date: null } }); }, 0); return; }
+  var w = changeWatch(D.prev);
+  runSim({ picks: GAMES.map(function () { return 0; }), watch: w || [], n: SIM_BASE_N, mode: 2 }, function (err, r) {
+    if (err || !r) { store.set({ why: { unavailable: "error", date: D.prev.date, error: String((err && err.message) || err || "no result") } }); return; }
+    var e = w ? explainChange(D.prev, r) : null;
+    store.set({ why: e ? Object.assign(e, { n: r.n }) : { unavailable: "old", date: D.prev.date, now: Array.prototype.map.call(r.po, function (v) { return v / r.n; }), n: r.n } });
   });
 }
 var simTimer = 0, simKey = "", simSeq = 0;
@@ -1924,7 +1998,7 @@ function proveWrong(i, M) {
 // ---- the brief's ranking functions (pure: inputs in, one ranked answer out) ----
 function topEvent(events) {
   var best = null;
-  (events || []).forEach(function (e) { if (e.importance == null || e.before != null) return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
+  (events || []).forEach(function (e) { if (e.importance == null || e.before != null || e.origin === "model") return; if (!best || e.importance > best.importance || (e.importance === best.importance && e.ts > best.ts)) best = e; });
   return best;
 }
 function biggestInjury(injuries) {
@@ -2475,7 +2549,7 @@ function renderQB(c, g) {
 }
 function renderBreaking(c, g) {
   var hit = {};
-  c.events.forEach(function (e) { if (e.importance != null && e.importance >= BREAKING_MIN) e.teams.forEach(function (t) { if (!hit[t] || e.importance > hit[t].importance) hit[t] = e; }); });
+  c.events.forEach(function (e) { if (e.importance != null && e.importance >= BREAKING_MIN && e.origin !== "model") e.teams.forEach(function (t) { if (!hit[t] || e.importance > hit[t].importance) hit[t] = e; }); });
   for (var k in hit) { var p = c.pos[+k]; g.appendChild(svgEl("circle", { cx: p[0], cy: p[1], r: c.r + 8, class: "u-pulse", "data-tip": "Breaking: " + hit[k].title + " (" + hit[k].publisher + ")" })); }
 }
 Object.assign(NFLU, { LAYERS: LAYERS, LAYER_IDS: LAYER_IDS, DEFAULT_LAYERS: DEFAULT_LAYERS, validateLayerRegistry: validateLayerRegistry, LAYER_GROUPS: LAYER_GROUPS });
@@ -2941,12 +3015,16 @@ function eventRow(e, now) {
   var srcs = e.sourceCount > 1 ? e.sourceCount + " sources" : null;
   var when = e.before != null ? el("time", { class: "u-ev-time", datetime: new Date(e.before).toISOString(), title: "Already in the data at " + new Date(e.before).toLocaleString() + "; when it happened is not known.", text: fmtBefore(e.before, now) })
     : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : estimateNote(e) || new Date(e.ts).toLocaleString(), text: (estimateNote(e) ? "~" : "") + fmtRel(e.ts, now, e.dateOnly) });
-  var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title }) : el("span", { class: "u-ev-title", text: e.title });
+  var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title })
+    : e.origin === "model" && e.type === "playoff_move" && e.teams.length ? el("button", { type: "button", class: "u-ev-title u-ev-open", "data-team": e.teams[0], title: "Open the team: why it moved", text: e.title })
+    : e.origin === "model" && e.gameId ? el("button", { type: "button", class: "u-ev-title u-ev-open", "data-game": e.gameId, title: "Open the game", text: e.title })
+    : el("span", { class: "u-ev-title", text: e.title });
   var meta = [el("span", { class: "u-ev-pub", text: e.publisher || "" })];
   if (e.confidence != null) meta.push(el("span", { text: "confidence " + Math.round(e.confidence * 100) + "%" }));
   if (srcs) meta.push(el("span", { class: "u-ev-srcs", text: srcs, title: e.sources.map(function (s) { return s.publisher; }).join(", ") }));
   if (e.type === "weather") meta.push(weatherCredit(e.source));
   if (e.origin === "page") meta.push(el("span", { text: "curated news file" }));
+  if (e.origin === "model") meta.push(el("span", { class: "u-ev-basis", text: "model estimate", title: "Worked out by this page from its own data, not reported by a source" }));
   return el("li", { class: "u-ev u-ev-" + e.type + (e.importance != null && e.importance >= BREAKING_MIN ? " is-breaking" : ""), "data-id": e.id }, [
     el("div", { class: "u-ev-top" }, [
       when,
@@ -2974,7 +3052,9 @@ function buildFeedPanel(host) {
   host.appendChild(feedPanel.root);
   feedPanel.body.addEventListener("click", function (e) {
     var t = e.target.closest ? e.target.closest("[data-team]") : null;
-    if (t) { e.preventDefault(); openTeam(+t.getAttribute("data-team")); }
+    if (t) { e.preventDefault(); openTeam(+t.getAttribute("data-team")); return; }
+    var gm = e.target.closest ? e.target.closest("[data-game]") : null;
+    if (gm) { e.preventDefault(); openGame(gm.getAttribute("data-game")); }
   });
 }
 function renderFeed() {
@@ -3158,9 +3238,6 @@ NFLU.starterNote = starterNote;
 function section(title, kids, id) { return el("section", { class: "u-sec", id: id || null }, [el("h3", { text: title }), kids]); }
 // Pure: one team's entry from explainChange() in words. Rows: [label, change in points, detail]; a part under 0.05
 // points is shown as 0. Results and moved games are named with the team's own view.
-var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-// "2026-11-24" -> "Nov 24"; anything else unchanged
-function savedDate(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? MONTHS[+m[2] - 1] + " " + (+m[3]) : d; }
 function whyRows(x, date) {
   if (!x) return null;
   var pts = function (v) { return Math.abs(v) < 0.0005 ? "0" : fmtSigned(v * 100, 1); }, me = x.team;
@@ -3236,7 +3313,7 @@ function renderTeamCenter(i, body) {
     fkids.push(el("p", { class: "u-credit", text: "Trending data: Sleeper, last " + hrs + " hours across Sleeper fantasy leagues. Fan activity, not news or a forecast." }));
     body.appendChild(section("Fantasy trends", fkids));
   }
-  var evs = (M ? M.events : []).filter(function (e) { return e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
+  var evs = (M ? M.events : []).filter(function (e) { return e.origin !== "model" && e.teams.indexOf(i) >= 0; }).slice(0, 10), now = refNow();
   body.appendChild(section("News and transactions", evs.length ? el("ul", { class: "u-evlist" }, eventRows(evs, now).rows) : el("p", { class: "u-note", text: "No events for this team in the current data." })));
   body.appendChild(teamMediaSection(i));
   var ng = nextGameOf(i, M);
@@ -4627,7 +4704,7 @@ function boot() {
   var chips = Array.isArray(saved.feedTypes) ? saved.feedTypes.filter(function (c) { return FEED_CHIPS.some(function (x) { return x[0] === c; }); }) : [];
   store = createStore(Object.assign(init, { search: "", feedTypes: chips, payload: fab, origin: fab ? "snapshot" : "none", fetchedAt: null, pollFails: 0, pollError: null,
     mediaTab: mtab, mediaKind: mkind, mediaShorts: saved.mediaShorts === true, mediaBlocked: false,
-    breaker: "closed", model: buildModel(fab), sim: null, why: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
+    breaker: "closed", model: withModelEvents(buildModel(fab), null), sim: null, why: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
   watchMediaBlocks();   // before anything renders a thumbnail, so the first refusal is heard
 
   buildRail(byId("uRail"));
@@ -4671,6 +4748,9 @@ function boot() {
     if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, layersKnown: LAYER_IDS, timeRange: st.timeRange });
     if (has("view")) applyView();
     if (has("model", "origin")) requestBaseSim();
+    if (has("sim") && st.sim) requestWhySim();
+    // the comparison run's playoff moves join the event list (later, not inside this round of renders)
+    if (has("why")) setTimeout(function () { store.set({ model: withModelEvents(store.get("model"), store.get("why")) }); }, 0);
     if (has("focus")) { renderFocusBar(); fitFocus(); }
     if (has("mode", "layers", "timeRange", "model", "sim", "search", "team", "game", "focus")) drawMapSoon();
     if (has("feedTypes", "timeRange", "model", "search", "focus")) renderFeed();

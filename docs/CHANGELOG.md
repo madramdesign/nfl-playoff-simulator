@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-23 (model events in the feed, F22)
+- The feed's Model filter now has items: each team whose playoff chance moved 3 points or more since the last saved forecast (beyond simulation noise; with the split once forecasts carry it), and each game where the ratings and the posted line disagree by 8 points or more. Labelled "model estimate", dated by the build, never shown as breaking news; clicking one opens the team or the game. On Nov. 23's data: 11 playoff moves since the Nov. 22 forecast and 3 disagreements.
+
 ## 2026-11-23 (what moved the odds, F04 first part)
 - Each team panel gets "Why it moved": the change in playoff chance since the last saved forecast, split into own results, other teams' results, betting lines posted or moved, team ratings and what is left (effects between games and simulation noise), with the results and games named. A model estimate, labelled as one (DEC-020). The assistant's `get_what_changed` gives the same split.
 - Saved daily forecasts (version 2) now keep each remaining game's chance and what the next two weeks' games are worth to every team; the first split appears once a build compares with one (from Nov. 25).

@@ -397,6 +397,45 @@ ok(U.cleanBooks(undefined).length === 0, "no books");
   eq(WR.rows[2][2], A0 + " at " + H0 + ": " + H0 + " 50% → 55% (+0.4)", "a moved line named with the home team's chance");
   ok(U.whyRows(null) === null, "nothing to explain");
 }
+// ---- model events (F22) ----
+{
+  eq([U.builtDay("Nov. 23, 2026"), U.builtDay("Sept. 3, 2026"), U.builtDay("May 1, 2026"), U.builtDay("yesterday"), U.builtDay(null)],
+    [Date.UTC(2026, 10, 23), Date.UTC(2026, 8, 3), Date.UTC(2026, 4, 1), null, null], "the build's date as a day");
+  const DAY = Date.UTC(2026, 10, 25), buf = idx("BUF"), nyg = idx("NYG"), mia = idx("MIA");
+  const PV = { date: "2026-11-24", sims: 20000, teams: E.TM.map((t) => t.a), playoffs: E.TM.map(() => 0.5) };
+  const now = E.TM.map(() => 0.5); now[buf] = 0.57; now[nyg] = 0.52; now[mia] = 0.465;
+  // an old forecast: chances only, no split
+  const old = U.playoffMoveEvents(PV, { unavailable: "old", now, n: 20000 }, DAY);
+  eq(old.map((e) => e.teams[0]), [buf, mia], "moves of 3 points or more beyond noise; 2 points is left out");
+  const eb = old[0];
+  eq(eb.title, "Bills playoff chance 50% → 57% (+7 points) since the forecast saved on Nov 24", "the move in words, no split without one");
+  ok(eb.type === "playoff_move" && eb.subtype === "up" && eb.origin === "model" && eb.dateOnly === true && eb.ts === DAY && eb.url === null && eb.publisher === "This page's simulation" && eb.importance <= 65 && eb.importance >= 40,
+    "a dated model estimate, never breaking");
+  eq(U.playoffMoveEvents(Object.assign({}, PV, { sims: 1000 }), { unavailable: "old", now, n: 1000 }, DAY).map((e) => e.teams[0]), [buf], "small runs: a 3.5-point move is inside the noise");
+  // a version-2 comparison: the split names the two biggest parts
+  const split = { teams: E.TM.map((t, i) => ({ team: i, was: 0.5, now: now[i], total: now[i] - 0.5, own: i === buf ? 0.02 : 0, others: i === buf ? 0.04 : now[i] - 0.5, lines: i === buf ? 0.012 : 0, ratings: i === buf ? -0.004 : 0, rest: i === buf ? 0.002 : 0 })), n: 20000 };
+  eq(U.playoffMoveEvents(PV, split, DAY)[0].title, "Bills playoff chance 50% → 57% (+7 points) since the forecast saved on Nov 24: other teams' results +4, own results +2", "the two biggest parts named, biggest first");
+  eq(U.playoffMoves(PV, null), [], "no comparison run: nothing");
+  // model and market
+  const mg = U.marketGapEvents(DAY, null), dg = U.disagreementGames();
+  ok(mg.length === dg.length && mg.every((e) => e.type === "model" && e.origin === "model" && e.gameId && e.teams.length === 2 && e.importance <= 65 && /^Model and market disagree on [A-Z]{2,3} at [A-Z]{2,3}: the ratings give the /.test(e.title)),
+    "one event per game where the ratings and the line differ by 8 points or more (" + mg.length + " now)");
+  if (dg.length) {
+    const g0 = E.GAMES[dg[0].gi], fakeM = { gameByKey: { [g0[0]]: { state: "post" } } };
+    ok(U.marketGapEvents(DAY, fakeM).length === dg.length - 1, "a game the feed shows as started or over is left out");
+  }
+  // in the model: replaced, never duplicated, in feed order, and never the top story
+  const M0 = U.buildModel(live), base = M0.events.length;
+  const M1 = U.withModelEvents(M0, { unavailable: "old", now, n: 20000 }), M2 = U.withModelEvents(M1, { unavailable: "old", now, n: 20000 });
+  const nModel = (M) => M.events.filter((e) => e.origin === "model").length;
+  ok(nModel(M1) >= mg.length && M2.events.length === M1.events.length && M1.events.length - base === nModel(M1), "added once; a second pass replaces them");
+  ok(M1.events.every((e, k, a) => k === 0 || (a[k - 1].before != null ? 1 : 0) <= (e.before != null ? 1 : 0)), "items with unknown times stay last");
+  ok(U.withModelEvents(M0, { unavailable: "error" }).events.filter((e) => e.type === "playoff_move").length === 0, "a failed run gives no moves");
+  const top = U.topEvent(M1.events);
+  ok(!top || top.origin !== "model", "a model estimate is never the biggest development");
+  ok(U.topEvent([Object.assign({}, eb, { importance: 99 })]) === null, "even with a high score");
+}
+
 // ---- what the feed had between two looks at a line ----
 {
   const T0 = Date.parse("2026-11-23T12:00:00Z"), H = 3600000, mia = idx("MIA"), buf = idx("BUF"), nyg = idx("NYG");

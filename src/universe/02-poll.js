@@ -34,7 +34,7 @@ function pollNow() {
   }).then(function (u) {
     if (!looksLikeUniverse(u)) throw new Error("unexpected payload shape");
     poll.fails = 0; poll.breaker = "closed"; poll.everOk = true; poll.lastLatency = Date.now() - t0;
-    store.set({ payload: u, origin: "live", fetchedAt: Date.now(), pollFails: 0, pollError: null, breaker: "closed", model: buildModel(u) });
+    store.set({ payload: u, origin: "live", fetchedAt: Date.now(), pollFails: 0, pollError: null, breaker: "closed", model: withModelEvents(buildModel(u), store.get("why")) });
   }).catch(function (err) {
     poll.fails++;
     if (poll.breaker === "half-open" || poll.fails >= BREAKER_TRIP) { poll.breaker = "open"; poll.openedAt = Date.now(); }

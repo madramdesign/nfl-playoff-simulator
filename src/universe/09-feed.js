@@ -47,12 +47,16 @@ function eventRow(e, now) {
   var srcs = e.sourceCount > 1 ? e.sourceCount + " sources" : null;
   var when = e.before != null ? el("time", { class: "u-ev-time", datetime: new Date(e.before).toISOString(), title: "Already in the data at " + new Date(e.before).toLocaleString() + "; when it happened is not known.", text: fmtBefore(e.before, now) })
     : el("time", { class: "u-ev-time", datetime: new Date(e.ts).toISOString(), title: e.dateOnly ? "Dated " + fmtDateUTC(e.ts) + " (no time given)" : estimateNote(e) || new Date(e.ts).toLocaleString(), text: (estimateNote(e) ? "~" : "") + fmtRel(e.ts, now, e.dateOnly) });
-  var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title }) : el("span", { class: "u-ev-title", text: e.title });
+  var title = e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", class: "u-ev-title", text: e.title })
+    : e.origin === "model" && e.type === "playoff_move" && e.teams.length ? el("button", { type: "button", class: "u-ev-title u-ev-open", "data-team": e.teams[0], title: "Open the team: why it moved", text: e.title })
+    : e.origin === "model" && e.gameId ? el("button", { type: "button", class: "u-ev-title u-ev-open", "data-game": e.gameId, title: "Open the game", text: e.title })
+    : el("span", { class: "u-ev-title", text: e.title });
   var meta = [el("span", { class: "u-ev-pub", text: e.publisher || "" })];
   if (e.confidence != null) meta.push(el("span", { text: "confidence " + Math.round(e.confidence * 100) + "%" }));
   if (srcs) meta.push(el("span", { class: "u-ev-srcs", text: srcs, title: e.sources.map(function (s) { return s.publisher; }).join(", ") }));
   if (e.type === "weather") meta.push(weatherCredit(e.source));
   if (e.origin === "page") meta.push(el("span", { text: "curated news file" }));
+  if (e.origin === "model") meta.push(el("span", { class: "u-ev-basis", text: "model estimate", title: "Worked out by this page from its own data, not reported by a source" }));
   return el("li", { class: "u-ev u-ev-" + e.type + (e.importance != null && e.importance >= BREAKING_MIN ? " is-breaking" : ""), "data-id": e.id }, [
     el("div", { class: "u-ev-top" }, [
       when,
@@ -80,7 +84,9 @@ function buildFeedPanel(host) {
   host.appendChild(feedPanel.root);
   feedPanel.body.addEventListener("click", function (e) {
     var t = e.target.closest ? e.target.closest("[data-team]") : null;
-    if (t) { e.preventDefault(); openTeam(+t.getAttribute("data-team")); }
+    if (t) { e.preventDefault(); openTeam(+t.getAttribute("data-team")); return; }
+    var gm = e.target.closest ? e.target.closest("[data-game]") : null;
+    if (gm) { e.preventDefault(); openGame(gm.getAttribute("data-game")); }
   });
 }
 function renderFeed() {

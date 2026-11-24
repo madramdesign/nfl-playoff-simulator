@@ -22,7 +22,7 @@ function boot() {
   var chips = Array.isArray(saved.feedTypes) ? saved.feedTypes.filter(function (c) { return FEED_CHIPS.some(function (x) { return x[0] === c; }); }) : [];
   store = createStore(Object.assign(init, { search: "", feedTypes: chips, payload: fab, origin: fab ? "snapshot" : "none", fetchedAt: null, pollFails: 0, pollError: null,
     mediaTab: mtab, mediaKind: mkind, mediaShorts: saved.mediaShorts === true, mediaBlocked: false,
-    breaker: "closed", model: buildModel(fab), sim: null, why: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
+    breaker: "closed", model: withModelEvents(buildModel(fab), null), sim: null, why: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
   watchMediaBlocks();   // before anything renders a thumbnail, so the first refusal is heard
 
   buildRail(byId("uRail"));
@@ -66,6 +66,9 @@ function boot() {
     if (has("mode", "layers", "timeRange")) lsSet({ mode: st.mode, layers: st.layers, layersKnown: LAYER_IDS, timeRange: st.timeRange });
     if (has("view")) applyView();
     if (has("model", "origin")) requestBaseSim();
+    if (has("sim") && st.sim) requestWhySim();
+    // the comparison run's playoff moves join the event list (later, not inside this round of renders)
+    if (has("why")) setTimeout(function () { store.set({ model: withModelEvents(store.get("model"), store.get("why")) }); }, 0);
     if (has("focus")) { renderFocusBar(); fitFocus(); }
     if (has("mode", "layers", "timeRange", "model", "sim", "search", "team", "game", "focus")) drawMapSoon();
     if (has("feedTypes", "timeRange", "model", "search", "focus")) renderFeed();

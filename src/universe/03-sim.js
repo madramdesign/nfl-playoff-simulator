@@ -130,19 +130,21 @@ function simRecord(r, where, t0, inp, mode, deep) {
   return { r: r, n: r.n, where: where, ms: Date.now() - t0, finals: inp.finals, ties: inp.ties, lives: inp.lives, feedLive: inp.feedLive, staleLive: inp.staleLive,
     watch: inp.watch, at: Date.now(), mode: mode, deep: deep, key: inp.key };
 }
-// Why the playoff chances moved since the saved forecast (F04): one run in the blend, from the build's data with no picks,
-// live games or what-ifs, watching the games whose chance has moved. Once per page load, when first asked for, and only
-// when the saved forecast carries the figures (version 2).
+// The comparison with the saved forecast (F04 "Why it moved", F22 playoff-move events): one run in the blend, from the
+// build's data with no picks, live games or what-ifs, watching the games whose chance has moved. Once per page load,
+// after the first simulation or when a team panel first asks. The split needs a version-2 forecast; an older one still
+// gives each team's chance now ({unavailable: "old", now, n}).
 var whyAsked = false;
 function requestWhySim() {
   if (whyAsked) return;
   whyAsked = true;
-  var w = changeWatch(D.prev);
   // later, never inside the render that asked (a store change re-renders the drawer)
-  if (!w) { setTimeout(function () { store.set({ why: { unavailable: D.prev ? "old" : "none", date: D.prev ? D.prev.date : null } }); }, 0); return; }
-  runSim({ picks: GAMES.map(function () { return 0; }), watch: w, n: SIM_BASE_N, mode: 2 }, function (err, r) {
-    var e = err || !r ? null : explainChange(D.prev, r);
-    store.set({ why: e ? e : { unavailable: err ? "error" : "old", date: D.prev.date, error: err ? String(err.message || err) : null } });
+  if (!D.prev) { setTimeout(function () { store.set({ why: { unavailable: "none", date: null } }); }, 0); return; }
+  var w = changeWatch(D.prev);
+  runSim({ picks: GAMES.map(function () { return 0; }), watch: w || [], n: SIM_BASE_N, mode: 2 }, function (err, r) {
+    if (err || !r) { store.set({ why: { unavailable: "error", date: D.prev.date, error: String((err && err.message) || err || "no result") } }); return; }
+    var e = w ? explainChange(D.prev, r) : null;
+    store.set({ why: e ? Object.assign(e, { n: r.n }) : { unavailable: "old", date: D.prev.date, now: Array.prototype.map.call(r.po, function (v) { return v / r.n; }), n: r.n } });
   });
 }
 var simTimer = 0, simKey = "", simSeq = 0;
