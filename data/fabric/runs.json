@@ -1,0 +1,28 @@
+[
+ {
+  "at": "2026-11-24T03:37:44.156Z",
+  "week": 11,
+  "games": 13,
+  "events": 90,
+  "newEvents": 62,
+  "ok": [
+   "nflverse-games",
+   "nflverse-injuries",
+   "nflverse-depth",
+   "nflverse-rosters",
+   "sleeper-trending",
+   "open-meteo",
+   "nws-alerts",
+   "rss-yahoo",
+   "curated-news",
+   "youtube-official",
+   "podcasts-nfl"
+  ],
+  "stale": [],
+  "down": [
+   "rss-espn"
+  ],
+  "carried": [],
+  "tooOld": []
+ }
+]
