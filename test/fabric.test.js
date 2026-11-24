@@ -539,6 +539,36 @@ test("the snapshot script keeps yesterday's data through a failed run and report
     assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "runs.json"), "utf8")).length, 1, "a broken run report is started again, not a reason to fail");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+test("the refresh keeps GitHub's fresh snapshot instead of fetching again (DEC-021)", async () => {
+  const os = require("os"), fs = require("fs");
+  const S = require(path.join(root, "scripts/fabric-snapshot.js"));
+  assert.deepStrictEqual([S.keepHours(["--keep-if-fresh", "4"]), S.keepHours(["--keep-if-fresh=2.5"]), S.keepHours([]), S.keepHours(["--keep-if-fresh"]), S.keepHours(["--keep-if-fresh", "x"]), S.keepHours(["--keep-if-fresh", "0"]), S.keepHours(["--keep-if-fresh", "99"])],
+    [4, 2.5, null, null, null, null, null], "the option's hours; anything unclear means fetch");
+  const g = { generatedAt: "2026-11-24T07:07:00Z" }, at = Date.parse(g.generatedAt), H = 3600000;
+  assert.deepStrictEqual([S.isFresh(g, 4, at + 3.9 * H), S.isFresh(g, 4, at + 4 * H), S.isFresh(g, 4, at - 4 * 60000), S.isFresh(g, 4, at - 10 * 60000), S.isFresh(null, 4, at), S.isFresh({ generatedAt: "x" }, 4, at)],
+    [true, false, true, false, false, false], "under the hours, never from the future beyond five minutes");
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+  assert.ok(/^node scripts\/fabric-snapshot\.js --keep-if-fresh 4 && /.test(pkg.scripts.refresh), "npm run refresh keeps a snapshot under 4 hours old");
+  const wf = fs.readFileSync(path.join(root, ".github/workflows/data-fetch.yml"), "utf8");
+  assert.ok(/run: node scripts\/fabric-snapshot\.js\n/.test(wf) && /ODDS_API_KEY: \$\{\{ secrets\.ODDS_API_KEY \}\}/.test(wf) && /group: data-refresh/.test(wf) && /github\.ref == 'refs\/heads\/main'/.test(wf),
+    "the workflow always fetches, passes the optional key, shares the refresh queue and runs only from main");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-keep-")), quiet = () => {};
+  try {
+    const t0 = Date.parse("2026-11-24T07:07:00Z"); let made = 0;
+    const makeFabric = () => { made++; return createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t0, fetchImpl: fakeFetch() }); };
+    const first = await S.main({ argv: ["--keep-if-fresh", "4"], dir, now: () => t0, makeFabric, log: quiet, warn: quiet });
+    assert.ok(made === 1 && first && !first.kept && first.at, "nothing published yet: it fetches");
+    const lines = [], kept = await S.main({ argv: ["--keep-if-fresh", "4"], dir, now: () => t0 + 2.5 * H, makeFabric, log: (m) => lines.push(m), warn: quiet });
+    assert.ok(kept.kept === true && made === 1 && /^fabric snapshot kept: the published one from 2026-11-24T07:07:00.000Z is under 4 hours old; no source was down then$/.test(lines[0]), "fresh: kept, nothing fetched, and it says so");
+    const later = await S.main({ argv: ["--keep-if-fresh", "4"], dir, now: () => t0 + 5 * H, makeFabric, log: quiet, warn: quiet });
+    assert.ok(made === 2 && !later.kept, "older than the hours: it fetches again");
+    await S.main({ argv: [], dir, now: () => t0 + 5.1 * H, makeFabric, log: quiet, warn: quiet });
+    assert.strictEqual(made, 3, "without the option it always fetches (the GitHub job)");
+    fs.writeFileSync(path.join(dir, "latest.json"), JSON.stringify({ generatedAt: new Date(t0 + 5.2 * H).toISOString(), sources: {} }));
+    await S.main({ argv: ["--keep-if-fresh", "4"], dir, now: () => t0 + 5.2 * H, makeFabric, log: quiet, warn: quiet });
+    assert.strictEqual(made, 4, "a published file that fails the contract is never kept");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("refresh status: has today's refresh run, and was it degraded? (F01 parts 3-4)", () => {
   const { refreshStatus } = require(path.join(root, "scripts/refresh-status.js"));
   const now = Date.parse("2026-11-23T18:23:00Z");   // 1:23 PM Eastern on Nov. 23

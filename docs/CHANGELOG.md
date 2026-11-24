@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-24 (the daily data fetch moves to GitHub Actions)
+- The published page's data (weather, alerts, headlines, videos, podcasts, fantasy trends and, once the `ODDS_API_KEY` secret is set, the sportsbook consensus) is now fetched by a GitHub Actions job at about 2 AM Eastern, where every source is reachable. The claude.ai daily refresh keeps that snapshot instead of fetching again from its workspace, which reaches only GitHub (DEC-021). It explains why weather, headlines and videos were missing from the published page.
+
 ## 2026-11-23 (panel layout: second review's fixes)
 - Dragging a panel, resizing one or dragging the map divider no longer gets stuck when the mouse button is released outside the window; Escape cancels a resize or a divider drag and puts the saved layout back.
 - Panels without a width of their own now share out every column (three panels in four columns span 2, 1 and 1), so no column is left empty.

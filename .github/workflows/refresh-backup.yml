@@ -1,7 +1,8 @@
 name: Backup data refresh
 
 # Backup for the scheduled daily refresh (backlog F01, parts 3 and 4). It runs on GitHub's servers, which reach every
-# public source. Public sources only: the snapshot script never reads ESPN's JSON (DEC-006), and no secret is used.
+# public source. Public sources only: the snapshot script never reads ESPN's JSON (DEC-006); the only secret is the
+# optional ODDS_API_KEY (DEC-019). The daily data fetch (data-fetch.yml, DEC-021) normally supplies the snapshot.
 # If today's refresh has not run by early afternoon, this runs it and commits the data. Either way, if today's
 # snapshot run lost or carried two or more sources, it opens (or adds to) one issue labelled data-refresh.
 # It does not republish the claude.ai page; the scheduled refresh does that.

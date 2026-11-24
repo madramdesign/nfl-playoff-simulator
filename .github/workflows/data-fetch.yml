@@ -1,0 +1,49 @@
+name: Daily data fetch
+
+# The daily data-fabric snapshot (DEC-021). The scheduled refresh on claude.ai runs in a workspace that reaches only
+# GitHub and package registries, so most public sources (weather, headlines, videos, podcasts, The Odds API) failed
+# there. This job fetches them on GitHub's servers a couple of hours before it and commits the snapshot; the refresh's
+# `npm run refresh` then keeps a snapshot under 4 hours old instead of fetching again. Public sources only (DEC-006).
+on:
+  schedule:
+    - cron: "5 7 * * *"   # daily, about 2:05 AM Eastern (3:05 AM in summer); the claude.ai refresh runs at 4:35 AM
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-refresh       # shared with the backup refresh, so the two never push at once
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    # only from main: a manual run on another branch must never push that branch's code to main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fetch every public source and write the snapshot
+        run: node scripts/fabric-snapshot.js
+        env:
+          # optional: The Odds API stays off when this secret is not set (DEC-019); only its median line is published
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+      - name: Commit the snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/fabric
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git commit -m "Daily data fetch (GitHub Actions)"
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep 15
+          done
+          echo "::warning::The data fetch could not be pushed to main; the refresh will fetch on its own."
+          exit 1

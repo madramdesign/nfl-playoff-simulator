@@ -3,6 +3,9 @@
 // written. A source that fails in this run keeps its part of the previous snapshot, reported stale with its true age
 // (lib/fabric/carry.js, backlog F01). Never fails the daily refresh: problems are reported and the script exits 0.
 // Run: node scripts/fabric-snapshot.js
+//      node scripts/fabric-snapshot.js --keep-if-fresh 4   (keep a published snapshot under 4 hours old instead of
+//      fetching again: the daily refresh runs where most sources are unreachable, and GitHub Actions fetches them
+//      shortly before it; DEC-021)
 "use strict";
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, "..");
@@ -62,8 +65,38 @@ async function writeSnapshot({ fabric, dir, now = () => Date.now(), log = consol
   return run;
 }
 
-module.exports = { writeSnapshot };
+// Pure: the hours given with --keep-if-fresh (as "--keep-if-fresh 4" or "--keep-if-fresh=4"), or null.
+function keepHours(argv) {
+  const k = (argv || []).findIndex((a) => a === "--keep-if-fresh" || String(a).startsWith("--keep-if-fresh="));
+  if (k < 0) return null;
+  const a = String(argv[k]), v = Number(a.includes("=") ? a.split("=")[1] : argv[k + 1]);
+  return Number.isFinite(v) && v > 0 && v <= 48 ? v : null;
+}
+// Pure: whether a published snapshot (or null) was generated less than `hours` before `now` (and not in the future,
+// beyond five minutes of clock difference).
+function isFresh(latest, hours, now) {
+  const t = latest && typeof latest.generatedAt === "string" ? Date.parse(latest.generatedAt) : NaN;
+  return Number.isFinite(t) && t - now <= 5 * 60000 && now - t < hours * 3600000;
+}
+// The command: keeps a fresh enough snapshot when asked to, else fetches and writes a new one. The fabric is made
+// only when it is needed. Returns {kept, at} or writeSnapshot's report (null when nothing was written).
+async function main({ argv = process.argv.slice(2), dir = path.join(root, "data", "fabric"), now = () => Date.now(),
+  makeFabric = () => createFabric({ scopes: ["public"] }), log = console.log, warn = console.warn } = {}) {
+  const h = keepHours(argv);
+  if (h != null) {
+    const prev = previous(path.join(dir, "latest.json"));
+    if (isFresh(prev, h, now())) {
+      const by = (st) => Object.values(prev.sources).filter((s) => s.status === st).map((s) => s.id);
+      const down = by("down"), stale = by("stale");
+      log("fabric snapshot kept: the published one from " + prev.generatedAt + " is under " + h + " hours old" +
+        (down.length ? "; down then: " + down.join(", ") : "; no source was down then") + (stale.length ? "; stale then: " + stale.join(", ") : ""));
+      return { kept: true, at: prev.generatedAt, down, stale };
+    }
+  }
+  return writeSnapshot({ fabric: makeFabric(), dir, now, log, warn });
+}
+
+module.exports = { writeSnapshot, main, keepHours, isFresh };
 if (require.main === module) {
-  writeSnapshot({ fabric: createFabric({ scopes: ["public"] }), dir: path.join(root, "data", "fabric") })
-    .catch((err) => console.warn("fabric snapshot skipped:", err && err.message));
+  main().catch((err) => console.warn("fabric snapshot skipped:", err && err.message));
 }
