@@ -6,10 +6,15 @@ const path = require("path");
 const PORT = process.env.PORT || 3000;
 // ESPN's public scoreboard JSON. It is unofficial and undocumented, so it can change without notice.
 const LIVE_URL = process.env.LIVE_URL || "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard";
-const CACHE_MS = Number(process.env.CACHE_MS || 15000);
+const cacheMs = () => Number(process.env.CACHE_MS || 15000);
 const ABBR = { WSH: "WAS", LA: "LAR", JAC: "JAX" }; // feed abbreviation -> the page's abbreviation
 
-let cache = { at: 0, games: [] };
+// A stalled feed must not hang the request, and a failing one must not be asked again on every poll: each request has a
+// timeout, a failure waits LIVE_RETRY_MS before the next try, and concurrent callers share one request.
+const liveTimeoutMs = () => Number(process.env.LIVE_TIMEOUT_MS || 8000);
+const liveRetryMs = () => Number(process.env.LIVE_RETRY_MS || 30000);
+let liveFetch = (...a) => fetch(...a);
+let cache = { at: 0, games: [], failedAt: 0, inflight: null };
 
 function normalize(board) {
   return (board.events || []).map((ev) => {
@@ -32,16 +37,26 @@ function normalize(board) {
 }
 
 async function liveGames() {
-  if (Date.now() - cache.at < CACHE_MS) return { games: cache.games, stale: false };
-  try {
-    const res = await fetch(LIVE_URL, { headers: { "user-agent": "nfl-playoff-simulator" } });
-    if (!res.ok) throw new Error("feed answered " + res.status);
-    cache = { at: Date.now(), games: normalize(await res.json()) };
-    return { games: cache.games, stale: false };
-  } catch (err) {
-    console.error("live feed:", err.message);
-    return { games: cache.games, stale: true };
-  }
+  const now = Date.now();
+  if (now - cache.at < cacheMs()) return { games: cache.games, stale: false };
+  if (now - cache.failedAt < liveRetryMs()) return { games: cache.games, stale: true };   // failed recently: don't ask again yet
+  if (cache.inflight) return cache.inflight;
+  cache.inflight = (async () => {
+    await null;   // so even a fetch that throws at once settles after cache.inflight is set, never before
+    const ctl = new AbortController(), wait = liveTimeoutMs(), timer = setTimeout(() => ctl.abort(), wait);
+    try {
+      const res = await liveFetch(LIVE_URL, { headers: { "user-agent": "nfl-playoff-simulator" }, signal: ctl.signal });
+      if (!res.ok) throw new Error("feed answered " + res.status);
+      const games = normalize(await res.json());   // the body is read inside the timeout too
+      cache.at = Date.now(); cache.games = games; cache.failedAt = 0;
+      return { games, stale: false };
+    } catch (err) {
+      cache.failedAt = Date.now();
+      console.error("live feed:", err && err.name === "AbortError" ? "no answer within " + wait + " ms" : err && err.message);
+      return { games: cache.games, stale: true };
+    } finally { clearTimeout(timer); cache.inflight = null; }
+  })();
+  return cache.inflight;
 }
 
 const TYPES = { ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".json": "application/json", ".css": "text/css" };
@@ -124,13 +139,35 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// The file a request path names inside public/, or null when it would land outside it. The prefix check includes the
+// separator, so a sibling such as public-old/ never counts as inside.
+const PUBLIC_DIR = path.join(__dirname, "public");
+function publicFile(pathname) {
+  const rel = pathname === "/" ? "index.html" : pathname.slice(1);
+  const file = path.join(PUBLIC_DIR, path.normalize(rel));
+  return file.startsWith(PUBLIC_DIR + path.sep) ? file : null;
+}
+// Content-Security-Policy for a page: only its own inline scripts run (each allowed by its SHA-256 hash, computed from
+// the file being served, so a rebuild needs no restart), the simulation worker runs from a blob, and outside content is
+// limited to what the page uses: Google Fonts, YouTube thumbnails and the privacy-enhanced player, and podcast audio
+// (https, since the NFL's feeds go through several measurement redirects before the audio file).
+function cspFor(html) {
+  const hashes = [], re = /<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  // the browser hashes the script as its HTML parser sees it, with every line break turned into a plain \n
+  while ((m = re.exec(html))) hashes.push("'sha256-" + require("crypto").createHash("sha256").update(m[1].replace(/\r\n?/g, "\n"), "utf8").digest("base64") + "'");
+  return ["default-src 'self'", "script-src 'self' " + hashes.join(" "), "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: blob: https://i.ytimg.com", "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
+    "media-src 'self' https:", "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'self'"].join("; ");
+}
 function serveStatic(url, res) {
-  const rel = url.pathname === "/" ? "index.html" : url.pathname.slice(1);
-  const file = path.join(__dirname, "public", path.normalize(rel));
-  if (!file.startsWith(path.join(__dirname, "public"))) { res.writeHead(403); return res.end(); }
+  const file = publicFile(url.pathname);
+  if (!file) { res.writeHead(403); return res.end(); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end("Not found"); }
-    res.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream", "x-content-type-options": "nosniff", "cache-control": "no-cache" });
+    const headers = { "content-type": TYPES[path.extname(file)] || "application/octet-stream", "x-content-type-options": "nosniff", "cache-control": "no-cache" };
+    if (path.extname(file) === ".html") { headers["content-security-policy"] = cspFor(data.toString("utf8")); headers["referrer-policy"] = "strict-origin-when-cross-origin"; }
+    res.writeHead(200, headers);
     res.end(data);
   });
 }
@@ -143,4 +180,6 @@ if (require.main === module) server.listen(PORT, HOST, () => {
   // scope); FABRIC_WATCH=0 turns it off. Hosted public servers have no live scoreboard, so they don't poll.
   if (scopes().includes("local") && process.env.FABRIC_WATCH !== "0") getFabric().startWatch();
 });
-module.exports = { normalize, server, setFabric: (f) => { fabric = f; } };   // setFabric: tests only
+// setFabric, setLiveFetch, resetLive: tests only
+module.exports = { normalize, server, liveGames, publicFile, cspFor, setFabric: (f) => { fabric = f; },
+  setLiveFetch: (f) => { liveFetch = f; }, resetLive: () => { cache = { at: 0, games: [], failedAt: 0, inflight: null }; } };

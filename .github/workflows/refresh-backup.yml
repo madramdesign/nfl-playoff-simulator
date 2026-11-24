@@ -1,0 +1,77 @@
+name: Backup data refresh
+
+# Backup for the scheduled daily refresh (backlog F01, parts 3 and 4). It runs on GitHub's servers, which reach every
+# public source. Public sources only: the snapshot script never reads ESPN's JSON (DEC-006), and no secret is used.
+# If today's refresh has not run by early afternoon, this runs it and commits the data. Either way, if today's
+# snapshot run lost or carried two or more sources, it opens (or adds to) one issue labelled data-refresh.
+# It does not republish the claude.ai page; the scheduled refresh does that.
+on:
+  schedule:
+    - cron: "23 18 * * *"   # daily, about 1:23 PM Eastern (EST)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: data-refresh
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    # only from main: a manual run on another branch must never push that branch's code to main
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Has today's refresh run?
+        id: before
+        run: node scripts/refresh-status.js
+      - name: Refresh (only if today's has not run)
+        if: steps.before.outputs.refreshed_today != 'true'
+        run: npm run refresh
+      - name: Commit the refreshed data (unless the scheduled refresh landed meanwhile)
+        if: steps.before.outputs.refreshed_today != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          today=$(TZ=America/New_York date +%F)
+          git fetch origin main
+          if git cat-file -e "origin/main:data/snapshots/$today.json" 2>/dev/null; then
+            echo "The scheduled refresh committed today's data while this ran; keeping main as it is."
+            git reset --hard origin/main
+            exit 0
+          fi
+          git add data public
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git commit -m "Backup data refresh (GitHub Actions)"
+          if ! git rebase origin/main; then
+            git rebase --abort
+            echo "::warning::The backup refresh could not be placed on top of main; main is left as it is."
+            git reset --hard origin/main
+            exit 0
+          fi
+          git push origin HEAD:main
+      - name: Was today's snapshot run degraded?
+        id: after
+        run: node scripts/refresh-status.js
+      - name: Tell the owner (one open issue, added to on later days)
+        if: steps.after.outputs.degraded == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SUMMARY: ${{ steps.after.outputs.summary }}
+        run: |
+          gh label create data-refresh --color B60205 --description "Daily data refresh problems" --force
+          n=$(gh issue list --label data-refresh --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$SUMMARY"
+          else gh issue create --title "Daily data refresh degraded" --label data-refresh --body "$SUMMARY"; fi

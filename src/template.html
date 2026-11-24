@@ -493,6 +493,21 @@ function simulate(picks,focus,nOverride,liveP,now,watch,seed){
   }
   return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first,rDiv:rDiv,rConf:rConf,rSB:rSB,wSB:wSB,draftSum:draftSum,draftN:draftN,pick1:pick1,top5:top5,watch:WT};
 }
+// One game from /api/live, checked before the simulator uses it: known teams, whole non-negative scores, a known state,
+// period 0-6, minutes 0-15 and a short clock. Anything else gives null and the game is ignored.
+function cleanLiveGame(e){
+  if(!e||typeof e!=="object")return null;
+  var ok=function(a){return typeof a==="string"&&TM.some(function(t){return t.a===a})};
+  var sc=function(v){return typeof v==="number"&&isFinite(v)&&v>=0&&v<200&&Math.floor(v)===v};
+  if(!ok(e.away)||!ok(e.home)||!sc(e.awayScore)||!sc(e.homeScore)||["pre","in","post"].indexOf(e.state)<0)return null;
+  var period=typeof e.period==="number"&&isFinite(e.period)?Math.max(0,Math.min(6,Math.round(e.period))):0;
+  var minutes=typeof e.minutes==="number"&&isFinite(e.minutes)?Math.max(0,Math.min(15,e.minutes)):0;
+  return{away:e.away,home:e.home,awayScore:e.awayScore,homeScore:e.homeScore,state:e.state,period:period,minutes:minutes,
+    clock:typeof e.clock==="string"&&/^\d{1,2}:\d{2}$/.test(e.clock)?e.clock:""}}
+// A link the page may open: https only, no credentials, no spaces. Anything else gives null.
+function safeHttpsUrl(u){
+  if(typeof u!=="string"||u.length>2000||/[\s"<>]/.test(u))return null;
+  try{var p=new URL(u);return p.protocol==="https:"&&!p.username&&!p.password&&p.hostname?u:null}catch(err){return null}}
 </script>
 <script id="universe">
 // NFL Universe command center. Modules live in src/universe/*.js and are inlined here, in file-name order, inside one
@@ -507,7 +522,7 @@ var UT=/*TEAMS*/null;
 // its simulation and live-score polling do not run behind the command center.
 var nflSimStart=(function(){var started=false;return function(){if(started)return;started=true;
 (function(){
-  var KEY="nfl-picks-2026",picks=GAMES.map(function(){return 0}),focus=17,week=0,conf=1,last=null,live={},openLive=null;
+  var KEY="nfl-picks-2026",picks=GAMES.map(function(){return 0}),focus=17,week=0,conf=1,last=null,live={};
   function dispProb(i){var L=live[GAMES[i][0]];return L&&!L.f?liveProbFor(i,L):baseProb(i)}
   function liveArr(){return GAMES.map(function(g,i){var L=live[g[0]];return L&&!L.f?liveProbFor(i,L):null})}
   for(var t=0;t<NT;t++)if(TM[t].a==="NYG")focus=t;
@@ -673,7 +688,7 @@ var nflSimStart=(function(){var started=false;return function(){if(started)retur
     (function(){var P=D.prev,news=D.news||[];if(!P&&!news.length){$("chgCard").hidden=true;return}
       var nb=$("chgNews");nb.textContent="";
       NEWS.forEach(function(n){var d=el("div","news");d.appendChild(el("strong","",TM[n.team].n+", "+n.date+". "));d.appendChild(document.createTextNode(n.summary+" "));
-        if(n.url){var a=el("a","",n.source||"Source");a.href=n.url;a.rel="noopener";d.appendChild(a)}
+        if(safeHttpsUrl(n.url)){var a=el("a","",n.source||"Source");a.href=n.url;a.rel="noopener";d.appendChild(a)}
         var gi=-1;GAMES.forEach(function(g,i){if(gi<0&&(g[2]===n.team||g[3]===n.team))gi=i});
         if(gi>=0){var g=GAMES[gi],home=g[3]===n.team,now=home?dispProb(gi):1-dispProb(gi),was=P&&P.lines&&P.lines[g[0]]!=null?(home?P.lines[g[0]]:1-P.lines[g[0]]):null;
           d.appendChild(el("p","","Next game: "+TM[g[2]].a+" at "+TM[g[3]].a+", Week "+g[1]+". The "+TM[n.team].n+" are "+p100(now)+" to win"+(n.before&&n.before[g[0]]!=null?", from "+p100(home?n.before[g[0]]:1-n.before[g[0]])+" before the news.":was!=null&&Math.abs(was-now)>=.005?", from "+p100(was)+" in the "+P.date+" forecast.":(g[6]!=null?".":"; no betting line is posted yet."))))}
@@ -784,21 +799,26 @@ var nflSimStart=(function(){var started=false;return function(){if(started)retur
 
   // Live feed: only present when the page is served by server.js, which exposes /api/live.
   function applyFeed(list){var changed=false;
-    list.forEach(function(e){var i=-1;GAMES.forEach(function(g,k){if(i<0&&TM[g[2]].a===e.away&&TM[g[3]].a===e.home)i=k});if(i<0)return;
+    list.map(cleanLiveGame).filter(Boolean).forEach(function(e){var i=-1;GAMES.forEach(function(g,k){if(i<0&&TM[g[2]].a===e.away&&TM[g[3]].a===e.home)i=k});if(i<0)return;
       var id=GAMES[i][0],cur=live[id];
       if(e.state==="in"){var nv={a:e.awayScore,h:e.homeScore,q:Math.min(5,Math.max(1,e.period)),m:Math.round(e.minutes*100)/100,c:e.clock,auto:1};
         if(JSON.stringify(cur)!==JSON.stringify(nv)){live[id]=nv;picks[i]=0;changed=true}}
       else if(e.state==="post"&&e.awayScore!==e.homeScore&&!(cur&&cur.f&&cur.auto)){live[id]={a:e.awayScore,h:e.homeScore,q:4,m:0,f:1,auto:1};picks[i]=e.homeScore>e.awayScore?2:1;changed=true}});
     if(changed){save();rerun()}}
+  // Every 20 s; a request that takes over 10 s is abandoned, and after a failure the next try waits longer (up to
+  // 80 s). After three failures before any success there is no server, so the page stops asking.
   function poll(){
-    if(openLive!==null)return;
-    fetch("api/live",{cache:"no-store"}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()}).then(function(d){
-      applyFeed(d.games||[]);var n=(d.games||[]).filter(function(e){return e.state==="in"}).length;
+    var ctl=typeof AbortController==="function"?new AbortController():null,kill=setTimeout(function(){if(ctl)ctl.abort()},10000);
+    fetch("api/live",{cache:"no-store",signal:ctl?ctl.signal:undefined}).then(function(r){if(!r.ok)throw new Error(r.status);return r.json()}).then(function(d){
+      clearTimeout(kill);fails=0;
+      var games=(d&&Array.isArray(d.games)?d.games:[]).map(cleanLiveGame).filter(Boolean);
+      applyFeed(games);var n=games.filter(function(e){return e.state==="in"}).length;
       $("feed").hidden=false;$("feed").textContent="Live scores on. "+(n?n+" game"+(n>1?"s":"")+" in progress. ":"No games in progress. ")+"Checked "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+"."+(d.stale?" The score feed did not answer; showing the last scores received.":"");
-      everOk=true;
-    }).catch(function(){if(!everOk&&++fails>=3)clearInterval(timerId)})}
+      everOk=true;schedule();
+    }).catch(function(){clearTimeout(kill);fails++;if(!everOk&&fails>=3)return;schedule()})}
+  function schedule(){clearTimeout(timerId);timerId=setTimeout(poll,20000*Math.min(4,Math.pow(2,fails)))}
   var everOk=false,fails=0,timerId=0;
-  if(typeof fetch==="function"&&location.protocol!=="file:"){poll();timerId=setInterval(poll,20000)}
+  if(typeof fetch==="function"&&location.protocol!=="file:")poll();
 })();
 }})();
 // Safety net: if the command center did not start (an old browser or a script error), show the simulator as before.

@@ -27,7 +27,7 @@ function getWorker() {
       sim.ok = true;
       if (!p) return;
       delete sim.pending[m.id]; clearTimeout(p.watchdog);
-      if (m.ok) p.cb(null, m.r, "worker"); else p.cb(new Error(m.error), null, "worker");
+      if (m.ok) p.cb(null, leagueOnly(m.r), "worker"); else p.cb(new Error(m.error), null, "worker");
     };
     w.onerror = function (e) { if (e && e.preventDefault) e.preventDefault(); workerFailed(); };
     sim.worker = w;
@@ -42,7 +42,7 @@ function runOnMain(job, cb) {
       r = withoutTweak(function () { return simulate(job.picks, 0, Math.min(job.n, job.mainN || SIM_FALLBACK_N), job.liveP || null, false, job.watch || null, job.seed == null ? undefined : job.seed); });
     } catch (e) { err = e; }
     if (MODE !== keepMode) setMode(keepMode);
-    cb(err, r, "main");
+    cb(err, r ? leagueOnly(r) : r, "main");
   }, 30);
 }
 // job: {picks, liveP, watch, n, seed, mode}; cb(err, result, where)
@@ -57,19 +57,20 @@ function runSim(job, cb) {
   catch (e) { delete sim.pending[id]; workerFailed(); runOnMain(job, cb); }
 }
 
+// simulate() also counts figures for the simulator's chosen team: lev (each game's swing for that team) and hist (its
+// win totals). The command center runs league-wide with focus 0, so those would quietly describe team 0. They are
+// dropped here, so a result can never be read as if they meant something.
+function leagueOnly(r) { if (r) { r.lev = null; r.hist = null; } return r; }
 // Pure: adds simulation b's counts into a (same games, same teams). Used to sum independent deep-run batches.
 function addSimCounts(a, b) {
   if (!a) {
-    a = { n: 0, open: b.open, first: b.first, hist: {}, watch: {} };
+    a = { n: 0, open: b.open, first: b.first, lev: null, hist: null, watch: {} };
     ["po", "dv", "sw", "rDiv", "rConf", "rSB", "wSB", "draftSum", "draftN", "pick1", "top5"].forEach(function (k) { a[k] = new Float64Array(b[k].length); });
     a.seedC = b.seedC.map(function (r) { return r.map(function () { return 0; }); });
-    a.lev = b.lev.map(function () { return [0, 0, 0, 0]; });
   }
   a.n += b.n;
   ["po", "dv", "sw", "rDiv", "rConf", "rSB", "wSB", "draftSum", "draftN", "pick1", "top5"].forEach(function (k) { for (var i = 0; i < b[k].length; i++) a[k][i] += b[k][i]; });
   b.seedC.forEach(function (r, i) { r.forEach(function (v, j) { a.seedC[i][j] += v; }); });
-  b.lev.forEach(function (r, i) { for (var j = 0; j < 4; j++) a.lev[i][j] += r[j]; });
-  for (var hk in b.hist) a.hist[hk] = (a.hist[hk] || 0) + b.hist[hk];
   for (var wk in (b.watch || {})) {
     var s = b.watch[wk], t = a.watch[wk] || (a.watch[wk] = { nH: 0, nA: 0, H: new Float64Array(s.H.length), A: new Float64Array(s.A.length) });
     t.nH += s.nH; t.nA += s.nA; for (var i2 = 0; i2 < s.H.length; i2++) { t.H[i2] += s.H[i2]; t.A[i2] += s.A[i2]; }
@@ -164,5 +165,6 @@ function runDeep() {
   })();
 }
 NFLU.addSimCounts = addSimCounts;
+NFLU.leagueOnly = leagueOnly;
 NFLU.feedInputs = feedInputs;
 NFLU.withoutTweak = withoutTweak;

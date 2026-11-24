@@ -231,6 +231,9 @@ const a = E.simulate(E.GAMES.map(() => 0), 0, 500, null, false, [0], 1), b = E.s
 const sum = U.addSimCounts(U.addSimCounts(null, a), b);
 ok(sum.n === 1000 && Math.abs(Array.from(sum.po).reduce((x, y) => x + y, 0) - 14 * 1000) < 1e-6, "summed batches keep 14 playoff teams per season");
 ok(sum.po.every((v, i) => v === a.po[i] + b.po[i]) && sum.watch[0].nH === a.watch[0].nH + b.watch[0].nH, "counts add batch by batch");
+ok(sum.lev === null && sum.hist === null, "focus-team figures (lev, hist) are never carried in command-center results");
+const lo = U.leagueOnly(E.simulate(E.GAMES.map(() => 0), 0, 200, null, false, null, 3));
+ok(lo.lev === null && lo.hist === null && lo.po.length === E.TM.length && U.leagueOnly(null) === null, "leagueOnly drops them and keeps the league-wide counts");
 ok(U.nextPollDelay(false, 0, "closed") === 120e3 && U.nextPollDelay(true, 0, "closed") === 20e3 && U.nextPollDelay(true, 5, "closed") === 80e3 && U.nextPollDelay(false, 1, "open") === 300e3, "poll timing: 20 s live, 2 min idle, backoff capped at 4x, breaker cool-down");
 
 // ---- feed filter and ticker (expected counts computed from the fixture, not from the code under test) ----

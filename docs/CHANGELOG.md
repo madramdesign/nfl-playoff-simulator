@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-23 (reliability batch: F31, F01 parts 3–4, F30)
+- Security and robustness (F31): a Content-Security-Policy on the page with its inline scripts allowed by hash; `/api/live` timeout, retry wait and shared request; the `public/` containment check fixed; the simulator checks live games and news links and backs off its poll; focus-team figures dropped from command-center results.
+- Backup daily refresh on GitHub Actions, run only when the scheduled refresh has not; one GitHub issue (`data-refresh`) when a day's snapshot lost or carried two or more sources (F01 parts 3–4).
+- Daily source check on GitHub Actions; problems present in two checks 20 minutes apart open or update one issue (`source-drift`), closed when all pass (F30).
+
 ## 2026-11-23 (daily snapshot keeps a failed source's data: F01)
 - A public source that fails for a whole snapshot run keeps its part of the previous published snapshot, reported stale with its original time and true age, instead of vanishing from the published page (as weather, headlines, YouTube and podcasts did on Nov. 23). Never from a local source, never older than 7 days.
 - The snapshot script keeps a report of its last 60 runs in `data/fabric/runs.json` and logs what it carried.

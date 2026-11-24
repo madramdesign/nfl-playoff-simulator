@@ -524,6 +524,45 @@ test("the snapshot script keeps yesterday's data through a failed run and report
     assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, "runs.json"), "utf8")).length, 1, "a broken run report is started again, not a reason to fail");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+test("refresh status: has today's refresh run, and was it degraded? (F01 parts 3-4)", () => {
+  const { refreshStatus } = require(path.join(root, "scripts/refresh-status.js"));
+  const now = Date.parse("2026-11-23T18:23:00Z");   // 1:23 PM Eastern on Nov. 23
+  const run = (at, o) => Object.assign({ at, ok: ["nflverse-games"], stale: [], down: [], carried: [] }, o);
+  let s = refreshStatus({ snapshotDays: ["2026-11-22"], runs: [run("2026-11-22T12:00:00Z")], now });
+  assert.ok(s.today === "2026-11-23" && !s.refreshedToday && !s.degraded && /No refresh yet today/.test(s.summary), "yesterday's refresh does not count");
+  s = refreshStatus({ snapshotDays: ["2026-11-22", "2026-11-23"], runs: [run("2026-11-23T09:40:00Z", { stale: ["rss-yahoo"], carried: ["rss-yahoo"] })], now });
+  assert.ok(s.refreshedToday && !s.degraded, "one carried source is not yet worth an issue");
+  s = refreshStatus({ snapshotDays: ["2026-11-23"], runs: [run("2026-11-23T09:40:00Z", { stale: ["rss-yahoo", "rss-espn"], carried: ["rss-yahoo", "rss-espn"], down: ["nflverse-depth"] })], now });
+  assert.ok(s.degraded && s.lost.length === 3 && /carried from the previous snapshot: rss-yahoo, rss-espn/.test(s.summary) && /down: nflverse-depth/.test(s.summary), "two or more lost or carried: degraded, with a summary");
+  s = refreshStatus({ snapshotDays: ["2026-11-23"], runs: [run("2026-11-23T04:59:00Z", { down: ["a", "b"] })], latest: { generatedAt: "2026-11-23T09:00:00Z", sources: {} }, now });
+  assert.ok(!s.degraded, "a run just before midnight Eastern belongs to the day before");
+  assert.ok(!refreshStatus({ snapshotDays: null, runs: "nonsense", now }).degraded, "missing or broken inputs before any refresh are not an alarm");
+  // no run report committed: the published snapshot itself is read
+  const latest = (gen, sources) => ({ generatedAt: gen, sources });
+  const srcs = { "rss-yahoo": { id: "rss-yahoo", status: "stale", carriedFrom: "2026-11-22T09:37:00Z" }, "open-meteo": { id: "open-meteo", status: "down" }, "nflverse-games": { id: "nflverse-games", status: "ok" } };
+  s = refreshStatus({ snapshotDays: ["2026-11-23"], runs: [], latest: latest("2026-11-23T17:46:00Z", srcs), now });
+  assert.ok(s.degraded && s.lost.slice().sort().join() === "open-meteo,rss-yahoo" && /no run report/.test(s.summary), "no run report: the snapshot's carried and down sources count");
+  s = refreshStatus({ snapshotDays: ["2026-11-23"], runs: [], latest: latest("2026-11-23T17:46:00Z", { "nflverse-games": { id: "nflverse-games", status: "ok" } }), now });
+  assert.ok(!s.degraded, "a clean published snapshot is fine");
+  s = refreshStatus({ snapshotDays: ["2026-11-23"], runs: [], latest: latest("2026-11-21T17:47:00Z", srcs), now });
+  assert.ok(s.degraded && /no data-fabric snapshot was written today/.test(s.summary), "refreshed today but the fabric snapshot is from an earlier day: degraded");
+  s = refreshStatus({ snapshotDays: ["2026-11-23"], runs: [run("2026-11-23T17:46:00Z")], latest: latest("2026-11-23T17:46:00Z", srcs), now });
+  assert.ok(!s.degraded, "today's run report wins over the snapshot when there is one");
+});
+test("source check: only problems present in both checks count (F30)", async () => {
+  const sc = require(path.join(root, "scripts/source-check.js"));
+  const a = { at: "2026-11-23T11:41:00Z", down: { "rss-yahoo": "fetch failed", "open-meteo": "timeout" }, contract: ["x", "y"] };
+  const b = { at: "2026-11-23T12:01:00Z", down: { "rss-yahoo": "answered 404", "sleeper-trending": "fetch failed" }, contract: ["y", "z"] };   // sleeper and z fail only the second time
+  const p = sc.persistentProblems(a, b);
+  assert.deepStrictEqual(p, { down: { "rss-yahoo": "answered 404" }, contract: ["y"] }, "the outage that cleared is dropped; the second check's wording is kept");
+  assert.ok(sc.hasProblems(p) && !sc.hasProblems(sc.persistentProblems(a, { at: "", down: {}, contract: [] })));
+  const shifted = sc.persistentProblems({ down: {}, contract: ["events[12].ts: not ISO"] }, { down: {}, contract: ["events[14].ts: not ISO"] });
+  assert.deepStrictEqual(shifted.contract, ["events[14].ts: not ISO"], "the same contract problem at a shifted position still counts");
+  const text = sc.report(p, a, b);
+  assert.ok(/`rss-yahoo`: answered 404/.test(text) && /contract problems/.test(text) && /11:41:00Z and 2026-11-23T12:01:00Z/.test(text), "the issue text names the source, the error and both check times");
+  const once = await sc.checkOnce(createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["yahoo"])) }));
+  assert.ok(once.down["rss-yahoo"] && !once.down["nflverse-games"] && Array.isArray(once.contract), "a real check against fake sources finds the failing one");
+});
 test("the contract checks the fantasy block", () => {
   const ok = { v: 1, generatedAt: "2026-11-22T00:00:00Z", season: 2026, week: 11, seasonType: "regular", sources: { "sleeper-trending": { id: "sleeper-trending", label: "x", tier: 2, scope: "public", status: "ok", breaker: "closed", lastOk: null, lastError: null, ageSec: 0, latencyMs: 1, fails: 0, records: 1, maxStaleSec: 1 } },
     games: [], events: [], injuries: {}, transactions: [], fantasy: { source: "sleeper-trending", lookbackHours: 24, week: 11, adds: [{ name: "A", team: "NYG", pos: "QB", count: 5, sleeperId: "1" }], drops: [], unmatched: { adds: 0, drops: 0 } } };
@@ -606,7 +645,7 @@ test("server routes answer, validate ids and refuse path tricks", async () => {
   await new Promise((ok) => srv.server.listen(0, "127.0.0.1", ok));
   const base = "http://127.0.0.1:" + srv.server.address().port;
   const http = require("http");
-  const get = (p) => new Promise((ok, bad) => http.get(base + p, (res) => { let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => ok({ status: res.statusCode, body: b, type: res.headers["content-type"] })); }).on("error", bad));
+  const get = (p) => new Promise((ok, bad) => http.get(base + p, (res) => { let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => ok({ status: res.statusCode, body: b, type: res.headers["content-type"], csp: res.headers["content-security-policy"] })); }).on("error", bad));
   try {
     let r = await get("/api/universe"); assert.strictEqual(r.status, 200); assert.deepStrictEqual(C.validateUniverse(JSON.parse(r.body), T), []);
     r = await get("/api/universe?since=2099-01-01T00:00:00Z"); assert.strictEqual(JSON.parse(r.body).events.length, 0, "since trims events");
@@ -625,6 +664,12 @@ test("server routes answer, validate ids and refuse path tricks", async () => {
     r = await get("/api/nothing"); assert.strictEqual(r.status, 404);
     r = await get("/%2e%2e/server.js"); assert.strictEqual(r.status, 404, "no files outside public/ (URL parsing removes the dots before the guard)");
     r = await get("/"); assert.strictEqual(r.status, 200); assert.ok(/text\/html/.test(r.type));
+    // the page's Content-Security-Policy allows exactly its own inline scripts, by hash
+    const crypto = require("crypto"), inline = [...r.body.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => "'sha256-" + crypto.createHash("sha256").update(m[1], "utf8").digest("base64") + "'");
+    assert.ok(inline.length === 3 && inline.every((h) => r.csp.includes(h)), "every inline script of the page is allowed by its hash");
+    assert.ok(!/unsafe-inline[^;]*;/.test(r.csp.split("script-src")[1].split(";")[0] + ";") && !/unsafe-eval/.test(r.csp), "no unsafe-inline or unsafe-eval for scripts");
+    assert.ok(/object-src 'none'/.test(r.csp) && /worker-src 'self' blob:/.test(r.csp) && /frame-src https:\/\/www\.youtube-nocookie\.com/.test(r.csp), "plugins off; the simulation worker and YouTube's player allowed");
+    assert.ok(!(await get("/api/health")).csp, "JSON answers carry no page policy");
     // public hosting: no ESPN scoreboard without the local scope, and a per-client request cap
     process.env.FABRIC_SCOPES = "public";
     r = await get("/api/live"); assert.strictEqual(r.status, 404, "/api/live is off without the local scope");
@@ -634,6 +679,57 @@ test("server routes answer, validate ids and refuse path tricks", async () => {
     assert.strictEqual(codes[codes.length - 1], 429, "the request cap answers 429");
     r = await get("/"); assert.strictEqual(r.status, 200, "the page itself is not rate limited");
   } finally { delete process.env.FABRIC_SCOPES; delete process.env.RATE_LIMIT; await new Promise((ok) => srv.server.close(ok)); srv.setFabric(null); }
+});
+test("static files: only inside public/, never a sibling folder", () => {
+  const srv = require(path.join(root, "server.js")), pub = path.join(root, "public");
+  assert.strictEqual(srv.publicFile("/"), path.join(pub, "index.html"));
+  assert.strictEqual(srv.publicFile("/index.html"), path.join(pub, "index.html"));
+  assert.strictEqual(srv.publicFile("/x/../../public-old/secret.txt"), null, "a sibling whose name starts with public/ is outside");
+  assert.strictEqual(srv.publicFile("/../server.js"), null);
+});
+test("the page policy hashes scripts the way the browser does", () => {
+  const { cspFor } = require(path.join(root, "server.js"));
+  const lf = "<html><script>var a = 1;\nvar b = 2;</script><script src=\"x.js\"></script></html>";
+  const h = (csp) => csp.split("script-src")[1].split(";")[0];
+  assert.strictEqual(h(cspFor(lf.replace(/\n/g, "\r\n"))), h(cspFor(lf)), "Windows line breaks hash like the browser's normalised ones");
+  assert.strictEqual((h(cspFor(lf)).match(/'sha256-/g) || []).length, 1, "external scripts are not hashed");
+});
+test("/api/live: a fetch that throws at once does not leave a stuck request", async () => {
+  const srv = require(path.join(root, "server.js")), errLog = console.error; console.error = () => {};
+  process.env.LIVE_RETRY_MS = "0"; process.env.CACHE_MS = "0";
+  try {
+    srv.resetLive();
+    srv.setLiveFetch(() => { throw new Error("no network"); });
+    const r1 = await srv.liveGames();
+    let calls = 0; srv.setLiveFetch(async () => { calls++; return { ok: true, status: 200, json: async () => ({ events: [] }) }; });
+    const r2 = await srv.liveGames();
+    assert.ok(r1.stale === true && calls === 1 && r2.stale === false, "the next call makes a new request instead of returning the finished one");
+  } finally { console.error = errLog; delete process.env.LIVE_RETRY_MS; delete process.env.CACHE_MS; srv.resetLive(); srv.setLiveFetch((...x) => fetch(...x)); }
+});
+test("/api/live: a timeout, no retry storm after a failure, one request at a time", async () => {
+  const srv = require(path.join(root, "server.js")), sb = JSON.parse(require("fs").readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8"));
+  const errLog = console.error; console.error = () => {};
+  process.env.LIVE_TIMEOUT_MS = "50"; process.env.LIVE_RETRY_MS = "200"; process.env.CACHE_MS = "0";
+  try {
+    let calls = 0;
+    srv.resetLive();
+    srv.setLiveFetch((url, o) => { calls++; return new Promise((_, bad) => o.signal.addEventListener("abort", () => { const e = new Error("aborted"); e.name = "AbortError"; bad(e); })); });
+    const t0 = Date.now(), r1 = await srv.liveGames();
+    assert.ok(r1.stale === true && Date.now() - t0 < 2000 && calls === 1, "a feed that never answers is given up after the timeout");
+    const r2 = await srv.liveGames();
+    assert.ok(r2.stale === true && calls === 1, "right after a failure the feed is not asked again");
+    await new Promise((ok) => setTimeout(ok, 250));
+    srv.setLiveFetch(async () => { calls++; await new Promise((ok) => setTimeout(ok, 20)); return { ok: true, status: 200, json: async () => sb }; });
+    const [a, b] = await Promise.all([srv.liveGames(), srv.liveGames()]);
+    assert.ok(calls === 2 && a.stale === false && b.stale === false && a.games.length === b.games.length && a.games.length > 0, "after the wait it asks again, once for two callers");
+    srv.setLiveFetch(async () => { calls++; return { ok: false, status: 503, json: async () => ({}) }; });
+    await new Promise((ok) => setTimeout(ok, 5));
+    const r3 = await srv.liveGames();
+    assert.ok(r3.stale === true && r3.games.length === a.games.length, "a failed answer keeps the last good games, marked stale");
+  } finally {
+    console.error = errLog; delete process.env.LIVE_TIMEOUT_MS; delete process.env.LIVE_RETRY_MS; delete process.env.CACHE_MS;
+    srv.resetLive(); srv.setLiveFetch((...x) => fetch(...x));
+  }
 });
 test("YouTube feeds: video ids checked, Shorts and press conferences recognised, teams matched", () => {
   const c = { team: "BUF", name: "Buffalo Bills", channelId: "UCcEvCxUe2Sm5W6MliEUv0vg" };
@@ -775,11 +871,19 @@ test("synthetic fixtures satisfy the contracts", () => {
   assert.deepStrictEqual(C.validateGameDetail(require(path.join(root, "test/fixtures/game.sample.json")), T), []);
 });
 
+// A test whose promise never settles must fail, not end the run quietly: the exit code is a failure until the last
+// test has finished, and each test gets 60 seconds.
+process.exitCode = 1;
+const TEST_TIMEOUT_MS = 60000;
 (async () => {
   let failed = 0;
   for (const [name, fn] of tests) {
-    try { await fn(); } catch (err) { failed++; console.error("FAIL " + name + "\n  " + (err && err.stack || err).split("\n").slice(0, 4).join("\n  ")); }
+    let timer;
+    const limit = new Promise((_, bad) => { timer = setTimeout(() => bad(new Error("did not finish within " + TEST_TIMEOUT_MS / 1000 + " s")), TEST_TIMEOUT_MS); });
+    try { await Promise.race([fn(), limit]); } catch (err) { failed++; console.error("FAIL " + name + "\n  " + (err && err.stack || err).split("\n").slice(0, 4).join("\n  ")); }
+    finally { clearTimeout(timer); }
   }
   if (failed) { console.error(failed + " of " + tests.length + " fabric tests failed"); process.exit(1); }
+  process.exitCode = 0;
   console.log("ok: " + tests.length + " fabric tests pass");
 })();

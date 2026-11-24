@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); a fifth on Nov. 23 (reliability batch: F31, F01 parts 3–4, F30); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -131,17 +131,25 @@
 - Found while researching:
   - The Nov. 23 refresh published a degraded public snapshot. Open-Meteo, both RSS feeds, YouTube and podcasts all failed with `fetch failed`, and the run overwrote the previous good data. There is no event file for Nov. 22. Backlog F01, fixed on Nov. 23 (see below).
 
+## Nov. 23 (on `main`): reliability batch (F31, F01 parts 3–4, F30)
+- F31 items 1–7: `/api/live` timeout, retry wait and shared request; the `public/` containment check; a Content-Security-Policy on the page (inline scripts by hash, worker from blob:, Google Fonts, YouTube thumbnails and player, podcast audio over https); the simulator checks live games (`cleanLiveGame`) and news links (`safeHttpsUrl`), times out and backs off its poll; dead `openLive` removed; focus-team figures dropped from command-center results. Item 8 (one constants table) left out.
+- F01 parts 3–4: `.github/workflows/refresh-backup.yml` (daily 1:23 PM Eastern) runs `npm run refresh` only when today's has not run, commits, and keeps one GitHub issue labelled `data-refresh` when today's snapshot lost or carried two or more sources (`scripts/refresh-status.js`). It does not republish the claude.ai page.
+- F30: `.github/workflows/source-check.yml` (daily 6:41 AM Eastern) checks every public source twice when something fails and keeps one issue labelled `source-drift`, closed when all pass (`scripts/source-check.js`).
+- Checked: all five suites pass (6 new fabric tests, engine and page checks); nine deliberately broken versions each caught; in the browser with the policy on, the map, helmets, fonts, thumbnails, the simulation worker, the YouTube player and the simulator's live poll all work with no blocked-resource errors; both workflow files parse; both scripts ran against the real sources.
+- Independent review: nothing blocking; five findings fixed. A hanging test could end the run as a pass, so the runner now gives each test 60 s and fails until the last one finishes. The status check now also reads the published `latest.json` and flags a refresh that wrote no fabric snapshot, so it works even if `runs.json` is not committed; on Nov. 23's real data it reports the five sources lost that day. The backup steps aside when the scheduled refresh lands meanwhile, never fails on a rebase conflict, and runs only from `main`. The source check compares contract messages without array positions and closes its issue only when the last check passed. Scripts are hashed with line breaks normalised, as the browser does. Two nits also fixed (a fetch that throws at once; apostrophes in links).
+- Not yet: either workflow has run on GitHub (both are on `main` from Nov. 23; they can also be started by hand from the Actions tab).
+
 ## Nov. 23 (on `main`): the snapshot keeps a failed source's data (F01, parts 1 and 2)
 - `lib/fabric/carry.js`: in the daily snapshot, a public source that fails for the whole run keeps its part of the previous published snapshot (headlines, weather, injuries, games, videos, episodes, fantasy trends), reported `stale` with its original `lastOk`, its true age and `carriedFrom`. Never from a local source, never older than 7 days; sources that only shape other parts (depth charts, the roster crosswalk) are not carried, and their parts fall back to the older rules.
 - `scripts/fabric-snapshot.js` keeps a report of its last 60 runs in `data/fabric/runs.json` (ok, stale, down, carried, events added) and logs what it carried. The daily refresh must commit `data/fabric/runs.json` along with `latest.json` and the event file for the report to survive between runs.
 - Checked: 2 new fabric tests (the merge, and the script end to end in a temporary folder), five deliberately broken versions each caught; a real run with Yahoo's feed made to fail kept 47 Yahoo headlines, shown stale.
-- Not done: F01 parts 3 (a public-only GitHub Actions backup refresh) and 4 (telling the owner when two or more sources fail).
+- Parts 3 and 4 followed the same day (see the reliability batch below).
   - Small robustness and security fixes, listed in backlog F31.
   - The "Model" feed filter can never show anything: nothing emits `model` or `playoff_move` events (F22).
 
 ## Next actions
 1. Confirm the heartbeat during a real game (kickoff and score events without the "~" estimate mark) and follow a game through to its final.
-2. Then Phase 1 of `FEATURE_ROADMAP.md`: the rest of F01 (backup workflow, notification) and F31. Then P0 differentiators F02, F04, F05 and F08 within M4 and M5 of `MASTER_PLAN.md`.
+2. Watch the first runs of the two new workflows on GitHub (Actions tab; they can also be started by hand). Then the rest of Phase 1 of `FEATURE_ROADMAP.md`: F35, F17, F22, F23. Then P0 differentiators F02, F04, F05 and F08 within M4 and M5 of `MASTER_PLAN.md`.
 
 ## Commands actually run (this session)
 | Command | Result |

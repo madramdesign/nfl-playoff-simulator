@@ -1,0 +1,46 @@
+name: Source check
+
+# Backlog F30. Once a day every public source is fetched fresh and the public-snapshot contract is checked. Problems
+# still present on a second try 20 minutes later open (or add to) one issue labelled source-drift; when every source
+# passes again, that issue is closed with a note. Public sources only; no secret is used; nothing is committed.
+on:
+  schedule:
+    - cron: "41 11 * * *"   # daily, about 6:41 AM Eastern (EST)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check every public source (twice if anything fails)
+        id: check
+        run: node scripts/source-check.js --retry-after=20
+      - name: Make sure the label exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh label create source-drift --color D93F0B --description "A public data source failed twice in a row" --force
+      - name: Open or add to the issue
+        if: steps.check.outputs.failing == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPORT: ${{ steps.check.outputs.report }}
+        run: |
+          n=$(gh issue list --label source-drift --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body-file "$REPORT"
+          else gh issue create --title "Public data source failing" --label source-drift --body-file "$REPORT"; fi
+      - name: Close the issue when everything passes again
+        if: steps.check.outputs.all_passed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh issue list --label source-drift --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue close "$n" --comment "Every public source passed today's check."; fi

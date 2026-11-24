@@ -19,7 +19,7 @@
 
 ## FEATURE-F01 — Snapshot carry-forward and refresh health
 
-Status: Parts 1 and 2 done (Nov. 23, `lib/fabric/carry.js`, `scripts/fabric-snapshot.js`, `data/fabric/runs.json`); parts 3 (backup workflow) and 4 (notification) open
+Status: Done (Nov. 23): parts 1–2 in `lib/fabric/carry.js`, `scripts/fabric-snapshot.js`, `data/fabric/runs.json`; parts 3–4 in `.github/workflows/refresh-backup.yml` and `scripts/refresh-status.js` (the owner is told through one GitHub issue labelled `data-refresh`; a push channel waits for F10). Not yet run on GitHub.
 Priority: P0 · Score 79.2 · Size S
 Category: Reliability / Automation
 Tag: EXISTING—IMPROVE (`scripts/fabric-snapshot.js`)
@@ -691,7 +691,7 @@ Proposed Solution:
 
 ## FEATURE-F30 — Scheduled source-drift check
 
-Status: Ready
+Status: Done (Nov. 23): `.github/workflows/source-check.yml`, `scripts/source-check.js`; one issue labelled `source-drift`, closed when every source passes again. Not yet run on GitHub.
 Priority: P1 · Score 69.8 · Size S
 Category: Reliability / Developer tools
 Tag: NEW
@@ -702,7 +702,7 @@ Risk: false alarms on transient outages. Require two consecutive failures.
 
 ## FEATURE-F31 — Security and robustness fixes from review
 
-Status: Ready
+Status: Items 1–7 done (Nov. 23); item 8 (one constants table for thresholds) left out: a refactor across the page, the simulator and the fabric with no user-facing change. For item 7, the focus-team figures are dropped from command-center results (`leagueOnly`) rather than computed for another team, since nothing there reads them.
 Priority: P1 (scheduled in Phase 1 regardless of score) · Score 65.3 · Size S
 Category: Security / Reliability
 Tag: EXISTING—IMPROVE

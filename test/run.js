@@ -7,7 +7,20 @@ scripts.forEach((s) => new Function(s)); // every script parses
 const dataLine = html.split("\n").find((l) => l.startsWith("var D="));
 assert.ok(dataLine && !dataLine.includes("<"), "embedded data escapes <");
 assert.strictEqual((html.match(/<script\b/g) || []).length, scripts.length, "every script element is closed where it should be");
-const E = new Function(scripts[0] + ";return {simulate,GAMES,TM,baseProb,liveProbFor}")();
+const E = new Function(scripts[0] + ";return {simulate,GAMES,TM,baseProb,liveProbFor,cleanLiveGame,safeHttpsUrl}")();
+// /api/live games are checked before the simulator uses them
+const lg = { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 };
+assert.deepStrictEqual(E.cleanLiveGame(lg), lg, "a good live game passes unchanged");
+assert.deepStrictEqual(E.cleanLiveGame(Object.assign({}, lg, { period: 9, minutes: 99, clock: "<b>" })), Object.assign({}, lg, { period: 6, minutes: 15, clock: "" }), "period and minutes clamped, a bad clock blanked");
+[{ away: "XXX" }, { awayScore: -1 }, { homeScore: 3.5 }, { awayScore: "7" }, { state: "halftime" }, { home: null }].forEach((bad, k) =>
+  assert.strictEqual(E.cleanLiveGame(Object.assign({}, lg, bad)), null, "bad live game " + k + " is ignored"));
+assert.strictEqual(E.cleanLiveGame(null), null);
+// links the simulator opens: https only, no credentials, no markup
+assert.strictEqual(E.safeHttpsUrl("https://www.espn.com/nfl/story/_/id/1"), "https://www.espn.com/nfl/story/_/id/1");
+assert.strictEqual(E.safeHttpsUrl("https://medium.com/@writer/post"), "https://medium.com/@writer/post", "an @ in the path is fine");
+assert.strictEqual(E.safeHttpsUrl("https://example.com/what's-next"), "https://example.com/what's-next", "an apostrophe in the path is fine");
+["javascript:alert(1)", "http://example.com/x", "https://user:pw@example.com/", "https://example.com/a b", 'https://example.com/"onclick', "", null, 42, "https://"].forEach((u) =>
+  assert.strictEqual(E.safeHttpsUrl(u), null, "refused: " + u));
 const none = E.GAMES.map(() => 0), nyg = E.TM.findIndex((t) => t.a === "NYG");
 const r = E.simulate(none, nyg);
 let po = 0, dv = 0; for (let i = 0; i < 32; i++) { po += r.po[i]; dv += r.dv[i]; }
