@@ -133,6 +133,7 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-
   .u-grip:hover,.u-grip:focus-visible{opacity:1}
   .u-phead{position:relative;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
   .u-phead button,.u-phead a{cursor:pointer}
+  .u-phead .u-grip{cursor:grab}
   .u-rh,.u-rw{display:block;position:absolute;z-index:3;touch-action:none}
   .u-rh{left:16px;right:16px;bottom:0;height:10px;cursor:row-resize}
   .u-rw{top:16px;bottom:16px;right:0;width:10px;cursor:col-resize}

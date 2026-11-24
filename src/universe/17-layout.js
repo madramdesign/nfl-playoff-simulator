@@ -17,7 +17,7 @@ var PANEL_NAMES = { feed: "Intelligence feed", media: "Media", games: "Games", t
 var DEFAULT_ZONES = { left: ["teams"], right: ["feed", "media", "health"], bottom: ["games"] };
 // Sizes in CSS pixels. The grid numbers must match the wide layout in 00-universe.css: a 252 px left column, a
 // zero-width divider track and three 8 px gaps, a map at least 320 px and a panel column at least 300 px wide.
-var LIM = { minH: 120, maxH: 1600, stepH: 20, maxSpan: 4, minSplit: 0.3, maxSplit: 0.85, stepSplit: 0.02, colMin: 300, gap: 8,
+var LIM = { minH: 120, maxH: 1600, stepH: 20, maxSpan: 4, minSplit: 0.3, maxSplit: 0.9, stepSplit: 0.02, colMin: 300, gap: 8,
   fixedW: 276, mapMin: 320, panMin: 300, defPanW: 384 };
 
 // ---- pure ----
@@ -143,12 +143,13 @@ function zoneCols(width, colMin, gap) {
   if (!(width > 0)) return 1;
   return Math.max(1, Math.min(LIM.maxSpan, Math.floor((width + gap) / (colMin + gap))));
 }
-// Columns a panel spans: its own width if set, else an equal share of the zone's columns (at least one), so one panel
-// alone fills its row and two share it.
-function spanFor(L, id, zone, cols, nInZone) {
+// Columns a panel spans: its own width if set; otherwise, when the zone's shown panels fit in one row, the columns are
+// shared out (the first panels take any remainder, so no column is left empty), else one column each.
+// idx: the panel's place among the zone's shown panels.
+function spanFor(L, id, zone, cols, nInZone, idx) {
   cols = Math.max(1, Math.floor(cols) || 1);
-  var s = L.sizes[id], w = s && s.w;
-  if (w == null) w = Math.max(1, Math.floor(cols / Math.max(1, nInZone || 1)));
+  var s = L.sizes[id], w = s && s.w, n = Math.max(1, nInZone || 1);
+  if (w == null) w = n > cols ? 1 : Math.floor(cols / n) + ((idx || 0) < cols % n ? 1 : 0);
   return Math.max(1, Math.min(cols, w));
 }
 // Rows a grid zone needs for these spans, placed in order (a span that does not fit starts a new row, as CSS grid does).
@@ -270,11 +271,11 @@ function fitZones() {
       zel.setAttribute("data-cols", String(cols)); zel.style.setProperty("--cols", String(cols));
       if (z === "right" && cols > 1) {
         // panels without a height of their own share the column's height by rows
-        var rows = gridRows(vis.map(function (id) { return spanFor(LAYOUT, id, z, cols, vis.length); }), cols);
+        var rows = gridRows(vis.map(function (id, i) { return spanFor(LAYOUT, id, z, cols, vis.length, i); }), cols);
         zel.style.setProperty("--u-defh", Math.max(240, Math.floor((zel.clientHeight - LIM.gap * (rows - 1)) / rows)) + "px");
       }
-      vis.forEach(function (id) {
-        var s = lay.slots[id], span = spanFor(LAYOUT, id, z, cols, vis.length), hd = lay.handles[id];
+      vis.forEach(function (id, i) {
+        var s = lay.slots[id], span = spanFor(LAYOUT, id, z, cols, vis.length, i), hd = lay.handles[id];
         s.style.gridColumn = wide && cols > 1 ? "span " + span : "";
         hd.w.hidden = !wide || cols < 2;
         hd.w.setAttribute("aria-valuemax", String(cols)); hd.w.setAttribute("aria-valuenow", String(span));
@@ -331,6 +332,7 @@ function onHeadDown(e) {
 function onDragMove(e) {
   var d = lay.drag;
   if (!d || e.pointerId !== d.pid) return;
+  if (e.buttons === 0) { stopDrag(); return; }   // the release was missed (focus left the window): drop nothing
   if (!d.on) {
     if (Math.abs(e.clientX - d.x) + Math.abs(e.clientY - d.y) < 6) return;
     d.on = true;
@@ -355,7 +357,7 @@ function onDragEnd(e) {
   announce(describePos(LAYOUT, d.id, true) + ".");
 }
 function onDragKey(e) { if (e.key === "Escape" && lay.drag) { e.preventDefault(); e.stopPropagation(); cancelDrag(); } }
-function cancelDrag() { stopDrag(); }
+function cancelDrag(e) { if (lay.drag && (!e || e.pointerId == null || e.pointerId === lay.drag.pid)) stopDrag(); }
 function stopDrag() {
   var d = lay.drag;
   lay.drag = null;
@@ -413,6 +415,29 @@ function dragScroll(x, y) {
   });
 }
 
+// Follows one pointer from a handle until release. Listens on the document (so a lost pointer capture cannot strand it),
+// ends on a missed release, and Escape cancels: done(true) commits, done(false) puts the saved layout back.
+function trackPointer(e, el, cls, onMove, done) {
+  var pid = e.pointerId, root = document.documentElement, over = false;
+  try { el.setPointerCapture(pid); } catch (er) { /* the document listeners still follow the pointer */ }
+  root.classList.add(cls);
+  function move(ev) { if (ev.pointerId !== pid) return; if (ev.buttons === 0) end(false); else onMove(ev); }
+  function up(ev) { if (ev.pointerId === pid) end(true); }
+  function cancel(ev) { if (ev.pointerId === pid) end(false); }
+  function key(ev) { if (ev.key === "Escape") { ev.preventDefault(); ev.stopPropagation(); end(false); } }
+  function end(ok) {
+    if (over) return;
+    over = true;
+    document.removeEventListener("pointermove", move); document.removeEventListener("pointerup", up);
+    document.removeEventListener("pointercancel", cancel); document.removeEventListener("keydown", key, true);
+    root.classList.remove(cls);
+    try { el.releasePointerCapture(pid); } catch (er) { /* not captured */ }
+    done(ok);
+  }
+  document.addEventListener("pointermove", move); document.addEventListener("pointerup", up);
+  document.addEventListener("pointercancel", cancel); document.addEventListener("keydown", key, true);
+}
+
 // ---- resizing from the bottom (height) and right (width in columns) edges ----
 function wireResize(id, hd, axis) {
   hd.addEventListener("pointerdown", function (e) {
@@ -420,18 +445,13 @@ function wireResize(id, hd, axis) {
     e.preventDefault(); e.stopPropagation();
     var s = lay.slots[id], r = s.getBoundingClientRect(), zel = lay.zones[zoneOf(LAYOUT, id)];
     var cols = +zel.getAttribute("data-cols") || 1, colW = (zel.clientWidth - LIM.gap * (cols - 1)) / cols, st = { x: e.clientX, y: e.clientY, v: null };
-    try { hd.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
-    document.documentElement.classList.add(axis === "h" ? "u-rowresize" : "u-colresize");
-    function mv(ev) {
+    trackPointer(e, hd, axis === "h" ? "u-rowresize" : "u-colresize", function (ev) {
       if (axis === "h") { st.v = clampH(r.height + ev.clientY - st.y); s.style.setProperty("--h", st.v + "px"); s.classList.add("has-h"); }
       else { st.v = Math.max(1, Math.min(cols, Math.round((r.width + ev.clientX - st.x + LIM.gap) / (colW + LIM.gap)))); s.style.gridColumn = "span " + st.v; }
-    }
-    function up() {
-      hd.removeEventListener("pointermove", mv); hd.removeEventListener("pointerup", up); hd.removeEventListener("pointercancel", up);
-      document.documentElement.classList.remove("u-rowresize", "u-colresize");
-      if (st.v != null) commitLayout(setSize(LAYOUT, id, axis === "h" ? { h: st.v } : { w: st.v }));
-    }
-    hd.addEventListener("pointermove", mv); hd.addEventListener("pointerup", up); hd.addEventListener("pointercancel", up);
+    }, function (ok) {
+      if (ok && st.v != null) commitLayout(setSize(LAYOUT, id, axis === "h" ? { h: st.v } : { w: st.v }));
+      else applyLayout();   // undo the live preview
+    });
   });
   hd.addEventListener("dblclick", function () {
     if (!LAYOUT) return;
@@ -448,7 +468,7 @@ function wireResize(id, hd, axis) {
       commitLayout(setSize(LAYOUT, id, { h: cur + d * (e.shiftKey ? 4 : 1) * LIM.stepH }));
     } else {
       var z = zoneOf(LAYOUT, id), zel = lay.zones[z], cols = +zel.getAttribute("data-cols") || 1;
-      var n = LAYOUT.zones[z].filter(function (x) { return isShown(LAYOUT, x); }).length, span = spanFor(LAYOUT, id, z, cols, n);
+      var shown = LAYOUT.zones[z].filter(function (x) { return isShown(LAYOUT, x); }), span = spanFor(LAYOUT, id, z, cols, shown.length, shown.indexOf(id));
       commitLayout(setSize(LAYOUT, id, { w: Math.max(1, Math.min(cols, span + d)) }));
     }
     if (document.activeElement !== hd) hd.focus();
@@ -465,7 +485,7 @@ function syncSplit() {
   if (!sp || !isWide()) return;
   var v = currentSplit();
   if (v == null) return;
-  sp.setAttribute("aria-valuenow", String(Math.round(v * 100)));
+  sp.setAttribute("aria-valuenow", String(Math.round(clampSplit(v) * 100)));   // inside aria-valuemin/max; the text has the real share
   sp.setAttribute("aria-valuetext", "Map " + Math.round(v * 100) + "% of the width");
 }
 function wireSplit(sp) {
@@ -474,15 +494,12 @@ function wireSplit(sp) {
     if (e.button !== 0 || !LAYOUT || !isWide()) return;
     e.preventDefault();
     var body = byId("uBody"), mapL = byId("uMap").getBoundingClientRect().left, panR = lay.zones.right.getBoundingClientRect().right, v = null;
-    try { sp.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ }
-    document.documentElement.classList.add("u-colresize");
-    function mv(ev) { v = splitAt(ev.clientX, mapL, panR); if (v != null) body.style.setProperty("--u-panw", panelWidthCss(v)); }
-    function up() {
-      sp.removeEventListener("pointermove", mv); sp.removeEventListener("pointerup", up); sp.removeEventListener("pointercancel", up);
-      document.documentElement.classList.remove("u-colresize");
-      if (v != null) commitLayout(setSplit(LAYOUT, v));
-    }
-    sp.addEventListener("pointermove", mv); sp.addEventListener("pointerup", up); sp.addEventListener("pointercancel", up);
+    trackPointer(e, sp, "u-colresize", function (ev) {
+      v = splitAt(ev.clientX, mapL, panR);
+      if (v != null) body.style.setProperty("--u-panw", panelWidthCss(v));
+    }, function (ok) {
+      if (ok && v != null) commitLayout(setSplit(LAYOUT, v)); else applyLayout();
+    });
   });
   sp.addEventListener("dblclick", function () { if (!LAYOUT) return; commitLayout(setSplit(LAYOUT, null)); announce("Map width reset."); });
   sp.addEventListener("keydown", function (e) {

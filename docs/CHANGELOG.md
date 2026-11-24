@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-23 (panel layout: second review's fixes)
+- Dragging a panel, resizing one or dragging the map divider no longer gets stuck when the mouse button is released outside the window; Escape cancels a resize or a divider drag and puts the saved layout back.
+- Panels without a width of their own now share out every column (three panels in four columns span 2, 1 and 1), so no column is left empty.
+- The map may take up to 90% of the width, and the divider's reported value stays within its range. The grip shows the grab cursor.
+- From the panel session's second independent review (`a6cd2b7` on `worktree-panel-layout`); its top-bar and menu-focus fixes were already in from the first review and were not taken twice. 13 more layout checks (141).
+
 ## 2026-11-23 (model events in the feed, F22)
 - The feed's Model filter now has items: each team whose playoff chance moved 3 points or more since the last saved forecast (beyond simulation noise; with the split once forecasts carry it), and each game where the ratings and the posted line disagree by 8 points or more. Labelled "model estimate", dated by the build, never shown as breaking news; clicking one opens the team or the game. On Nov. 23's data: 11 playoff moves since the Nov. 22 forecast and 3 disagreements.
 

@@ -138,7 +138,13 @@ eq(Y.setSize(D0, "bogus", { h: 400 }), D0, "an unknown panel gets no size");
 eq([Y.clampH(119.4), Y.clampH(1e6), Y.clampSpan(0), Y.clampSpan(3.4)], [120, 1600, 1, 3], "clamp helpers");
 eq([Y.zoneCols(384), Y.zoneCols(607), Y.zoneCols(608), Y.zoneCols(1424), Y.zoneCols(99999), Y.zoneCols(0), Y.zoneCols(NaN), Y.zoneCols(-5)], [1, 1, 2, 4, 4, 1, 1, 1], "columns a zone holds (300 px columns, 8 px gaps, at most 4)");
 eq([Y.spanFor(D0, "feed", "right", 1, 3), Y.spanFor(D0, "feed", "right", 3, 3), Y.spanFor(D0, "feed", "right", 2, 3), Y.spanFor(D0, "feed", "right", 2, 1)], [1, 1, 1, 2], "panel-column panels: one column each, a lone panel fills the row");
-eq([Y.spanFor(D0, "games", "bottom", 4, 1), Y.spanFor(D0, "games", "bottom", 4, 2), Y.spanFor(D0, "games", "bottom", 4, 3), Y.spanFor(D0, "games", "bottom", 4, 9), Y.spanFor(D0, "games", "bottom", 4, 0)], [4, 2, 1, 1, 4], "bottom-row panels share the row");
+eq([Y.spanFor(D0, "games", "bottom", 4, 1), Y.spanFor(D0, "games", "bottom", 4, 2), Y.spanFor(D0, "games", "bottom", 4, 9), Y.spanFor(D0, "games", "bottom", 4, 0)], [4, 2, 1, 4], "bottom-row panels share the row");
+eq([0, 1, 2].map((i) => Y.spanFor(D0, "x", "bottom", 4, 3, i)), [2, 1, 1], "no empty column: 3 panels in 4 columns span 2, 1, 1");
+eq([0, 1].map((i) => Y.spanFor(D0, "x", "right", 3, 2, i)), [2, 1], "no empty column: 2 panels in 3 columns span 2, 1");
+for (const [cols, n] of [[1, 1], [2, 1], [2, 2], [3, 1], [3, 2], [3, 3], [4, 1], [4, 2], [4, 3], [4, 4]]) {
+  const spans = Array.from({ length: n }, (_, i) => Y.spanFor(D0, "x", "right", cols, n, i));
+  ok(spans.reduce((a, b) => a + b, 0) === cols && Y.gridRows(spans, cols) === 1, "default spans fill exactly one row: " + n + " panels in " + cols + " columns");
+}
 const wide2 = Y.setSize(D0, "feed", { w: 3 });
 eq([Y.spanFor(wide2, "feed", "right", 2, 3), Y.spanFor(wide2, "feed", "right", 4, 3), Y.spanFor(wide2, "feed", "right", 0, 3)], [2, 3, 1], "a set width never exceeds the zone's columns");
 
@@ -151,7 +157,8 @@ eq(Y.setSplit(Y.setSplit(D0, 0.6), null).split, null, "null restores the default
 eq(Y.setSplit(D0, NaN), D0, "NaN is ignored");
 eq(Y.panelWidthCss(null), null, "default: the style sheet's 384 px");
 eq(Y.panelWidthCss(0.6), "clamp(300px, calc((100% - 276px) * 0.400), calc(100% - 596px))", "the panel column's width keeps both sides at their minimum");
-ok(/calc\(\(100% - 276px\) \* 0\.150\)/.test(Y.panelWidthCss(0.99)), "the CSS uses the clamped share");
+ok(/calc\(\(100% - 276px\) \* 0\.100\)/.test(Y.panelWidthCss(0.99)), "the CSS uses the clamped share");
+eq(Y.LIM.maxSplit, 0.9, "the map can take up to 90%, enough for the default panel column on a 4K-wide screen");
 // map left edge 268, panel column right edge 1432: 1148 px for map + panels after two 8 px gaps
 eq(Y.splitAt(268 + 8 + 574, 268, 1432), 0.5, "a divider in the middle is a half share");
 eq(Y.splitAt(0, 268, 1432), Y.LIM.minSplit, "dragging far left stops at the minimum share");
