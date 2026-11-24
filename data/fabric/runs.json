@@ -57,5 +57,30 @@
    "sleeper-trending"
   ],
   "tooOld": []
+ },
+ {
+  "at": "2026-11-24T18:48:52.773Z",
+  "week": 12,
+  "games": 16,
+  "events": 101,
+  "newEvents": 70,
+  "ok": [
+   "nflverse-games",
+   "nflverse-injuries",
+   "nflverse-depth",
+   "nflverse-rosters",
+   "sleeper-trending",
+   "open-meteo",
+   "nws-alerts",
+   "rss-yahoo",
+   "rss-espn",
+   "curated-news",
+   "youtube-official",
+   "podcasts-nfl"
+  ],
+  "stale": [],
+  "down": [],
+  "carried": [],
+  "tooOld": []
  }
 ]
