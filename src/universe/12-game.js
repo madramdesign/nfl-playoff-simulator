@@ -39,8 +39,41 @@ function renderGameDetail(key, body) {
   var o = x.odds;
   if (o && o.homeProb && (o.homeProb.current != null)) kids.push(el("p", { class: "u-note", text: "Home win chance from the moneyline: " + (o.homeProb.open != null ? fmtPct(o.homeProb.open) + " at open → " : "") + fmtPct(o.homeProb.current) + (o.homeProb.open != null ? " now" : "") + "." }));
   var mv = gameLineMove(x); if (mv && !o) kids.push(el("p", { class: "u-note", text: "Movement: " + mv.text + "." }));
+  // the consensus across books (The Odds API) and, on the local server only, each book's own line
+  var mk = marketText(x.market, teamAbbr(x.home));
+  if (mk) kids.push(el("p", { class: "u-market" }, [mk + " ", el("span", { class: "u-note", text: "The Odds API, " + fmtAge(Math.max(0, (Date.now() - x.market.at) / 1000)) + " old." })]));
+  if (x.books && x.books.length) {
+    var ml = function (v) { return v == null ? "–" : (v > 0 ? "+" : "") + v; }, bt = el("tbody");
+    x.books.forEach(function (b) { bt.appendChild(el("tr", {}, [el("td", { text: b.title }), el("td", { class: "u-num", text: b.spread == null ? "–" : fmtSigned(b.spread) }),
+      el("td", { class: "u-num", text: b.total == null ? "–" : String(b.total) }), el("td", { class: "u-num", text: ml(b.awayPrice) + " / " + ml(b.homePrice) })])); });
+    kids.push(el("details", { class: "u-books" }, [el("summary", { text: "Each sportsbook (" + x.books.length + ", this computer only)" }),
+      el("table", { class: "u-table" }, [el("thead", {}, el("tr", {}, [el("th", { text: "Book" }), el("th", { class: "u-num", text: teamAbbr(x.home) + " spread" }), el("th", { class: "u-num", text: "Total" }),
+        el("th", { class: "u-num", text: "Moneyline " + teamAbbr(x.away) + " / " + teamAbbr(x.home) })])), bt])]));
+  }
+  var LM = store.get("model"), hist = lineHistoryText(LM && LM.lines ? LM.lines[x.id] : null, teamAbbr(x.home));
+  if (hist) kids.push(el("p", { class: "u-note u-linehist", text: hist }));
+  // what the feed had about either team between the two looks of each big move: context, not cause
+  var bl = betweenLooks(LM && LM.lines ? LM.lines[x.id] : null, LM ? LM.events : [], [x.away, x.home]);
+  if (bl.length) {
+    var when = function (t) { return new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+    var hm = teamAbbr(x.home), sg = function (v) { return (v > 0 ? "+" : v < 0 ? "\u2212" : "") + Math.abs(v); };
+    kids.push(el("div", { class: "u-between" }, [el("p", { class: "u-note", text: "Seen in the feed between two looks at the line. These happened around the move; the feed does not say what caused it." })].concat(bl.map(function (m) {
+      var head = [m.dSpread != null && m.dSpread !== 0 ? hm + " " + sg(m.from.spread) + " \u2192 " + sg(m.to.spread) : null, m.dTotal != null && m.dTotal !== 0 ? "total " + m.from.total + " \u2192 " + m.to.total : null].filter(Boolean).join(", ") +
+        " by " + when(m.to.at) + (m.openWindow ? " (since the opening line, whose time is not given: the 7 days before)" : " (since " + when(m.from.at) + ")");
+      return el("div", {}, [el("p", { text: head }), m.events.length ? el("ul", { class: "u-list" }, m.events.map(function (e) {
+        return el("li", {}, [e.title + " ", e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", text: (e.publisher || "source") + " \u2197" }) : el("span", { class: "u-note", text: e.publisher || "" })]);
+      })) : el("p", { class: "u-note", text: "Nothing about either team in the feed between these two looks." })]);
+    }))));
+  }
   body.appendChild(section("Line", kids));
-  if (x.weather) body.appendChild(section("Weather", [el("p", { text: weatherText(x.weather) }), el("p", { class: "u-note" }, ["Descriptive, not part of the forecast. ", weatherCredit(x.weather.source)])]));
+  // official warnings first: the National Weather Service's own words, linked to its forecast page
+  var alerts = (x.alerts || []).map(function (a) {
+    var until = a.ends != null ? " until " + new Date(a.ends).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
+    return el("p", { class: "u-alert u-sev-" + a.severity.toLowerCase() }, [el("b", { text: "\u26A0 " + a.event }), " (" + a.severity.toLowerCase() + ")" + until + (a.headline ? ". " + a.headline : "") + ". ",
+      a.url ? el("a", { href: a.url, target: "_blank", rel: "noopener", text: "National Weather Service \u2197" }) : "National Weather Service"]);
+  });
+  if (x.weather) body.appendChild(section("Weather", alerts.concat([el("p", { text: weatherText(x.weather) }), el("p", { class: "u-note" }, ["Descriptive, not part of the forecast. ", weatherCredit(x.weather.source)])])));
+  else if (alerts.length) body.appendChild(section("Weather", alerts.concat([el("p", { class: "u-note", text: "Descriptive, not part of the forecast." })])));
   else if (x.venue && x.venue.indoor) body.appendChild(section("Weather", el("p", { class: "u-note", text: "Indoor stadium." })));
   if (x.gi >= 0) {
     var mvw = modelView(x.gi), rb = ratingsBlendProb(x.gi), mine = modeProb(x.gi), tbody = el("tbody");

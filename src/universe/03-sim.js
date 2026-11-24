@@ -130,6 +130,21 @@ function simRecord(r, where, t0, inp, mode, deep) {
   return { r: r, n: r.n, where: where, ms: Date.now() - t0, finals: inp.finals, ties: inp.ties, lives: inp.lives, feedLive: inp.feedLive, staleLive: inp.staleLive,
     watch: inp.watch, at: Date.now(), mode: mode, deep: deep, key: inp.key };
 }
+// Why the playoff chances moved since the saved forecast (F04): one run in the blend, from the build's data with no picks,
+// live games or what-ifs, watching the games whose chance has moved. Once per page load, when first asked for, and only
+// when the saved forecast carries the figures (version 2).
+var whyAsked = false;
+function requestWhySim() {
+  if (whyAsked) return;
+  whyAsked = true;
+  var w = changeWatch(D.prev);
+  // later, never inside the render that asked (a store change re-renders the drawer)
+  if (!w) { setTimeout(function () { store.set({ why: { unavailable: D.prev ? "old" : "none", date: D.prev ? D.prev.date : null } }); }, 0); return; }
+  runSim({ picks: GAMES.map(function () { return 0; }), watch: w, n: SIM_BASE_N, mode: 2 }, function (err, r) {
+    var e = err || !r ? null : explainChange(D.prev, r);
+    store.set({ why: e ? e : { unavailable: err ? "error" : "old", date: D.prev.date, error: err ? String(err.message || err) : null } });
+  });
+}
 var simTimer = 0, simKey = "", simSeq = 0;
 function requestBaseSim(force) {
   var inp = simInputs();

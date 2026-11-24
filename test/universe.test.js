@@ -368,6 +368,62 @@ ok(U.normFantasy(null).present === false && U.normFantasy({}).adds.length === 0 
 eq([U.starterNote({ starter: true, starterSource: "depth chart" }), U.starterNote({ starter: false, starterSource: "depth chart" }), U.starterNote({ starter: true, starterSource: "last start" }), U.starterNote({ starter: null }), U.starterNote({ starter: true }), U.starterNote(null)],
   [" · starter (depth chart)", " · backup (depth chart)", " · starter (started last game)", "", " · starter", ""], "starter labels say where they come from");
 
+// ---- NWS alerts (F29) ----
+const CA = U.cleanAlerts([{ event: "Wind Advisory", severity: "Moderate", headline: "Wind Advisory until 7 PM", onset: "2026-11-22T15:00:00Z", ends: "2026-11-23T00:00:00Z", url: "https://forecast.weather.gov/MapClick.php?lat=42.7&lon=-78.7" },
+  { event: "Blizzard Warning", severity: "Apocalyptic", url: "javascript:alert(1)" }, { severity: "Severe" }, null]);
+ok(CA.length === 2 && CA[0].ends === Date.parse("2026-11-23T00:00:00Z") && CA[0].url && CA[1].severity === "Unknown" && CA[1].url === null, "alerts checked: unknown severity named Unknown, unsafe links dropped, nameless alerts left out");
+ok(U.cleanAlerts(undefined).length === 0, "no alerts");
+
+// ---- The Odds API consensus and books ----
+const MK = U.cleanMarket({ source: "odds-api", provider: "The Odds API", at: "2026-11-21T16:00:00Z", books: 3, spread: -14.5, total: 44.5, homeProb: 0.852 });
+eq(U.marketText(MK, "BUF"), "Median of 3 US sportsbooks: BUF −14.5, total 44.5, BUF 85% to win (margin removed).", "the consensus in words");
+eq(U.marketText(U.cleanMarket({ at: "2026-11-21T16:00:00Z", books: 1, spread: 3, homeProb: 7 }), "SF"), "Median of 1 US sportsbook: SF +3.", "one book; an impossible chance dropped");
+ok(U.cleanMarket({ at: "2026-11-21T16:00:00Z", books: 0, spread: 3 }) === null && U.cleanMarket({ at: "x", books: 2, spread: 3 }) === null && U.cleanMarket({ at: "2026-11-21T16:00:00Z", books: 2 }) === null && U.cleanMarket(null) === null && U.marketText(null, "SF") === null,
+  "no books, no time or no number: nothing shown");
+const BK = U.cleanBooks([{ title: "FanDuel", spread: -14, total: 45, homePrice: -900, awayPrice: 600, homeProb: 0.863 }, { title: "", spread: 1 }, { spread: 2 }, null, { title: "X", spread: "7", homeProb: 3 }]);
+ok(BK.length === 2 && BK[0].homePrice === -900 && BK[1].spread === null && BK[1].homeProb === null, "books checked: nameless left out, non-numbers dropped");
+ok(U.cleanBooks(undefined).length === 0, "no books");
+
+// ---- why the playoff chance moved (F04) ----
+{
+  const g0 = E.GAMES[0], A0 = E.TM[g0[2]].a, H0 = E.TM[g0[3]].a;
+  const WX = { team: idx("BUF"), was: 0.6, now: 0.68, total: 0.08, own: 0.09, others: -0.01, lines: 0.004, ratings: -0.0003, rest: -0.0037,
+    results: [{ away: idx("MIA"), home: idx("BUF"), awayScore: 10, homeScore: 31, effect: 0.09 }, { away: idx("BUF"), home: idx("KC"), awayScore: 20, homeScore: 20, effect: 0 }],
+    moves: [{ gi: 0, kind: "lines", was: 0.5, now: 0.55, effect: 0.004 }] };
+  const WR = U.whyRows(WX, "2026-11-24");
+  eq(WR.head, "Since the forecast saved on Nov 24: 60% → 68% (+8.0 points).", "the change in one line");
+  eq(WR.rows.map((r) => r[1]), ["+9.0", "−1.0", "+0.4", "0", "−0.4"], "each part in points; under 0.05 shown as 0");
+  eq(WR.rows[0][2], "W 31–10 vs MIA (+9.0); T 20–20 at KC (0)", "own results from the team's side");
+  eq(WR.rows[2][2], A0 + " at " + H0 + ": " + H0 + " 50% → 55% (+0.4)", "a moved line named with the home team's chance");
+  ok(U.whyRows(null) === null, "nothing to explain");
+}
+// ---- what the feed had between two looks at a line ----
+{
+  const T0 = Date.parse("2026-11-23T12:00:00Z"), H = 3600000, mia = idx("MIA"), buf = idx("BUF"), nyg = idx("NYG");
+  const LL = [{ at: null, open: true, source: "espn-scoreboard", spread: -11.5, total: 47.5 }, { at: T0, source: "espn-scoreboard", spread: -14.5, total: 47.5 },
+    { at: T0 + 2 * H, source: "espn-scoreboard", spread: -15, total: 47.5 }, { at: T0 + 6 * H, source: "espn-scoreboard", spread: -15, total: 44.5 }, { at: T0 + 7 * H, source: "nflverse-games", spread: -9, total: 40 }];
+  const ev = (id, type, ts, teams, importance, extra) => Object.assign({ id, type, ts, teams, importance, title: id, url: null, publisher: "x", before: null, dateOnly: false }, extra || {});
+  const EVS = [ev("qb-out", "injury", T0 - 5 * H, [mia], 70), ev("old", "news", T0 - 8 * 86400000, [mia], 90), ev("other-team", "news", T0 - H, [nyg], 99),
+    ev("unknown-time", "news", T0 - H, [buf], 99, { before: T0 - 2 * H }), ev("a-score", "game", T0 - H, [buf], 99), ev("wind", "weather", T0 + 4 * H, [buf], 50), ev("day-only", "news", T0 + 3 * H, [buf], 60, { dateOnly: true })];
+  const BL = U.betweenLooks(LL, EVS, [mia, buf]);
+  eq(BL.map((m) => [m.dSpread, m.dTotal, m.openWindow]), [[0, -3, false], [-3, 0, true]], "big moves only, from the main source, newest first");
+  eq(BL[1].events.map((e) => e.id), ["qb-out"], "the opening-line window is the 7 days before: older items, other teams, unknown times and game events left out");
+  eq(BL[0].events.map((e) => e.id), ["wind"], "the later move gets what came between its own two looks; a date-only item is left out");
+  eq(U.betweenLooks(LL.slice(0, 1), EVS, [mia, buf]), [], "one look: nothing to compare");
+  eq(U.betweenLooks([{ at: T0, source: "s", spread: -3 }, { at: T0 + H, source: "s", spread: -3.5 }], EVS, [mia, buf]), [], "a small move is not listed");
+}
+
+// ---- line history (F23) ----
+const LH = U.normLines({ lines: {
+  g1: [{ at: null, open: true, source: "espn-scoreboard", provider: "DraftKings", spread: -11.5, total: 47.5 }, { at: "2026-11-20T12:00:00Z", source: "espn-scoreboard", provider: "DraftKings", spread: -14.5, total: 45.5 },
+    { at: "2026-11-21T12:00:00Z", source: "espn-scoreboard", provider: "DraftKings", spread: -15, total: 45.5 }, { at: "2026-11-21T12:00:00Z", source: "nflverse-games", spread: -14 },
+    { at: "not a time", source: "x", spread: 1 }, { at: null, source: "x", spread: 2 }, { at: "2026-11-21T12:00:00Z", source: "y" }],
+  g2: "nonsense" } });
+ok(LH.g1.length === 4 && !LH.g2, "bad entries dropped: no time without being an opening line, no line at all, not a list");
+const lhText = U.lineHistoryText(LH.g1, "BUF");
+ok(/^Line history, BUF spread \(DraftKings\): open −11\.5 → .+ −14\.5 ▲ → .+ −15\. Net move −3\.5 points, toward BUF\. ▲ marks a move of 1\.5 points or more/.test(lhText), "the main source's series in words, big moves marked: " + lhText);
+ok(U.lineHistoryText(LH.g1.slice(0, 1), "BUF") === null && U.lineHistoryText(null, "BUF") === null, "nothing to say with fewer than two points");
+
 // ---- estimated event times (data.tsEstimated): flagged, with the gap when the feed gives one ----
 ok(U.estimateNote({ data: {} }) === null && U.estimateNote({}) === null && U.estimateNote(null) === null && U.estimateNote({ data: { tsEstimated: "yes" } }) === null, "only a real estimate flag counts");
 ok(U.estimateNote({ data: { tsEstimated: true } }) === "Estimated time.", "an estimate without a gap");

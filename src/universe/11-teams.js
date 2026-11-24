@@ -63,6 +63,37 @@ function starterNote(p) {
 }
 NFLU.starterNote = starterNote;
 function section(title, kids, id) { return el("section", { class: "u-sec", id: id || null }, [el("h3", { text: title }), kids]); }
+// Pure: one team's entry from explainChange() in words. Rows: [label, change in points, detail]; a part under 0.05
+// points is shown as 0. Results and moved games are named with the team's own view.
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-11-24" -> "Nov 24"; anything else unchanged
+function savedDate(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? MONTHS[+m[2] - 1] + " " + (+m[3]) : d; }
+function whyRows(x, date) {
+  if (!x) return null;
+  var pts = function (v) { return Math.abs(v) < 0.0005 ? "0" : fmtSigned(v * 100, 1); }, me = x.team;
+  var res = x.results.map(function (g) {
+    var home = g.home === me, mine = home ? g.homeScore : g.awayScore, theirs = home ? g.awayScore : g.homeScore, opp = TEAMS[home ? g.away : g.home].a;
+    return (mine > theirs ? "W " : mine < theirs ? "L " : "T ") + mine + "\u2013" + theirs + (home ? " vs " : " at ") + opp + " (" + pts(g.effect) + ")";
+  });
+  var mv = function (kind) {
+    return x.moves.filter(function (m) { return m.kind === kind; }).slice(0, 3).map(function (m) {
+      var g = GAMES[m.gi]; return TEAMS[g[2]].a + " at " + TEAMS[g[3]].a + ": " + TEAMS[g[3]].a + " " + fmtPct(m.was) + " \u2192 " + fmtPct(m.now) + " (" + pts(m.effect) + ")";
+    }).join("; ");
+  };
+  return { head: "Since the forecast saved on " + (savedDate(date) || "an earlier day") + ": " + fmtPct(x.was) + " \u2192 " + fmtPct(x.now) + " (" + pts(x.total) + " points).",
+    rows: [["Own results", pts(x.own), res.join("; ")], ["Other teams' results", pts(x.others), ""], ["Betting lines posted or moved", pts(x.lines), mv("lines")],
+      ["Team ratings (games without a line)", pts(x.ratings), mv("ratings")], ["Effects between games and simulation noise", pts(x.rest), ""]] };
+}
+NFLU.whyRows = whyRows;
+function whySection(i, why) {
+  if (!why) return section("Why it moved", el("p", { class: "u-state u-loading", text: "Working out what moved the playoff chance…" }));
+  if (why.unavailable) return section("Why it moved", el("p", { class: "u-note", text: why.unavailable === "none" ? "No saved forecast to compare with yet."
+    : why.unavailable === "error" ? "The comparison could not be run in this browser." : "The forecast saved on " + (savedDate(why.date) || "the last day") + " predates the figures needed to split the change; forecasts saved from Nov. 24, 2026 carry them." }));
+  var w = whyRows(why.teams[i], why.date), tb = el("tbody");
+  w.rows.forEach(function (r) { tb.appendChild(el("tr", {}, [el("td", {}, [r[0], r[2] ? el("div", { class: "u-note", text: r[2] }) : null]), el("td", { class: "u-num", text: r[1] })])); });
+  return section("Why it moved", [el("p", { text: w.head }), el("table", { class: "u-table u-why" }, [el("thead", {}, el("tr", {}, [el("th", { text: "Part" }), el("th", { class: "u-num", text: "Points" })])), tb]),
+    el("p", { class: "u-note", text: "A model estimate, to first order: each result's surprise (the result minus the chance it had then) and each change in a game's chance, weighted by what that game is worth to this team in the simulation. The last row is what that leaves: effects between games and the simulations' own noise. Blend, from this page's data with no picks or live games; injuries and weather count only through the lines they move." })]);
+}
 function renderTeamCenter(i, body) {
   var st = store.get(), T = TEAMS[i], r = st.sim && st.sim.r, M = st.model, rec = recordOf(i, M), seed = seedToday(i), late = feedFinalsCount(M);
   body.appendChild(el("div", { class: "u-dhead" }, [
@@ -80,6 +111,7 @@ function renderTeamCenter(i, body) {
     var rows = []; for (var s = 0; s < 7; s++) rows.push(["No. " + (s + 1), r.seedC[i][s] / r.n]); rows.push(["Miss", 1 - r.po[i] / r.n, "is-miss"]);
     body.appendChild(section("Seed distribution", [bars(rows), el("p", { class: "u-note", text: r.n.toLocaleString() + " simulated seasons" + (st.sim.deep ? " (deep run)" : "") + ", " + MODE_NAMES[st.sim.mode] + " win chances." })]));
   } else body.appendChild(el("p", { class: "u-state u-loading", text: "Simulating the season…" }));
+  if (D.prev) { requestWhySim(); body.appendChild(whySection(i, st.why)); }
   var rt = el("tbody");
   [["Spread-based", RATE], ["Results", RATE2], ["Elo", RATEL], ["Efficiency (EPA)", RATEE]].forEach(function (x) {
     if (!x[1]) return; rt.appendChild(el("tr", {}, [el("td", { text: x[0] }), el("td", { class: "u-num", text: fmtSigned(x[1][i] / 25) }), el("td", { class: "u-num", text: "#" + ratingRank(x[1], i) })]));

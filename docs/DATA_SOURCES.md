@@ -12,7 +12,7 @@ Sources, costs and licence notes are in [RESEARCH_PLAYOFF_PREDICTOR.md](RESEARCH
 | FantasyPros quarterback projections | none | `data/fantasypros/qb_projections.json`, written by `scripts/fetch_fantasypros.py` (needs `FANTASYPROS_API_KEY`; run by the GitHub Actions workflow) |
 | Quarterback values | `--qb` | nfelo `qb_elos.csv` (credit nfeloapp.com) |
 | League news | none | `data/news.json`, maintained by the daily run |
-| Previous forecast | none | latest file in `data/snapshots/` |
+| Previous forecast | none | latest file in `data/snapshots/` (version 2 from Nov. 24, 2026 adds each remaining game's home chance and, for the next two weeks' games, what each is worth to every team: used to explain changes) |
 | Traded first-round picks | none | `data/pick_owners.json` (hand-edited) |
 | Backtest report | none | `data/model_report.json` (from `scripts/evaluate.py`) |
 

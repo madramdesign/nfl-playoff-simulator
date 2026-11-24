@@ -22,7 +22,7 @@ function boot() {
   var chips = Array.isArray(saved.feedTypes) ? saved.feedTypes.filter(function (c) { return FEED_CHIPS.some(function (x) { return x[0] === c; }); }) : [];
   store = createStore(Object.assign(init, { search: "", feedTypes: chips, payload: fab, origin: fab ? "snapshot" : "none", fetchedAt: null, pollFails: 0, pollError: null,
     mediaTab: mtab, mediaKind: mkind, mediaShorts: saved.mediaShorts === true, mediaBlocked: false,
-    breaker: "closed", model: buildModel(fab), sim: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
+    breaker: "closed", model: buildModel(fab), sim: null, why: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
   watchMediaBlocks();   // before anything renders a thumbnail, so the first refusal is heard
 
   buildRail(byId("uRail"));
@@ -74,7 +74,7 @@ function boot() {
     if (has("sim", "model", "search", "team", "focus")) renderTeamsPanel();
     if (has("payload", "origin", "pollFails", "sim", "simBusy", "simError", "fetchedAt", "breaker")) { renderHealth(); renderStatus(); refreshBadges(); }
     if (has("mode", "layers", "timeRange", "sim", "simBusy", "simError", "deepProgress", "deepError", "payload", "origin")) renderRail();
-    if (has("team", "game", "view") || (has("sim", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
+    if (has("team", "game", "view") || (has("sim", "why", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
     if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
   });

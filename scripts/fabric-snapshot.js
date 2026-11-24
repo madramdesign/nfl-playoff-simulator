@@ -10,6 +10,7 @@ const { createFabric } = require(path.join(root, "lib", "fabric"));
 const { validatePublicSnapshot } = require(path.join(root, "lib", "contract.js"));
 const { ABBRS } = require(path.join(root, "lib", "fabric", "entities.js"));
 const { carryForward } = require(path.join(root, "lib", "fabric", "carry.js"));
+const { mergeLines } = require(path.join(root, "lib", "fabric", "lines.js"));
 const { snapshotMedia } = require(path.join(root, "lib", "fabric", "adapters", "media.js"));
 
 // The previous published snapshot, when it is a valid public one; null otherwise.
@@ -23,7 +24,13 @@ async function writeSnapshot({ fabric, dir, now = () => Date.now(), log = consol
   const fresh = await fabric.universe({ fresh: true });   // fetch every source now; never publish yesterday's cache as today's
   if (fresh.media) fresh.media = snapshotMedia(fresh.media);   // keep the page small: 3 videos and 1 Short per channel
   const evDir = path.join(dir, "events"), latest = path.join(dir, "latest.json"), t = now();
-  const { u, carried, tooOld } = carryForward(previous(latest), fresh, t);
+  const prev = previous(latest), { u, carried, tooOld } = carryForward(prev, fresh, t);
+  // line history (F23): the snapshot runs with no state, so yesterday's published history is merged with today's,
+  // kept for this payload's games only
+  if (prev && prev.lines) {
+    const ids = new Set(u.games.map((g) => g.id)), merged = mergeLines(prev.lines, u.lines);
+    u.lines = Object.fromEntries(Object.entries(merged).filter(([id]) => ids.has(id)));
+  }
   const errs = validatePublicSnapshot(u, ABBRS);
   if (errs.length) { warn("fabric snapshot NOT written; contract problems:\n  " + errs.slice(0, 10).join("\n  ")); return null; }
   fs.mkdirSync(evDir, { recursive: true });

@@ -14,6 +14,8 @@ const { createSource, fetchWithRetry } = require(path.join(root, "lib/fabric/sou
 const { createFabric } = require(path.join(root, "lib/fabric"));
 const media = require(path.join(root, "lib/fabric/adapters/media.js"));
 const T = ent.ABBRS;
+// a key in the shell that runs the tests must never switch on The Odds API against the real service
+delete process.env.ODDS_API_KEY;
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 
@@ -84,6 +86,15 @@ const ROSTER_CSV = [
   "2026,NYG,CB,ACT,Fixture Corner,00-0000002,,,11",
   "2025,NYG,QB,ACT,Old Season,00-0000010,,333,17",
 ].join("\n");
+// NWS active alerts in its real shape (checked Nov. 24, 2026): times carry a local offset; one relevant warning, plus a
+// flood advisory, a test message and a duplicate that must all be dropped.
+const nwsFeature = (id, event, severity, extra) => ({ id: "https://api.weather.gov/alerts/" + id, type: "Feature", geometry: null,
+  properties: Object.assign({ id: "urn:oid:" + id, event, severity, certainty: "Likely", urgency: "Expected", status: "Actual", messageType: "Alert",
+    sent: "2026-11-21T09:10:00-05:00", effective: "2026-11-21T09:10:00-05:00", onset: "2026-11-22T10:00:00-05:00", ends: "2026-11-22T19:00:00-05:00",
+    expires: "2026-11-22T19:00:00-05:00", headline: event + " issued November 21 by NWS Buffalo NY", areaDesc: "Southern Erie", senderName: "NWS Buffalo NY" }, extra || {}) });
+const NWS_FC = { type: "FeatureCollection", title: "Current watches, warnings, and advisories", updated: "2026-11-21T14:00:00+00:00", features: [
+  nwsFeature("w1", "Wind Advisory", "Moderate"), nwsFeature("w1", "Wind Advisory", "Moderate"), nwsFeature("f1", "Coastal Flood Advisory", "Moderate"),
+  nwsFeature("t1", "Winter Storm Warning", "Severe", { status: "Test" })] };
 const SLEEPER_STATE = { week: 11, season: "2026", season_type: "regular" };
 const SLEEPER_ADD = [{ player_id: "111", count: 500 }, { player_id: "DEN", count: 40 }, { player_id: "999", count: 10 }, { player_id: "111", count: 1 }, { player_id: "bad id!", count: 5 }, { count: 3 }, { player_id: "777", count: -4 }];
 const SLEEPER_DROP = [{ player_id: "222", count: 300 }];
@@ -249,6 +260,10 @@ function fakeFetch(broken = new Set()) {
     if (host.endsWith("api.sleeper.app/v1/state/nfl")) return body(SLEEPER_STATE);
     if (host.endsWith("/trending/add")) return body(SLEEPER_ADD);
     if (host.endsWith("/trending/drop")) return body(SLEEPER_DROP);
+    if (host.includes("api.weather.gov/alerts/active")) {   // a point south of 25°N stands for a neutral site abroad: outside NWS coverage
+      const lat = Number(new URL(url).searchParams.get("point").split(",")[0]);
+      return lat < 25 ? { ok: false, status: 400, json: async () => ({}), text: async () => "" } : body(NWS_FC);
+    }
     if (host.includes("open-meteo")) { const n = new URL(url).searchParams.get("latitude").split(",").length; return body(n === 1 ? meteo(1, 9)[0] : meteo(n, 9)); }
     if (host.includes("yahoo") || host.includes("espn.com/espn/rss")) return body(null, RSS);
     if (host.endsWith("/scoreboard")) return body(SB);
@@ -563,6 +578,189 @@ test("source check: only problems present in both checks count (F30)", async () 
   const once = await sc.checkOnce(createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch(new Set(["yahoo"])) }));
   assert.ok(once.down["rss-yahoo"] && !once.down["nflverse-games"] && Array.isArray(once.contract), "a real check against fake sources finds the failing one");
 });
+test("line history: observations only when a line changes, opening lines once, kept per source (F23)", () => {
+  const L = require(path.join(root, "lib/fabric/lines.js"));
+  const t = Date.parse("2026-11-20T12:00:00Z"), iso = (ms) => new Date(ms).toISOString();
+  const g = (spread, src = "espn-scoreboard", open = -11.5) => ({ id: "g1", kickoff: "2026-11-22T18:00:00Z", odds: { source: src, provider: "DraftKings", spread: { open, current: spread }, total: { open: 47.5, current: 45.5 }, homeProb: { open: null, current: 0.8 } } });
+  let h = L.observeLines(null, [g(-14.5)], () => iso(t), t);
+  assert.deepStrictEqual(h.g1.map((o) => [o.at, !!o.open, o.spread]), [[null, true, -11.5], [iso(t), false, -14.5]], "the opening line once, with no time, then the current line");
+  h = L.observeLines(h, [g(-14.5)], () => iso(t + 3600e3), t + 3600e3);
+  assert.strictEqual(h.g1.length, 2, "an unchanged line adds nothing");
+  h = L.observeLines(h, [g(-16.5)], () => iso(t + 7200e3), t + 7200e3);
+  assert.deepStrictEqual(h.g1.slice(-1)[0].spread, -16.5);
+  h = L.observeLines(h, [{ id: "g1", kickoff: "2026-11-22T18:00:00Z", odds: { source: "nflverse-games", provider: "nflverse (one book)", spread: { open: null, current: -15 }, total: { open: null, current: 45 }, homeProb: { open: null, current: 0.8 } } }], () => iso(t + 7200e3), t + 7200e3);
+  assert.strictEqual(h.g1.filter((o) => o.source === "nflverse-games").length, 1, "another source is its own series");
+  const mv = L.movesOf(h.g1, "espn-scoreboard");
+  assert.ok(mv.length === 2 && mv[0].dSpread === -3 && mv[0].big && mv[1].dSpread === -2 && mv[1].big, "moves between looks; 1.5 points or more is big");
+  let many = null; for (let i = 0; i < 80; i++) many = L.observeLines(many, [g(-10 - i * 0.5)], () => iso(t + i * 60e3), t);
+  assert.ok(many.g1.length === L.MAX_PER_GAME && many.g1[0].open && many.g1[1].spread === -10 - (80 - L.MAX_PER_GAME + 1) * 0.5, "capped, oldest dropped, the opening line kept");
+  assert.deepStrictEqual(L.observeLines(h, [g(-16.5)], () => iso(t), Date.parse("2026-12-10T00:00:00Z")), {}, "dropped some days after kickoff");
+  const merged = L.mergeLines({ g1: h.g1.slice(0, 2) }, { g1: h.g1 });
+  assert.strictEqual(merged.g1.length, h.g1.length, "merging keeps each observation once");
+  assert.ok(merged.g1[0].open, "opening line first");
+});
+test("line history in the fabric survives a restart and reaches the payload; the contract checks it", async () => {
+  const os = require("os"), fs = require("fs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-lines-"));
+  try {
+    let csv = GAMES_CSV, t = Date.parse("2026-11-21T12:00:00Z");
+    const f = (url) => (String(url).includes("/nfldata/") ? Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => csv }) : fakeFetch()(url));
+    const mk = () => createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: () => t, fetchImpl: f });
+    let u = await mk().universe({ fresh: true });
+    const g = u.games.find((x) => x.away === "MIA" && x.home === "BUF");
+    assert.ok(u.lines[g.id] && u.lines[g.id].length === 1, "first look: one observation");
+    csv = GAMES_CSV.replace("Home,900000002,600,-850,14.5,", "Home,900000002,700,-1000,16.5,"); t += 6 * 3600e3;
+    u = await mk().universe({ fresh: true });   // a new fabric on the same folder: a restart
+    assert.deepStrictEqual(u.lines[g.id].map((o) => o.spread), [-14.5, -16.5], "the line move is kept across a restart");
+    assert.deepStrictEqual(C.validateUniverse(u, T), []);
+    assert.deepStrictEqual(C.validatePublicSnapshot(u, T), [], "nflverse lines are public");
+    const bad = JSON.parse(JSON.stringify(u)); bad.lines[g.id][0].at = "yesterday"; bad.lines[g.id][1].source = "nowhere";
+    assert.ok(C.validateUniverse(bad, T).filter((e) => /^lines\./.test(e)).length === 2, "bad time and unknown source refused");
+    const loc = JSON.parse(JSON.stringify(u)); loc.sources["nflverse-games"].scope = "local";
+    assert.ok(C.validatePublicSnapshot(loc, T).some((e) => /^lines\..*non-public/.test(e)), "a local source's lines never reach a public snapshot");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("the daily snapshot merges yesterday's line history with today's", async () => {
+  const os = require("os"), fs = require("fs");
+  const { writeSnapshot } = require(path.join(root, "scripts/fabric-snapshot.js"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-snaplines-")), quiet = () => {};
+  try {
+    let csv = GAMES_CSV;
+    const f = (url) => (String(url).includes("/nfldata/") ? Promise.resolve({ ok: true, status: 200, json: async () => ({}), text: async () => csv }) : fakeFetch()(url));
+    const t0 = Date.parse("2026-11-21T09:37:00Z"), t1 = t0 + 86400e3 / 4;
+    await writeSnapshot({ fabric: createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t0, fetchImpl: f }), dir, now: () => t0, log: quiet, warn: quiet });
+    csv = GAMES_CSV.replace("Home,900000002,600,-850,14.5,", "Home,900000002,700,-1000,16.5,");
+    await writeSnapshot({ fabric: createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t1, fetchImpl: f }), dir, now: () => t1, log: quiet, warn: quiet });
+    const snap = JSON.parse(fs.readFileSync(path.join(dir, "latest.json"), "utf8")), g = snap.games.find((x) => x.away === "MIA" && x.home === "BUF");
+    assert.deepStrictEqual(snap.lines[g.id].map((o) => o.spread), [-14.5, -16.5], "a fresh runner still publishes the line's history");
+    assert.deepStrictEqual(C.validatePublicSnapshot(snap, T), []);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("NWS alerts: relevant warnings only, times in UTC, matched to the game's window (F29)", () => {
+  const nws = require(path.join(root, "lib/fabric/adapters/nws.js"));
+  const al = nws.normalizeAlerts(NWS_FC);
+  assert.deepStrictEqual(al.map((x) => x.event), ["Wind Advisory"], "flood advisories, test messages and duplicates dropped");
+  assert.ok(al[0].onset === "2026-11-22T15:00:00.000Z" && al[0].ends === "2026-11-23T00:00:00.000Z" && al[0].severity === "Moderate", "local offsets converted to UTC");
+  assert.throws(() => nws.normalizeAlerts({ type: "x" }), /not a feature collection/);
+  assert.ok(nws.overlapsGame(al[0], "2026-11-22T18:00:00Z") && !nws.overlapsGame(al[0], "2026-11-23T18:00:00Z") && nws.overlapsGame(al[0], "2026-11-23T02:00:00Z"), "in force from 3 h before to 4 h after kickoff");
+  assert.ok(/^https:\/\/forecast\.weather\.gov\/MapClick\.php\?lat=42\.7738&lon=-78\.7870$/.test(nws.pageFor(42.7738, -78.787)), "a page a person can read");
+});
+test("NWS alerts reach the games and the feed, credited; a point abroad is skipped", async () => {
+  const u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch() }).universe();
+  const buf = u.games.find((g) => g.away === "MIA" && g.home === "BUF");
+  assert.ok(buf.alerts && buf.alerts.length === 1 && buf.alerts[0].source === "nws-alerts" && /^https:\/\/forecast\.weather\.gov\//.test(buf.alerts[0].url), "the Bills' game has the wind advisory, with a page to read");
+  const ev = u.events.find((e) => e.subtype === "nws-alert" && e.gameId === buf.id);
+  assert.ok(ev && ev.type === "weather" && ev.publisher === "National Weather Service" && ev.importance === 50 && ev.ts === "2026-11-21T14:10:00.000Z" && !ev.data.beforeWatch, "a feed item with NWS's own issue time");
+  assert.ok(u.sources["nws-alerts"].status === "ok", "a point outside NWS coverage is not a failure");
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), [], "public-domain alerts may be published");
+  const bad = JSON.parse(JSON.stringify(u)), bg = bad.games.find((g) => g.alerts);
+  bg.alerts[0].severity = "Catastrophic"; bg.alerts[0].url = "http://x";
+  assert.ok(C.validateUniverse(bad, T).filter((e) => /alerts\[0\]/.test(e)).length === 2, "bad severity and a non-https link refused");
+});
+// The Odds API (v4 shape, invented prices): three books on MIA at BUF, a game already under way, an unknown team
+const ODDS_BOOK = (key, title, hML, aML, hSp, tot) => ({ key, title, last_update: "2026-11-21T15:40:00Z", markets: [
+  { key: "h2h", last_update: "2026-11-21T15:40:00Z", outcomes: [{ name: "Buffalo Bills", price: hML }, { name: "Miami Dolphins", price: aML }] },
+  { key: "spreads", last_update: "2026-11-21T15:41:00Z", outcomes: [{ name: "Buffalo Bills", price: -110, point: hSp }, { name: "Miami Dolphins", price: -110, point: -hSp }] },
+  { key: "totals", last_update: "2026-11-21T15:42:00Z", outcomes: [{ name: "Over", price: -110, point: tot }, { name: "Under", price: -110, point: tot }] }] });
+const ODDS_FC = [
+  { id: "e1", sport_key: "americanfootball_nfl", commence_time: "2026-11-22T18:00:00Z", home_team: "Buffalo Bills", away_team: "Miami Dolphins",
+    bookmakers: [ODDS_BOOK("draftkings", "DraftKings", -800, 550, -14.5, 44.5), ODDS_BOOK("fanduel", "FanDuel", -900, 600, -14, 45), ODDS_BOOK("betmgm", "BetMGM", -750, 525, -14.5, 44.5)] },
+  { id: "e2", sport_key: "americanfootball_nfl", commence_time: "2026-11-21T15:00:00Z", home_team: "Houston Texans", away_team: "Indianapolis Colts", bookmakers: [ODDS_BOOK("draftkings", "DraftKings", -300, 250, -7, 40)] },
+  { id: "e3", sport_key: "americanfootball_nfl", commence_time: "2026-11-23T18:00:00Z", home_team: "Springfield Atoms", away_team: "Miami Dolphins", bookmakers: [ODDS_BOOK("draftkings", "DraftKings", -110, -110, 0, 40)] },
+];
+const ODDS_KEY = "fixture-key-0123456789";
+// fakeFetch plus The Odds API: records each call's URL and key header; answers with `status` and `remaining` credits
+function oddsFetch(calls, { status = 200, remaining = 497, throwWith = null } = {}) {
+  const base = fakeFetch();
+  return async (url, o) => {
+    if (!String(url).includes("api.the-odds-api.com")) return base(url, o);
+    calls.push({ url: String(url), key: o && o.headers ? o.headers["x-api-key"] : null });
+    if (throwWith) throw new Error(throwWith);
+    const headers = new Map([["x-requests-remaining", String(remaining)], ["x-requests-used", String(500 - remaining)], ["x-requests-last", "3"]]);
+    return { ok: status === 200, status, headers, json: async () => ODDS_FC, text: async () => JSON.stringify(ODDS_FC) };
+  };
+}
+test("The Odds API: consensus is the median across books, margin removed; games under way and unknown teams left out", () => {
+  const oa = require(path.join(root, "lib/fabric/adapters/oddsapi.js"));
+  assert.ok(Math.abs(oa.implied(-800) - 800 / 900) < 1e-9 && Math.abs(oa.implied(550) - 100 / 650) < 1e-9 && oa.implied(50) === null && oa.implied("x") === null, "American prices to chances");
+  const r = oa.normalizeOdds(ODDS_FC, NOW());
+  assert.strictEqual(r.games.length, 1, "the game under way is not taken (live odds are a different thing)");
+  assert.strictEqual(r.unmatched, 1, "an unknown team is counted, not guessed");
+  const g = r.games[0];
+  assert.ok(g.home === "BUF" && g.away === "MIA" && g.books.length === 3);
+  assert.deepStrictEqual(g.books.map((b) => b.homeProb), [0.852, 0.863, 0.847], "each book's no-vig home chance");
+  assert.deepStrictEqual([g.consensus.books, g.consensus.spread, g.consensus.total, g.consensus.homeProb], [3, -14.5, 44.5, 0.852], "medians");
+  assert.strictEqual(g.consensus.lastUpdate, "2026-11-21T15:42:00.000Z");
+  assert.ok(!/apiKey|key=/i.test(oa.oddsUrl(NOW())) && /markets=h2h,spreads,totals/.test(oa.oddsUrl(NOW())) && /commenceTimeFrom=2026-11-21T16:00:00Z/.test(oa.oddsUrl(NOW())), "no key in the URL; three markets; from now on");
+  assert.strictEqual(oa.CREDITS_PER_CALL, 3);
+  assert.ok(oa.budgetAllows(null, NOW()) && oa.budgetAllows({ remaining: 15, month: "2026-11" }, NOW()) && !oa.budgetAllows({ remaining: 14, month: "2026-11" }, NOW()) && oa.budgetAllows({ remaining: 0, month: "2026-10" }, NOW()), "the floor holds for the rest of the month only");
+  assert.deepStrictEqual(oa.normalizeOdds({ message: "x" }, NOW()), { games: [], unmatched: 0 }, "an error object is no games");
+});
+test("The Odds API reaches the games and the line history; each book only on the local server", async () => {
+  const calls = [];
+  const u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: oddsFetch(calls), oddsApiKey: ODDS_KEY }).universe();
+  assert.strictEqual(calls.length, 1);
+  assert.ok(calls[0].key === ODDS_KEY && !calls[0].url.includes(ODDS_KEY), "the key goes in a header, never in the URL");
+  const buf = u.games.find((g) => g.away === "MIA" && g.home === "BUF");
+  assert.ok(buf.market && buf.market.source === "odds-api" && buf.market.books === 3 && buf.market.spread === -14.5 && buf.market.homeProb === 0.852 && buf.market.at === "2026-11-21T16:00:00.000Z");
+  assert.ok(!buf.books, "no book's own prices in a public payload");
+  assert.ok((u.lines[buf.id] || []).some((o) => o.source === "odds-api" && o.spread === -14.5 && o.at === "2026-11-21T16:00:00.000Z"), "the consensus enters the line history");
+  assert.ok(u.sources["odds-api"].status === "ok" && u.sources["odds-api"].scope === "public" && /^497 credits left this month \(3 a look\); 1 games with team names not recognised$/.test(u.sources["odds-api"].note));
+  assert.ok(!JSON.stringify(u).includes(ODDS_KEY), "the key is nowhere in the payload");
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), [], "the consensus may be published");
+  const lu = await createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: oddsFetch([]), oddsApiKey: ODDS_KEY }).universe();
+  const lb = lu.games.find((g) => g.away === "MIA" && g.home === "BUF");
+  assert.ok(lb.books && lb.books.length === 3 && lb.books[1].title === "FanDuel" && lb.books[1].homePrice === -900 && lb.books[1].spread === -14, "each book on the local server");
+  assert.deepStrictEqual(C.validateUniverse(lu, T), []);
+  const pubCopy = JSON.parse(JSON.stringify(u)); pubCopy.games.find((g) => g.home === "BUF").books = lb.books;
+  assert.ok(C.validatePublicSnapshot(pubCopy, T).some((e) => /books: each sportsbook's prices stay on the local server/.test(e)), "a public snapshot with any book's prices is refused");
+  const bad = JSON.parse(JSON.stringify(lu)), bg = bad.games.find((g) => g.market);
+  bg.market.books = 0; bg.market.homeProb = 2; bg.books[0].spread = "x";
+  assert.strictEqual(C.validateUniverse(bad, T).filter((e) => /market|books/.test(e)).length, 3, "bad count, chance and spread refused");
+});
+test("The Odds API: off without a key, never called; a refusal and a thrown error never carry the key", async () => {
+  const calls = [];
+  const u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: oddsFetch(calls), oddsApiKey: "" }).universe();
+  assert.strictEqual(calls.length, 0, "no key, no call");
+  assert.ok(u.sources["odds-api"].status === "disabled" && /off/.test(u.sources["odds-api"].label) && /ODDS_API_KEY/.test(u.sources["odds-api"].note));
+  assert.ok(!u.games.some((g) => g.market), "no consensus without the source");
+  const u401 = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: oddsFetch([], { status: 401 }), oddsApiKey: ODDS_KEY }).universe();
+  assert.ok(u401.sources["odds-api"].status === "down" && /key refused or credits used up \(401\)/.test(u401.sources["odds-api"].lastError));
+  const uThrow = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: oddsFetch([], { throwWith: "fetch failed for " + ODDS_KEY }), oddsApiKey: ODDS_KEY }).universe();
+  assert.ok(uThrow.sources["odds-api"].lastError === "fetch failed for [key]", "the key is scrubbed from error text");
+  assert.ok(!JSON.stringify(u401).includes(ODDS_KEY) && !JSON.stringify(uThrow).includes(ODDS_KEY));
+});
+test("The Odds API keeps a credit floor until the next month", async () => {
+  const os = require("os"), fs = require("fs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-odds-"));
+  try {
+    let t = NOW(); const calls = [];
+    const fab = () => createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: () => t, fetchImpl: oddsFetch(calls, { remaining: 12 }), oddsApiKey: ODDS_KEY });
+    await fab().universe({ fresh: true });
+    assert.strictEqual(calls.length, 1);
+    assert.ok(!fs.readdirSync(path.join(dir, "public")).some((f) => fs.readFileSync(path.join(dir, "public", f), "utf8").includes(ODDS_KEY)), "the key is in no cache file");
+    t += 9 * 3600000;
+    const u = await fab().universe({ fresh: true });
+    assert.strictEqual(calls.length, 1, "below the floor: no call this month");
+    assert.ok(u.sources["odds-api"].status === "stale" && /credit floor reached: 12 left/.test(u.sources["odds-api"].lastError) && u.games.some((g) => g.market), "the last consensus is kept, shown stale");
+    t = Date.parse("2026-12-01T12:00:00Z");
+    await fab().universe({ fresh: true });
+    assert.strictEqual(calls.length, 2, "a new month: one call to find out");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("the snapshot carries a failed Odds API's consensus for games not yet started, never a book's prices", () => {
+  const { carryForward } = require(path.join(root, "lib/fabric/carry.js"));
+  const src = (status, lastOk) => ({ id: "odds-api", label: "x", tier: 2, scope: "public", status, breaker: "closed", lastOk, lastError: null, ageSec: 0, latencyMs: 1, fails: status === "down" ? 2 : 0, records: 1, maxStaleSec: 1 });
+  const mk = { source: "odds-api", provider: "The Odds API", at: "2026-11-21T16:00:00.000Z", books: 3, spread: -14.5, total: 44.5, homeProb: 0.852, lastUpdate: null };
+  const prev = { generatedAt: "2026-11-21T16:00:00Z", sources: { "odds-api": src("ok", "2026-11-21T16:00:00.000Z") }, games: [{ id: "a", market: mk }, { id: "b", market: mk }], events: [] };
+  const next = { sources: { "odds-api": src("down", null) }, games: [{ id: "a", state: "pre" }, { id: "b", state: "in" }], events: [] };
+  const { u, carried } = carryForward(prev, next, Date.parse("2026-11-22T16:00:00Z"));
+  assert.deepStrictEqual(carried, ["odds-api"]);
+  assert.ok(u.games[0].market && u.games[0].market.spread === -14.5 && !u.games[1].market, "a game under way does not get an old pregame line");
+  assert.ok(u.sources["odds-api"].status === "stale" && u.sources["odds-api"].carriedFrom === "2026-11-21T16:00:00Z");
+});
 test("the contract checks the fantasy block", () => {
   const ok = { v: 1, generatedAt: "2026-11-22T00:00:00Z", season: 2026, week: 11, seasonType: "regular", sources: { "sleeper-trending": { id: "sleeper-trending", label: "x", tier: 2, scope: "public", status: "ok", breaker: "closed", lastOk: null, lastError: null, ageSec: 0, latencyMs: 1, fails: 0, records: 1, maxStaleSec: 1 } },
     games: [], events: [], injuries: {}, transactions: [], fantasy: { source: "sleeper-trending", lookbackHours: 24, week: 11, adds: [{ name: "A", team: "NYG", pos: "QB", count: 5, sleeperId: "1" }], drops: [], unmatched: { adds: 0, drops: 0 } } };
@@ -634,9 +832,11 @@ test("everything down still yields a valid, empty, honest payload", async () => 
   const f = createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: async () => { throw new Error("offline"); } });
   const u = await f.universe();
   assert.deepStrictEqual(C.validateUniverse(u, T), []);
-  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo"].includes(s.id));
+  assert.strictEqual(u.sources["odds-api"].status, "disabled", "no key: off, not down");
+  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws-alerts", "odds-api"].includes(s.id));   // weather sources depend on the schedule
   assert.ok(net.length >= 8 && net.every((s) => s.status === "down"), "every network source reports down");
   assert.strictEqual(u.sources["open-meteo"].records, 0); assert.ok(/unavailable/i.test(u.sources["open-meteo"].note || ""), "weather says why it has nothing");
+  assert.ok(/unavailable/i.test(u.sources["nws-alerts"].note || "") && !u.games.some((g) => g.alerts), "NWS alerts say why they have nothing");
   assert.strictEqual(u.sources["curated-news"].status, "ok", "the local file still reads"); assert.strictEqual(u.games.length, 0);
 });
 test("server routes answer, validate ids and refuse path tricks", async () => {

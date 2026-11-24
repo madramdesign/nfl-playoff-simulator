@@ -177,7 +177,7 @@ def previous_snapshot():
     today = datetime.date.today().isoformat(); earlier = [f for f in files if f[:10] < today]
     try: s = json.load(open(os.path.join(d, (earlier or files)[-1])))
     except Exception: return None
-    return {k: s.get(k) for k in ("date", "teams", "playoffs", "division", "superBowl", "lines", "played")}
+    return {k: s.get(k) for k in ("v", "date", "built", "teams", "playoffs", "division", "superBowl", "lines", "played", "probs", "gaps", "games") if k in s}
 
 def build(text, season, stats_text=None, asof=None):
     """asof=W rebuilds the picture as it stood after week W: later results are hidden and only lines through week W+1 are used."""

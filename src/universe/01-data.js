@@ -43,7 +43,7 @@ function mergeGame(gi, f) {
     state: f && STATE_RANK[f.state] != null ? f.state : "pre", kickoff: f ? f.kickoff : null, dateLabel: G ? G[5] : null,
     awayScore: f ? num(f.awayScore) : null, homeScore: f ? num(f.homeScore) : null, period: f ? num(f.period) : null, clock: f ? f.clock : null,
     situation: f ? f.situation || null : null, venue: f ? f.venue || null : null, broadcast: f ? f.broadcast || null : null,
-    odds: f ? f.odds || null : null, weather: f ? f.weather || null : null, winProb: f ? f.winProb || null : null, source: f ? f.source || null : null,
+    odds: f ? f.odds || null : null, weather: f ? f.weather || null : null, alerts: f ? cleanAlerts(f.alerts) : [], market: f ? cleanMarket(f.market) : null, books: f ? cleanBooks(f.books) : [], winProb: f ? f.winProb || null : null, source: f ? f.source || null : null,
     neutral: G ? !!G[4] : !!(f && f.venue && f.venue.neutral), line: G ? G[6] : null, total: G ? G[7] : null, fromFeed: !!f
   };
 }
@@ -140,6 +140,92 @@ function normFantasy(payload) {
   });
   return out;
 }
+// Pure: a game's NWS alerts, checked again: event, severity, times and an https link only.
+var ALERT_SEVERITY = ["Extreme", "Severe", "Moderate", "Minor", "Unknown"];
+function cleanAlerts(list) {
+  return (Array.isArray(list) ? list : []).filter(function (a) { return a && typeof a === "object" && typeof a.event === "string" && a.event; }).map(function (a) {
+    return { event: a.event.slice(0, 80), severity: ALERT_SEVERITY.indexOf(a.severity) >= 0 ? a.severity : "Unknown", headline: typeof a.headline === "string" ? a.headline.slice(0, 300) : "",
+      onset: isFinite(Date.parse(a.onset)) ? Date.parse(a.onset) : null, ends: isFinite(Date.parse(a.ends)) ? Date.parse(a.ends) : null, url: safeUrl(a.url) };
+  });
+}
+NFLU.cleanAlerts = cleanAlerts;
+// Pure: a game's consensus line across sportsbooks (The Odds API), checked again; null when unusable.
+function cleanMarket(m) {
+  if (!m || typeof m !== "object" || !(m.books >= 1) || !isFinite(Date.parse(m.at))) return null;
+  var hp = num(m.homeProb);
+  var out = { source: String(m.source || ""), provider: String(m.provider || ""), books: Math.floor(m.books), spread: num(m.spread), total: num(m.total),
+    homeProb: hp != null && hp >= 0 && hp <= 1 ? hp : null, at: Date.parse(m.at) };
+  return out.spread == null && out.total == null && out.homeProb == null ? null : out;
+}
+// Pure: each sportsbook's lines (local server only), checked again.
+function cleanBooks(list) {
+  return (Array.isArray(list) ? list : []).filter(function (b) { return b && typeof b === "object" && typeof b.title === "string" && b.title; }).slice(0, 30).map(function (b) {
+    var hp = num(b.homeProb);
+    return { title: b.title.slice(0, 60), spread: num(b.spread), total: num(b.total), homePrice: num(b.homePrice), awayPrice: num(b.awayPrice), homeProb: hp != null && hp >= 0 && hp <= 1 ? hp : null };
+  });
+}
+// Pure: the consensus in words: "Median of 7 US sportsbooks: WAS +6.5, total 47.5, WAS 31% to win (margin removed)."
+function marketText(m, homeAbbr) {
+  if (!m) return null;
+  var sg = function (v) { return (v > 0 ? "+" : v < 0 ? "\u2212" : "") + Math.abs(v); }, parts = [];
+  if (m.spread != null) parts.push(homeAbbr + " " + sg(m.spread));
+  if (m.total != null) parts.push("total " + m.total);
+  if (m.homeProb != null) parts.push(homeAbbr + " " + Math.round(m.homeProb * 100) + "% to win (margin removed)");
+  return "Median of " + m.books + " US sportsbook" + (m.books === 1 ? "" : "s") + ": " + parts.join(", ") + ".";
+}
+NFLU.cleanMarket = cleanMarket; NFLU.cleanBooks = cleanBooks; NFLU.marketText = marketText;
+// Pure: the payload's line history, checked again: {gameId: [{at ms|null, open, source, provider, spread, total}]}.
+function normLines(payload) {
+  var l = payload && payload.lines && typeof payload.lines === "object" ? payload.lines : null, out = dict();
+  if (!l) return out;
+  Object.keys(l).forEach(function (id) {
+    if (!Array.isArray(l[id])) return;
+    var list = l[id].filter(function (o) { return o && typeof o === "object" && (o.at === null ? o.open === true : isFinite(Date.parse(o.at))) && (num(o.spread) != null || num(o.total) != null); })
+      .map(function (o) { return { at: o.at === null ? null : Date.parse(o.at), open: o.open === true, source: String(o.source || ""), provider: o.provider ? String(o.provider) : "", spread: num(o.spread), total: num(o.total) }; });
+    if (list.length) out[id] = list;
+  });
+  return out;
+}
+// Pure: one game's line history in words, home spread first ("open −11.5 → Nov 21, 4:37 PM −14.5 ▲"), from its main
+// source (the one with the most observations). Moves of 1.5 points or more are marked ▲. Null with fewer than 2 points.
+var LINE_BIG = 1.5;
+function lineHistoryText(list, homeAbbr) {
+  if (!Array.isArray(list) || list.length < 2) return null;
+  var count = {}; list.forEach(function (o) { count[o.source] = (count[o.source] || 0) + 1; });
+  var src = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; })[0];
+  var xs = list.filter(function (o) { return o.source === src && o.spread != null; }).slice(-8);
+  if (xs.length < 2) return null;
+  var fmt = function (v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v); };
+  var when = function (o) { return o.open ? "open" : new Date(o.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+  var parts = xs.map(function (o, k) { var big = k > 0 && Math.abs(o.spread - xs[k - 1].spread) >= LINE_BIG; return when(o) + " " + fmt(o.spread) + (big ? " ▲" : ""); });
+  var d = xs[xs.length - 1].spread - xs[0].spread;
+  return "Line history, " + homeAbbr + " spread (" + (xs[0].provider || src) + "): " + parts.join(" → ") + ". " +
+    (d === 0 ? "No net change." : "Net move " + fmt(d) + " points" + (d < 0 ? ", toward " + homeAbbr : ", away from " + homeAbbr) + ".") + (parts.some(function (p) { return /▲$/.test(p); }) ? " ▲ marks a move of 1.5 points or more between two looks." : "");
+}
+NFLU.normLines = normLines; NFLU.lineHistoryText = lineHistoryText;
+// Pure: for each big move in a game's line history (main source, as above), the feed items about either team dated
+// between the two looks: what was known around the move, not what caused it. An opening line has no time, so for the
+// first move the window is the 7 days before the later look (marked). Items whose own time is unknown are left out.
+// events: the model's events (ts ms, teams as indices); teams: [away, home]. Newest move first, at most 3, 4 items each.
+var BETWEEN_TYPES = ["injury", "transaction", "qb_change", "news", "weather"], OPEN_WINDOW_MS = 7 * 86400000;
+function betweenLooks(list, events, teams) {
+  if (!Array.isArray(list) || list.length < 2) return [];
+  var count = {}; list.forEach(function (o) { count[o.source] = (count[o.source] || 0) + 1; });
+  var src = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; })[0];
+  var xs = list.filter(function (o) { return o.source === src; }), out = [];
+  for (var k = 1; k < xs.length; k++) {
+    var a = xs[k - 1], b = xs[k]; if (b.at == null) continue;
+    var dS = a.spread != null && b.spread != null ? b.spread - a.spread : null, dT = a.total != null && b.total != null ? b.total - a.total : null;
+    if (!((dS != null && Math.abs(dS) >= LINE_BIG) || (dT != null && Math.abs(dT) >= 2))) continue;
+    var lo = a.at != null ? a.at : b.at - OPEN_WINDOW_MS, hi = b.at;
+    var evs = (events || []).filter(function (e) {
+      return BETWEEN_TYPES.indexOf(e.type) >= 0 && e.before == null && !e.dateOnly && isFinite(e.ts) && e.ts > lo && e.ts <= hi && (e.teams || []).some(function (t) { return teams.indexOf(t) >= 0; });
+    }).sort(function (x, y) { return (y.importance || 0) - (x.importance || 0) || y.ts - x.ts; }).slice(0, 4);
+    out.push({ from: a, to: b, dSpread: dS, dTotal: dT, openWindow: a.at == null, events: evs });
+  }
+  return out.reverse().slice(0, 3);
+}
+NFLU.betweenLooks = betweenLooks;
 // Pure: one team's entries in the fantasy lists.
 function teamFantasy(F, i) {
   var pick = function (l) { return (l || []).filter(function (x) { return x.team === i; }); };
@@ -152,7 +238,7 @@ function buildModel(payload) {
   if (payload && payload.injuries) Object.keys(payload.injuries).forEach(function (a) { var t = payload.injuries[a]; if (TIDX[a] != null && t && typeof t === "object") inj[TIDX[a]] = t; });
   var gameByKey = dict();
   g.games.forEach(function (x) { gameByKey[x.key] = x; if (x.gid) gameByKey[x.gid] = x; if (x.id) gameByKey[x.id] = x; });
-  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload),
+  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload), lines: normLines(payload),
     generatedAt: payload ? Date.parse(payload.generatedAt) : null, fixture: !!(payload && payload._fixture), season: payload ? payload.season : null };
 }
 // Loose shape check for a payload from the network: the full contract lives in lib/contract.js (server side).

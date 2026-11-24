@@ -129,7 +129,7 @@ Implementation Plan:
 
 ## FEATURE-F04 — Why the odds moved (attribution)
 
-Status: Research
+Status: In progress (Nov. 23, 2026). Built: snapshot version 2 (`scripts/snapshot.js`: `probs`, `gaps`, `games`); the engine's `changeWatch` and `explainChange` (a first-order split, DEC-020, instead of re-running with one input swapped at a time); "Why it moved" in the team panel; `why` per mover in MCP `get_what_changed`; the game panel lists feed items dated between the two looks of each big line move. The first real split appears once a build compares with a version-2 forecast (the Nov. 24 refresh saves the first; the Nov. 25 build uses it). Not built: a split of division and Super Bowl chances; the simulator page's what-changed card.
 Priority: P0 · Score 83.2 · Size M
 Category: Analytics / Explainability
 Tag: EXISTING—IMPROVE (what-changed card, `newsEffect`, `get_what_changed`)
@@ -440,7 +440,7 @@ Technical Complexity: medium. Risk: invented counter-arguments, blocked by the v
 
 ## FEATURE-F14 — Official club RSS headlines (tier 1)
 
-Status: Ready (per-club terms check)
+Status: Blocked on permission (Nov. 24 terms check of all 32 clubs; see the registry's "Official club news feeds"). This corrects the earlier note: the 49ers' terms bar deep links and automated access. Owner decision: write to clubs, link to club home pages only, or drop.
 Priority: P1 · Score 76.0 · Size S
 Category: Data / News
 Tag: NEW
@@ -619,7 +619,7 @@ Dependencies: none (F04 later adds the "why"). Risk: noise. Use the F35 margin.
 
 ## FEATURE-F23 — Line history and anomaly flags from own records
 
-Status: Ready
+Status: Partly done (Nov. 23): line history from the lines already read (nflverse, ESPN locally) in `lib/fabric/lines.js`, shown in words in the game panel with big moves marked; the sparkline and robust-z flags are still open
 Priority: P1 · Score 68.1 · Size S
 Category: Markets
 Tag: EXISTING—IMPROVE (daily `lines` in snapshots; ESPN open and current locally)
@@ -633,7 +633,7 @@ Risk: thin history before Nov. 20.
 
 ## FEATURE-F24 — Multi-book odds (The Odds API free tier)
 
-Status: Deferred (owner decision: key)
+Status: In progress (Nov. 23, 2026): adapter built and tested on fixtures, off until the owner sets `ODDS_API_KEY` (DEC-019). Every 8 h on the server plus the daily snapshot; the published page carries the median line only; each book's prices only on the local server. Not yet run against the real API. Futures not built.
 Priority: P2 · Score 60.1 · Size M
 Category: Markets
 Tag: NEW

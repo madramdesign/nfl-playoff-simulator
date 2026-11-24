@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-23 (what moved the odds, F04 first part)
+- Each team panel gets "Why it moved": the change in playoff chance since the last saved forecast, split into own results, other teams' results, betting lines posted or moved, team ratings and what is left (effects between games and simulation noise), with the results and games named. A model estimate, labelled as one (DEC-020). The assistant's `get_what_changed` gives the same split.
+- Saved daily forecasts (version 2) now keep each remaining game's chance and what the next two weeks' games are worth to every team; the first split appears once a build compares with one (from Nov. 25).
+- The game panel lists what the feed had about either team between the two looks of each big line move: context, not cause.
+
+## 2026-11-23 (The Odds API, off until a key is set)
+- New source `odds-api`: moneyline, spread and total from each US sportsbook The Odds API covers, for this week's games not yet started. The game panel shows the median across books (spread, total, home win chance with the books' margin removed) with its age; the local server also lists each book. Only the median is ever published (DEC-019). The median enters the line history. Off until the owner sets `ODDS_API_KEY`; written from the provider's guide and tested on fixtures, not yet run against the real API.
+
+## 2026-11-23 (weather alerts at stadiums)
+- New public source `nws-alerts`: the National Weather Service's active alerts (wind, winter, cold, heat, storms, fog) at each outdoor stadium with a game in the next two days, every 30 minutes. Only alerts in force from 3 hours before to 4 hours after kickoff are kept. They show first in the game panel's Weather section in the Weather Service's own words, linked to its forecast page, and as weather events in the feed. Descriptive only, not a model input. Checked against the real service on Nov. 23 (6 stadiums, no alerts in force).
+
+## 2026-11-23 (line history, F23 first part)
+- Every betting line the data fabric reads is kept as a per-game history (a new entry only when a source's line changes, opening lines once), in the local server's state and in the published snapshot, which merges yesterday's history with today's. The game panel lists it, with moves of 1.5 points or more marked. Checked on the Monday night game: Washington opened +1.5 and was +6.5 by 7:41 PM.
+
 ## 2026-11-23 (reliability batch: F31, F01 parts 3–4, F30)
 - Security and robustness (F31): a Content-Security-Policy on the page with its inline scripts allowed by hash; `/api/live` timeout, retry wait and shared request; the `public/` containment check fixed; the simulator checks live games and news links and backs off its poll; focus-team figures dropped from command-center results.
 - Backup daily refresh on GitHub Actions, run only when the scheduled refresh has not; one GitHub issue (`data-refresh`) when a day's snapshot lost or carried two or more sources (F01 parts 3–4).

@@ -64,6 +64,39 @@ const s0 = E.simulate(none, nyg, 3000), s1 = E.simulate(none, nyg, 3000, null, f
 assert.deepStrictEqual(Array.from(s0.po), Array.from(s1.po), "default seed is unchanged");
 assert.notDeepStrictEqual(Array.from(s0.po), Array.from(s2.po), "another seed draws different seasons");
 assert.strictEqual(Math.round(Array.from(s2.po).reduce((x, y) => x + y, 0) / s2.n), 14, "any seed still fills 14 playoff spots");
+// ---- why the playoff chances moved (F04): a saved forecast, then the same data with one result added or one line moved ----
+{
+  const { makeSnapshot } = require("../scripts/snapshot.js");
+  const engineOf = (data) => new Function(scripts[0].replace(/^var D=.*$/m, () => "var D=" + JSON.stringify(data) + ";") + ";return {simulate,GAMES,TM,D,blendProb,changeWatch,explainChange}")();
+  const D0 = JSON.parse(dataLine.slice(6).replace(/;\s*$/, ""));
+  const E0 = engineOf(D0), P = JSON.parse(JSON.stringify(makeSnapshot(E0, 20000, "2026-11-20")));
+  assert.ok(P.v === 2 && Object.keys(P.gaps).length >= 10 && Object.keys(P.probs).length === E0.GAMES.length && P.gaps[Object.keys(P.gaps)[0]].length === 32, "a version-2 forecast carries chances and figures");
+  const same = E0.explainChange(P, E0.simulate(E0.GAMES.map(() => 0), 0, 20000, null, false, E0.changeWatch(P)));
+  assert.strictEqual(E0.changeWatch(P).length, 0, "nothing moved: nothing to watch");
+  assert.ok(same.teams.every((x) => Math.abs(x.total) <= 0.0006 && x.own === 0 && x.lines === 0 && Math.abs(x.rest) <= 0.0006), "same data: no change to explain");
+  assert.strictEqual(E0.explainChange({ teams: P.teams, playoffs: P.playoffs }, { watch: {} }), null, "an older forecast is not explained");
+  const sum = (x) => x.own + x.others + x.lines + x.ratings + x.rest;
+  // one result added: the game with figures that matters most to one of its own teams, won by the forecast's underdog
+  const stake = (id) => { const tm = P.games[id].map((a) => P.teams.indexOf(a)); return Math.max(...tm.map((t) => Math.abs(P.gaps[id][t]))); };
+  const gid = Object.keys(P.gaps).sort((x, y) => stake(y) - stake(x))[0], k = D0.games.findIndex((g) => g[0] === gid), g = D0.games[k], homeWins = P.probs[gid] < 0.5;
+  const D1 = JSON.parse(JSON.stringify(D0)); D1.games.splice(k, 1); D1.played.push([g[2], g[3], homeWins ? 10 : 30, homeWins ? 30 : 10]);
+  const E1 = engineOf(D1), w1 = E1.explainChange(P, E1.simulate(E1.GAMES.map(() => 0), 0, 20000, null, false, E1.changeWatch(P)));
+  assert.ok(w1.results === 1 && w1.resultsSince === 1, "the new result is found");
+  for (const t of [g[2], g[3]]) {
+    const x = w1.teams[t];
+    assert.ok(Math.abs(sum(x) - x.total) < 1e-9, "the parts add up to the change");
+    assert.ok(Math.abs(x.own - x.total) < 0.03 && x.results.length === 1, "an upset explains its teams' moves: " + E1.TM[t].a + " total " + x.total.toFixed(3) + " own " + x.own.toFixed(3));
+  }
+  assert.ok(Math.max(Math.abs(w1.teams[g[2]].total), Math.abs(w1.teams[g[3]].total)) >= 0.05, "the chosen game moves one of its teams by 5 points or more");
+  assert.ok(w1.teams.filter((x, t) => t !== g[2] && t !== g[3]).every((x) => x.own === 0 && Math.abs(x.others - x.total) < 0.03), "other teams' moves come from other results");
+  // one line moved by 10 points of win chance in a game still to play
+  const kl = D0.games.findIndex((x, j) => j !== k && x[6] != null && x[6] > 0.2 && x[6] < 0.7);
+  const D2 = JSON.parse(JSON.stringify(D0)); D2.games[kl][6] = Math.round((D0.games[kl][6] + 0.1) * 1e4) / 1e4;
+  const E2 = engineOf(D2), cw = E2.changeWatch(P), w2 = E2.explainChange(P, E2.simulate(E2.GAMES.map(() => 0), 0, 20000, null, false, cw));
+  assert.deepStrictEqual(cw, [kl], "only the moved game is watched");
+  const hm = w2.teams[D0.games[kl][3]];
+  assert.ok(hm.lines > 0.01 && Math.abs(hm.lines - hm.total) < 0.02 && hm.ratings === 0 && hm.moves[0].gi === kl, "a line move explains the home team's rise");
+}
 const { normalize } = require("../server.js");
 const feed = normalize(JSON.parse(fs.readFileSync(path.join(__dirname, "sample-scoreboard.json"), "utf8")));
 assert.deepStrictEqual(feed[0], { away: "JAX", home: "NYG", awayScore: 10, homeScore: 14, state: "in", period: 3, clock: "8:03", minutes: 8.05 });

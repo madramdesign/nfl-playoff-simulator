@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); a fifth on Nov. 23 (reliability batch: F31, F01 parts 3–4, F30); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); a fifth on Nov. 23 (reliability batch: F31, F01 parts 3–4, F30); a sixth on Nov. 23 (more odds sources: line history, NWS stadium alerts, The Odds API adapter switched off until a key is set, what moved the odds); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -120,7 +120,7 @@
 
 ## Decisions waiting on the owner
 1. Language-model provider and cost ceiling, or none (DEC-009).
-2. A keyed odds source (The Odds API free tier is the cheapest workable), or none.
+2. The Odds API key: the adapter is built and off; set `ODDS_API_KEY` in the environment where the server and the daily refresh run (and, optionally, as a GitHub secret for the backup refresh).
 3. Where the server should run beyond this machine, if anywhere.
 
 ## Effects of the merge to watch
@@ -130,6 +130,15 @@
 - New living documents: `FEATURE_RESEARCH.md` (baseline, competitors, open-source, technology and data research, scoring of 39 candidates, top 20, top 5, rejected ideas), `FEATURE_BACKLOG.md` (one entry per candidate), `FEATURE_ROADMAP.md` (P0–P2 and order).
 - Found while researching:
   - The Nov. 23 refresh published a degraded public snapshot. Open-Meteo, both RSS feeds, YouTube and podcasts all failed with `fetch failed`, and the run overwrote the previous good data. There is no event file for Nov. 22. Backlog F01, fixed on Nov. 23 (see below).
+
+## Nov. 23 (on `main`): more odds sources and what moved the odds
+- Owner asked for more betting-odds sources, more news that moves odds, and a view of what moved them. Order: research (club news feeds, The Odds API terms, NWS: running), line history (done), NWS stadium alerts, The Odds API adapter (switched on by the owner's key), club news feeds where allowed, then model events (F22) and "what moved the odds" (F04).
+- Line history (F23, first part): `lib/fabric/lines.js`; `lines` block in the payload and contract; the game panel lists it. Checked live on CIN at WAS. Tests: 3 new fabric tests, 3 page checks.
+- A slip found only in the browser (the game panel referenced a variable outside its scope) was fixed; page-level browser tests remain backlog F33.
+- NWS stadium alerts: `lib/fabric/adapters/nws.js`, source `nws-alerts` (public, 30 min, outdoor stadiums with a game within 2 days, 3 at a time; 4xx answers counted as outside coverage). `games[].alerts` in the payload and contract (public snapshot refuses alerts from local sources); the game panel's Weather section shows them first; feed events typed `weather`. Tests: 2 new fabric tests, page checks for `cleanAlerts`. Real call: 6 stadiums, none under an alert.
+- Club news feeds (F14): all 32 clubs publish RSS, but every club's terms reserve the content; not wired without permission (registry section "Official club news feeds").
+- The Odds API (F24, DEC-019): `lib/fabric/adapters/oddsapi.js`, source `odds-api`, off until `ODDS_API_KEY` is set (status "disabled" with a note saying so). `games[].market` (median across books, published) and `games[].books` (each book, local server only; the public-snapshot check refuses it) in the payload and contract; the consensus enters the line history and is carried by the snapshot for games not yet started. Credit floor 15, every 8 h plus the daily snapshot. The backup refresh passes the optional secret `ODDS_API_KEY`. Tests: 5 new fabric tests (key never in a URL, payload, cache file or error; floor; carry), 6 page checks; the panel checked in the browser with test values put into the page. Not yet run against the real API (no key).
+- What moved the odds (F04 first part, DEC-020): snapshot version 2 (`probs`, `gaps`, `games`; about 8 KB a day); engine `changeWatch` and `explainChange`; "Why it moved" in the team panel (one extra blend simulation per page load, run when a team panel first opens); `why` per mover in MCP `get_what_changed`; the game panel's "Seen in the feed between two looks" for big line moves (checked on real data: CIN at WAS, four items). Tests: engine checks with an upset and a moved line in copies of the data (parts add up; own results within 1 point of both teams' change), 2 page-check groups, 1 MCP test; nine deliberately broken versions each caught. Until a version-2 forecast exists the panel says the saved one predates the figures. Not built: F22 model events; division and Super Bowl splits; the simulator page's card.
 
 ## Nov. 23 (on `main`): reliability batch (F31, F01 parts 3–4, F30)
 - F31 items 1–7: `/api/live` timeout, retry wait and shared request; the `public/` containment check; a Content-Security-Policy on the page (inline scripts by hash, worker from blob:, Google Fonts, YouTube thumbnails and player, podcast audio over https); the simulator checks live games (`cleanLiveGame`) and news links (`safeHttpsUrl`), times out and backs off its poll; dead `openLive` removed; focus-team figures dropped from command-center results. Item 8 (one constants table) left out.

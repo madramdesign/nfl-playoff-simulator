@@ -173,16 +173,18 @@ function teamInfo(a) {
 
 // The latest saved forecast made from a different build than the engine's (the page's what-changed view uses the
 // same rule: a snapshot of the very build being compared would show nothing).
+// NFLU_SNAPSHOT_DIR: tests only, to read saved forecasts from a temporary folder
+const snapDir = () => process.env.NFLU_SNAPSHOT_DIR || SNAP_DIR;
 function readSnapshot(L) {
   let files;
-  try { files = fs.readdirSync(SNAP_DIR).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().reverse(); }
+  try { files = fs.readdirSync(snapDir()).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().reverse(); }
   catch (err) { return { error: "data/snapshots/ could not be read: " + err.message, skipped: [] }; }
   if (!files.length) return { error: "data/snapshots/ holds no snapshot", skipped: [] };
   const skipped = [];
   let fallback = null;
   for (const f of files) {
     let snap;
-    try { snap = JSON.parse(fs.readFileSync(path.join(SNAP_DIR, f), "utf8")); }
+    try { snap = JSON.parse(fs.readFileSync(path.join(snapDir(), f), "utf8")); }
     catch (err) { skipped.push({ file: "data/snapshots/" + f, reason: "unreadable: " + err.message.slice(0, 120) }); continue; }
     if (!Array.isArray(snap.teams) || !Array.isArray(snap.playoffs)) { skipped.push({ file: "data/snapshots/" + f, reason: "missing teams or playoffs" }); continue; }
     if (!fallback) fallback = { file: f, snap };
@@ -456,7 +458,7 @@ const TOOLS = [
   },
   {
     name: "get_what_changed", title: "What changed",
-    description: "Compares the current engine forecast with the latest saved daily forecast from an earlier build (data/snapshots/): teams whose playoff chance moved 3 points or more, sportsbook lines that moved 2 points of win chance or more, lines posted since, and results added. Names the snapshot date.",
+    description: "Compares the current engine forecast with the latest saved daily forecast from an earlier build (data/snapshots/): teams whose playoff chance moved 3 points or more, sportsbook lines that moved 2 points of win chance or more, lines posted since, and results added. Names the snapshot date. For forecasts saved from Nov. 24, 2026 (version 2), each mover's change is split into own results, other teams' results, betting lines, team ratings and a remainder (a first-order model estimate).",
     inputSchema: obj({}),
     openWorld: false,
     async run(a, ctx) {
@@ -478,6 +480,22 @@ const TOOLS = [
         if (Math.abs(m.change) >= 0.03) movers.push(m);
       });
       movers.sort((x, y) => Math.abs(y.change) - Math.abs(x.change));
+      // F04: the split, when the saved forecast carries the per-game figures (version 2) and the engine can compute it
+      let explanation = { available: false, reason: "The saved forecast predates the per-game figures needed to split the change (saved from Nov. 24, 2026 on)." };
+      if (snap.v >= 2 && E.changeWatch && E.explainChange) {
+        const w = E.changeWatch(snap), ex = w ? E.explainChange(snap, E.simulate(E.GAMES.map(() => 0), 0, sims, null, false, w)) : null;
+        if (ex) {
+          const byTeam = new Map(ex.teams.map((x) => [E.TM[x.team].a, x]));
+          for (const m of movers) {
+            const x = byTeam.get(m.team); if (!x) continue;
+            m.why = { ownResults: r3(x.own), otherResults: r3(x.others), lines: r3(x.lines), ratings: r3(x.ratings), rest: r3(x.rest),
+              results: x.results.slice(0, 4).map((g) => ({ gameId: g.id, away: E.TM[g.away].a, home: E.TM[g.home].a, awayScore: g.awayScore, homeScore: g.homeScore, homeChanceThen: g.was, effect: r3(g.effect) })),
+              lineAndRatingMoves: x.moves.slice(0, 4).map((v) => ({ gameId: v.id, kind: v.kind, homeChanceThen: r3(v.was), homeChanceNow: r3(v.now), effect: r3(v.effect) })) };
+          }
+          explanation = { available: true, resultsMatched: ex.results, resultsSince: ex.resultsSince,
+            method: "First order: each result's surprise (result minus the chance it had in the saved forecast) times what the game was worth to the team then, and each change in a remaining game's chance times what it is worth now. rest is what that leaves: effects between games, results without saved figures, and simulation noise." };
+        } else explanation = { available: false, reason: "The saved forecast's teams or figures do not match this engine's data." };
+      }
       const lineMoves = [], newLines = [], lines = snap.lines || {};
       E.GAMES.forEach((g) => {
         if (g[6] == null) return;
@@ -493,7 +511,7 @@ const TOOLS = [
       notes.push("Both forecasts use the engine's fixed seed and " + sims + " simulated seasons; playoff changes come from new results, lines and ratings. Line values are sportsbook home win chances (no-vig) from the build data.");
       return ctx.answer(used, { comparedWith: { file: info.file, date: snap.date || null, built: snap.built || null, sims: snap.sims || null }, skippedSnapshots: info.skipped,
         current: { built: E.D.built, sims: cur.sims, seed: cur.seed }, resultsAdded: Number.isInteger(snap.played) ? E.D.played.length - snap.played : null,
-        thresholds: { playoffs: 0.03, line: 0.02 }, playoffMovers: movers, lineMoves, newLines, largestPlayoffChange, largestLineChange, notes });
+        thresholds: { playoffs: 0.03, line: 0.02 }, playoffMovers: movers, explanation, lineMoves, newLines, largestPlayoffChange, largestLineChange, notes });
     },
   },
   {

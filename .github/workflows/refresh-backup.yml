@@ -40,6 +40,9 @@ jobs:
       - name: Refresh (only if today's has not run)
         if: steps.before.outputs.refreshed_today != 'true'
         run: npm run refresh
+        env:
+          # optional: The Odds API stays off when this secret is not set (DEC-019)
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
       - name: Commit the refreshed data (unless the scheduled refresh landed meanwhile)
         if: steps.before.outputs.refreshed_today != 'true'
         run: |

@@ -331,6 +331,7 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-
 .u-table{width:100%;border-collapse:collapse;font-size:12px}
 .u-table th{font:500 10.5px var(--body);color:var(--muted);text-align:left;padding:3px 4px;border-bottom:1px solid var(--line)}
 .u-table td{padding:4px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+.u-why td{white-space:normal;vertical-align:top}.u-why td.u-num{white-space:nowrap}.u-why .u-note{margin:2px 0 0}
 .u-table .u-num,.u-num{text-align:right;font-variant-numeric:tabular-nums}
 .u-table tr.is-sel td{color:var(--accent);font-weight:600}
 .u-tlink{font:700 12px var(--body);color:var(--ink);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:2px}
@@ -428,6 +429,9 @@ svg.u-map:not([data-mode="geo"])~.u-mapctl{display:none}
 .u-lgrad{display:inline-block;width:38px;height:8px;border-radius:4px;flex:0 0 auto}
 .u-lsw{display:inline-block;width:14px;height:10px;flex:0 0 auto}
 .u-lsw-ring{border:2.5px solid var(--accent);border-radius:50%;width:11px;height:11px}
+/* National Weather Service alerts in the game panel: a stripe, stronger for severe or extreme warnings */
+.u-alert{border-left:3px solid var(--u-warn);padding-left:8px}
+.u-alert.u-sev-severe,.u-alert.u-sev-extreme{border-left-color:var(--u-live)}
 /* helmets (07-helmets.js): our own drawing in team colours; a thin outline keeps dark shells visible on the dark map */
 .u-helmets{cursor:pointer}
 .u-helm-shell{stroke:var(--ink);stroke-opacity:.45;stroke-width:.9;stroke-linejoin:round}
@@ -886,6 +890,38 @@ var DIVT=[],CONFT=[[],[]],DM=[],CM=[];
 (function(){var t,o;for(t=0;t<NT;t++){(DIVT[TM[t].d]=DIVT[TM[t].d]||[]).push(t);CONFT[TM[t].c].push(t)}
   for(t=0;t<NT;t++){DM[t]=DIVT[TM[t].d].filter(function(o){return o!==t});CM[t]=CONFT[TM[t].c].filter(function(o){return o!==t})}})();
 function baseProb(i){return 1/(1+Math.pow(10,-GD[i]/400))}
+// Home chance in game i in the blend, with no what-if: the mode saved forecasts are made in.
+function blendProb(i){var d=LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2;return 1/(1+Math.pow(10,-d/400))}
+// ---- why the playoff chances moved since a saved forecast (backlog F04) ----
+// P: a saved forecast (scripts/snapshot.js) of version 2 or later: probs (each remaining game's home chance then),
+// gaps (for the games due within two weeks then: each team's playoff chance if the home team wins minus if it loses)
+// and games (those games' away and home abbreviations). changeWatch(P): the games still to play whose chance has moved,
+// to be watched in the current run. Null when P cannot be explained (older format).
+function changeWatch(P){if(!P||!(P.v>=2)||!P.probs)return null;var w=[];
+  for(var i=0;i<GAMES.length;i++){var was=P.probs[GAMES[i][0]];if(was!=null&&Math.abs(blendProb(i)-was)>=.002)w.push(i)}return w}
+// explainChange(P,r): r is simulate() in the blend with no picks or what-ifs, watching changeWatch(P). Each team's
+// change in playoff chance, split to first order: own results and other teams' results since P (each result's surprise,
+// result minus P's chance, times what the game was worth to the team in P's simulation); betting lines posted or moved,
+// and rating changes, in the games still to play (change in chance times what the game is worth now). rest is what is
+// left: effects between games, results P had no figures for, and both simulations' own noise. All in probability units.
+function explainChange(P,r){
+  if(!P||!(P.v>=2)||!P.probs||!P.gaps||!P.games||!Array.isArray(P.teams)||!Array.isArray(P.playoffs)||!r||!r.watch)return null;
+  var map=TM.map(function(t){return P.teams.indexOf(t.a)}),ix={};if(map.some(function(j){return j<0}))return null;
+  TM.forEach(function(t,i){ix[t.a]=i});
+  var out=TM.map(function(t,i){return{team:i,was:P.playoffs[map[i]],now:r.po[i]/r.n,own:0,others:0,lines:0,ratings:0,results:[],moves:[]}});
+  var left={},byPair={},matched=0,k;GAMES.forEach(function(g){left[g[0]]=1});D.played.forEach(function(g){byPair[g[0]+"-"+g[1]]=g});
+  Object.keys(P.gaps).forEach(function(id){
+    var pr=P.games[id],gp=P.gaps[id],was=P.probs[id];if(left[id]||!pr||!Array.isArray(gp)||was==null)return;
+    var a=ix[pr[0]],h=ix[pr[1]],row=a!=null&&h!=null?byPair[a+"-"+h]:null;if(!row)return;
+    matched++;var o=row[3]>row[2]?1:row[3]<row[2]?0:.5,d=o-was;
+    for(k=0;k<NT;k++){var c=d*(gp[map[k]]||0);if(k===a||k===h){out[k].own+=c;out[k].results.push({id:id,away:a,home:h,awayScore:row[2],homeScore:row[3],was:was,effect:c})}else out[k].others+=c}});
+  Object.keys(r.watch).forEach(function(s){
+    var i=+s,w=r.watch[s],g=GAMES[i],was=g?P.probs[g[0]]:null;if(!g||was==null||!w.nH||!w.nA)return;
+    var dp=blendProb(i)-was,part=LINE[i]!=null?"lines":"ratings";
+    for(k=0;k<NT;k++){var c=dp*(w.H[k]/w.nH-w.A[k]/w.nA);out[k][part]+=c;if(Math.abs(c)>=.001)out[k].moves.push({gi:i,id:g[0],kind:part,was:was,now:blendProb(i),effect:c})}});
+  out.forEach(function(x){x.total=x.now-x.was;x.rest=x.total-x.own-x.others-x.lines-x.ratings;
+    x.results.sort(function(a,b){return Math.abs(b.effect)-Math.abs(a.effect)});x.moves.sort(function(a,b){return Math.abs(b.effect)-Math.abs(a.effect)});x.moves=x.moves.slice(0,5)});
+  return{date:P.date||null,built:P.built||null,teams:out,results:matched,resultsSince:Number.isInteger(P.played)?D.played.length-P.played:null}}
 function phi(z){var x=Math.abs(z)/Math.SQRT2,k=1/(1+.3275911*x),e=1-(((((1.061405429*k-1.453152027)*k)+1.421413741)*k-.284496736)*k+.254829592)*k*Math.exp(-x*x);return z>=0?.5*(1+e):.5*(1-e)}
 // In-game home win chance: current margin plus the share of the pregame spread still to be played, over the scoring spread left in the game.
 function liveProbFor(i,L){var fr=L.q>=5?.04:((4-L.q)*15+Math.min(15,Math.max(0,L.m)))/60,sp=GD[i]/25,mg=L.h-L.a;
@@ -1269,7 +1305,7 @@ function mergeGame(gi, f) {
     state: f && STATE_RANK[f.state] != null ? f.state : "pre", kickoff: f ? f.kickoff : null, dateLabel: G ? G[5] : null,
     awayScore: f ? num(f.awayScore) : null, homeScore: f ? num(f.homeScore) : null, period: f ? num(f.period) : null, clock: f ? f.clock : null,
     situation: f ? f.situation || null : null, venue: f ? f.venue || null : null, broadcast: f ? f.broadcast || null : null,
-    odds: f ? f.odds || null : null, weather: f ? f.weather || null : null, winProb: f ? f.winProb || null : null, source: f ? f.source || null : null,
+    odds: f ? f.odds || null : null, weather: f ? f.weather || null : null, alerts: f ? cleanAlerts(f.alerts) : [], market: f ? cleanMarket(f.market) : null, books: f ? cleanBooks(f.books) : [], winProb: f ? f.winProb || null : null, source: f ? f.source || null : null,
     neutral: G ? !!G[4] : !!(f && f.venue && f.venue.neutral), line: G ? G[6] : null, total: G ? G[7] : null, fromFeed: !!f
   };
 }
@@ -1366,6 +1402,92 @@ function normFantasy(payload) {
   });
   return out;
 }
+// Pure: a game's NWS alerts, checked again: event, severity, times and an https link only.
+var ALERT_SEVERITY = ["Extreme", "Severe", "Moderate", "Minor", "Unknown"];
+function cleanAlerts(list) {
+  return (Array.isArray(list) ? list : []).filter(function (a) { return a && typeof a === "object" && typeof a.event === "string" && a.event; }).map(function (a) {
+    return { event: a.event.slice(0, 80), severity: ALERT_SEVERITY.indexOf(a.severity) >= 0 ? a.severity : "Unknown", headline: typeof a.headline === "string" ? a.headline.slice(0, 300) : "",
+      onset: isFinite(Date.parse(a.onset)) ? Date.parse(a.onset) : null, ends: isFinite(Date.parse(a.ends)) ? Date.parse(a.ends) : null, url: safeUrl(a.url) };
+  });
+}
+NFLU.cleanAlerts = cleanAlerts;
+// Pure: a game's consensus line across sportsbooks (The Odds API), checked again; null when unusable.
+function cleanMarket(m) {
+  if (!m || typeof m !== "object" || !(m.books >= 1) || !isFinite(Date.parse(m.at))) return null;
+  var hp = num(m.homeProb);
+  var out = { source: String(m.source || ""), provider: String(m.provider || ""), books: Math.floor(m.books), spread: num(m.spread), total: num(m.total),
+    homeProb: hp != null && hp >= 0 && hp <= 1 ? hp : null, at: Date.parse(m.at) };
+  return out.spread == null && out.total == null && out.homeProb == null ? null : out;
+}
+// Pure: each sportsbook's lines (local server only), checked again.
+function cleanBooks(list) {
+  return (Array.isArray(list) ? list : []).filter(function (b) { return b && typeof b === "object" && typeof b.title === "string" && b.title; }).slice(0, 30).map(function (b) {
+    var hp = num(b.homeProb);
+    return { title: b.title.slice(0, 60), spread: num(b.spread), total: num(b.total), homePrice: num(b.homePrice), awayPrice: num(b.awayPrice), homeProb: hp != null && hp >= 0 && hp <= 1 ? hp : null };
+  });
+}
+// Pure: the consensus in words: "Median of 7 US sportsbooks: WAS +6.5, total 47.5, WAS 31% to win (margin removed)."
+function marketText(m, homeAbbr) {
+  if (!m) return null;
+  var sg = function (v) { return (v > 0 ? "+" : v < 0 ? "\u2212" : "") + Math.abs(v); }, parts = [];
+  if (m.spread != null) parts.push(homeAbbr + " " + sg(m.spread));
+  if (m.total != null) parts.push("total " + m.total);
+  if (m.homeProb != null) parts.push(homeAbbr + " " + Math.round(m.homeProb * 100) + "% to win (margin removed)");
+  return "Median of " + m.books + " US sportsbook" + (m.books === 1 ? "" : "s") + ": " + parts.join(", ") + ".";
+}
+NFLU.cleanMarket = cleanMarket; NFLU.cleanBooks = cleanBooks; NFLU.marketText = marketText;
+// Pure: the payload's line history, checked again: {gameId: [{at ms|null, open, source, provider, spread, total}]}.
+function normLines(payload) {
+  var l = payload && payload.lines && typeof payload.lines === "object" ? payload.lines : null, out = dict();
+  if (!l) return out;
+  Object.keys(l).forEach(function (id) {
+    if (!Array.isArray(l[id])) return;
+    var list = l[id].filter(function (o) { return o && typeof o === "object" && (o.at === null ? o.open === true : isFinite(Date.parse(o.at))) && (num(o.spread) != null || num(o.total) != null); })
+      .map(function (o) { return { at: o.at === null ? null : Date.parse(o.at), open: o.open === true, source: String(o.source || ""), provider: o.provider ? String(o.provider) : "", spread: num(o.spread), total: num(o.total) }; });
+    if (list.length) out[id] = list;
+  });
+  return out;
+}
+// Pure: one game's line history in words, home spread first ("open −11.5 → Nov 21, 4:37 PM −14.5 ▲"), from its main
+// source (the one with the most observations). Moves of 1.5 points or more are marked ▲. Null with fewer than 2 points.
+var LINE_BIG = 1.5;
+function lineHistoryText(list, homeAbbr) {
+  if (!Array.isArray(list) || list.length < 2) return null;
+  var count = {}; list.forEach(function (o) { count[o.source] = (count[o.source] || 0) + 1; });
+  var src = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; })[0];
+  var xs = list.filter(function (o) { return o.source === src && o.spread != null; }).slice(-8);
+  if (xs.length < 2) return null;
+  var fmt = function (v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v); };
+  var when = function (o) { return o.open ? "open" : new Date(o.at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+  var parts = xs.map(function (o, k) { var big = k > 0 && Math.abs(o.spread - xs[k - 1].spread) >= LINE_BIG; return when(o) + " " + fmt(o.spread) + (big ? " ▲" : ""); });
+  var d = xs[xs.length - 1].spread - xs[0].spread;
+  return "Line history, " + homeAbbr + " spread (" + (xs[0].provider || src) + "): " + parts.join(" → ") + ". " +
+    (d === 0 ? "No net change." : "Net move " + fmt(d) + " points" + (d < 0 ? ", toward " + homeAbbr : ", away from " + homeAbbr) + ".") + (parts.some(function (p) { return /▲$/.test(p); }) ? " ▲ marks a move of 1.5 points or more between two looks." : "");
+}
+NFLU.normLines = normLines; NFLU.lineHistoryText = lineHistoryText;
+// Pure: for each big move in a game's line history (main source, as above), the feed items about either team dated
+// between the two looks: what was known around the move, not what caused it. An opening line has no time, so for the
+// first move the window is the 7 days before the later look (marked). Items whose own time is unknown are left out.
+// events: the model's events (ts ms, teams as indices); teams: [away, home]. Newest move first, at most 3, 4 items each.
+var BETWEEN_TYPES = ["injury", "transaction", "qb_change", "news", "weather"], OPEN_WINDOW_MS = 7 * 86400000;
+function betweenLooks(list, events, teams) {
+  if (!Array.isArray(list) || list.length < 2) return [];
+  var count = {}; list.forEach(function (o) { count[o.source] = (count[o.source] || 0) + 1; });
+  var src = Object.keys(count).sort(function (a, b) { return count[b] - count[a]; })[0];
+  var xs = list.filter(function (o) { return o.source === src; }), out = [];
+  for (var k = 1; k < xs.length; k++) {
+    var a = xs[k - 1], b = xs[k]; if (b.at == null) continue;
+    var dS = a.spread != null && b.spread != null ? b.spread - a.spread : null, dT = a.total != null && b.total != null ? b.total - a.total : null;
+    if (!((dS != null && Math.abs(dS) >= LINE_BIG) || (dT != null && Math.abs(dT) >= 2))) continue;
+    var lo = a.at != null ? a.at : b.at - OPEN_WINDOW_MS, hi = b.at;
+    var evs = (events || []).filter(function (e) {
+      return BETWEEN_TYPES.indexOf(e.type) >= 0 && e.before == null && !e.dateOnly && isFinite(e.ts) && e.ts > lo && e.ts <= hi && (e.teams || []).some(function (t) { return teams.indexOf(t) >= 0; });
+    }).sort(function (x, y) { return (y.importance || 0) - (x.importance || 0) || y.ts - x.ts; }).slice(0, 4);
+    out.push({ from: a, to: b, dSpread: dS, dTotal: dT, openWindow: a.at == null, events: evs });
+  }
+  return out.reverse().slice(0, 3);
+}
+NFLU.betweenLooks = betweenLooks;
 // Pure: one team's entries in the fantasy lists.
 function teamFantasy(F, i) {
   var pick = function (l) { return (l || []).filter(function (x) { return x.team === i; }); };
@@ -1378,7 +1500,7 @@ function buildModel(payload) {
   if (payload && payload.injuries) Object.keys(payload.injuries).forEach(function (a) { var t = payload.injuries[a]; if (TIDX[a] != null && t && typeof t === "object") inj[TIDX[a]] = t; });
   var gameByKey = dict();
   g.games.forEach(function (x) { gameByKey[x.key] = x; if (x.gid) gameByKey[x.gid] = x; if (x.id) gameByKey[x.id] = x; });
-  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload),
+  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload), lines: normLines(payload),
     generatedAt: payload ? Date.parse(payload.generatedAt) : null, fixture: !!(payload && payload._fixture), season: payload ? payload.season : null };
 }
 // Loose shape check for a payload from the network: the full contract lives in lib/contract.js (server side).
@@ -1626,6 +1748,21 @@ function simInputs() {
 function simRecord(r, where, t0, inp, mode, deep) {
   return { r: r, n: r.n, where: where, ms: Date.now() - t0, finals: inp.finals, ties: inp.ties, lives: inp.lives, feedLive: inp.feedLive, staleLive: inp.staleLive,
     watch: inp.watch, at: Date.now(), mode: mode, deep: deep, key: inp.key };
+}
+// Why the playoff chances moved since the saved forecast (F04): one run in the blend, from the build's data with no picks,
+// live games or what-ifs, watching the games whose chance has moved. Once per page load, when first asked for, and only
+// when the saved forecast carries the figures (version 2).
+var whyAsked = false;
+function requestWhySim() {
+  if (whyAsked) return;
+  whyAsked = true;
+  var w = changeWatch(D.prev);
+  // later, never inside the render that asked (a store change re-renders the drawer)
+  if (!w) { setTimeout(function () { store.set({ why: { unavailable: D.prev ? "old" : "none", date: D.prev ? D.prev.date : null } }); }, 0); return; }
+  runSim({ picks: GAMES.map(function () { return 0; }), watch: w, n: SIM_BASE_N, mode: 2 }, function (err, r) {
+    var e = err || !r ? null : explainChange(D.prev, r);
+    store.set({ why: e ? e : { unavailable: err ? "error" : "old", date: D.prev.date, error: err ? String(err.message || err) : null } });
+  });
 }
 var simTimer = 0, simKey = "", simSeq = 0;
 function requestBaseSim(force) {
@@ -3019,6 +3156,37 @@ function starterNote(p) {
 }
 NFLU.starterNote = starterNote;
 function section(title, kids, id) { return el("section", { class: "u-sec", id: id || null }, [el("h3", { text: title }), kids]); }
+// Pure: one team's entry from explainChange() in words. Rows: [label, change in points, detail]; a part under 0.05
+// points is shown as 0. Results and moved games are named with the team's own view.
+var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// "2026-11-24" -> "Nov 24"; anything else unchanged
+function savedDate(d) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(d || ""); return m ? MONTHS[+m[2] - 1] + " " + (+m[3]) : d; }
+function whyRows(x, date) {
+  if (!x) return null;
+  var pts = function (v) { return Math.abs(v) < 0.0005 ? "0" : fmtSigned(v * 100, 1); }, me = x.team;
+  var res = x.results.map(function (g) {
+    var home = g.home === me, mine = home ? g.homeScore : g.awayScore, theirs = home ? g.awayScore : g.homeScore, opp = TEAMS[home ? g.away : g.home].a;
+    return (mine > theirs ? "W " : mine < theirs ? "L " : "T ") + mine + "\u2013" + theirs + (home ? " vs " : " at ") + opp + " (" + pts(g.effect) + ")";
+  });
+  var mv = function (kind) {
+    return x.moves.filter(function (m) { return m.kind === kind; }).slice(0, 3).map(function (m) {
+      var g = GAMES[m.gi]; return TEAMS[g[2]].a + " at " + TEAMS[g[3]].a + ": " + TEAMS[g[3]].a + " " + fmtPct(m.was) + " \u2192 " + fmtPct(m.now) + " (" + pts(m.effect) + ")";
+    }).join("; ");
+  };
+  return { head: "Since the forecast saved on " + (savedDate(date) || "an earlier day") + ": " + fmtPct(x.was) + " \u2192 " + fmtPct(x.now) + " (" + pts(x.total) + " points).",
+    rows: [["Own results", pts(x.own), res.join("; ")], ["Other teams' results", pts(x.others), ""], ["Betting lines posted or moved", pts(x.lines), mv("lines")],
+      ["Team ratings (games without a line)", pts(x.ratings), mv("ratings")], ["Effects between games and simulation noise", pts(x.rest), ""]] };
+}
+NFLU.whyRows = whyRows;
+function whySection(i, why) {
+  if (!why) return section("Why it moved", el("p", { class: "u-state u-loading", text: "Working out what moved the playoff chance…" }));
+  if (why.unavailable) return section("Why it moved", el("p", { class: "u-note", text: why.unavailable === "none" ? "No saved forecast to compare with yet."
+    : why.unavailable === "error" ? "The comparison could not be run in this browser." : "The forecast saved on " + (savedDate(why.date) || "the last day") + " predates the figures needed to split the change; forecasts saved from Nov. 24, 2026 carry them." }));
+  var w = whyRows(why.teams[i], why.date), tb = el("tbody");
+  w.rows.forEach(function (r) { tb.appendChild(el("tr", {}, [el("td", {}, [r[0], r[2] ? el("div", { class: "u-note", text: r[2] }) : null]), el("td", { class: "u-num", text: r[1] })])); });
+  return section("Why it moved", [el("p", { text: w.head }), el("table", { class: "u-table u-why" }, [el("thead", {}, el("tr", {}, [el("th", { text: "Part" }), el("th", { class: "u-num", text: "Points" })])), tb]),
+    el("p", { class: "u-note", text: "A model estimate, to first order: each result's surprise (the result minus the chance it had then) and each change in a game's chance, weighted by what that game is worth to this team in the simulation. The last row is what that leaves: effects between games and the simulations' own noise. Blend, from this page's data with no picks or live games; injuries and weather count only through the lines they move." })]);
+}
 function renderTeamCenter(i, body) {
   var st = store.get(), T = TEAMS[i], r = st.sim && st.sim.r, M = st.model, rec = recordOf(i, M), seed = seedToday(i), late = feedFinalsCount(M);
   body.appendChild(el("div", { class: "u-dhead" }, [
@@ -3036,6 +3204,7 @@ function renderTeamCenter(i, body) {
     var rows = []; for (var s = 0; s < 7; s++) rows.push(["No. " + (s + 1), r.seedC[i][s] / r.n]); rows.push(["Miss", 1 - r.po[i] / r.n, "is-miss"]);
     body.appendChild(section("Seed distribution", [bars(rows), el("p", { class: "u-note", text: r.n.toLocaleString() + " simulated seasons" + (st.sim.deep ? " (deep run)" : "") + ", " + MODE_NAMES[st.sim.mode] + " win chances." })]));
   } else body.appendChild(el("p", { class: "u-state u-loading", text: "Simulating the season…" }));
+  if (D.prev) { requestWhySim(); body.appendChild(whySection(i, st.why)); }
   var rt = el("tbody");
   [["Spread-based", RATE], ["Results", RATE2], ["Elo", RATEL], ["Efficiency (EPA)", RATEE]].forEach(function (x) {
     if (!x[1]) return; rt.appendChild(el("tr", {}, [el("td", { text: x[0] }), el("td", { class: "u-num", text: fmtSigned(x[1][i] / 25) }), el("td", { class: "u-num", text: "#" + ratingRank(x[1], i) })]));
@@ -3129,8 +3298,41 @@ function renderGameDetail(key, body) {
   var o = x.odds;
   if (o && o.homeProb && (o.homeProb.current != null)) kids.push(el("p", { class: "u-note", text: "Home win chance from the moneyline: " + (o.homeProb.open != null ? fmtPct(o.homeProb.open) + " at open → " : "") + fmtPct(o.homeProb.current) + (o.homeProb.open != null ? " now" : "") + "." }));
   var mv = gameLineMove(x); if (mv && !o) kids.push(el("p", { class: "u-note", text: "Movement: " + mv.text + "." }));
+  // the consensus across books (The Odds API) and, on the local server only, each book's own line
+  var mk = marketText(x.market, teamAbbr(x.home));
+  if (mk) kids.push(el("p", { class: "u-market" }, [mk + " ", el("span", { class: "u-note", text: "The Odds API, " + fmtAge(Math.max(0, (Date.now() - x.market.at) / 1000)) + " old." })]));
+  if (x.books && x.books.length) {
+    var ml = function (v) { return v == null ? "–" : (v > 0 ? "+" : "") + v; }, bt = el("tbody");
+    x.books.forEach(function (b) { bt.appendChild(el("tr", {}, [el("td", { text: b.title }), el("td", { class: "u-num", text: b.spread == null ? "–" : fmtSigned(b.spread) }),
+      el("td", { class: "u-num", text: b.total == null ? "–" : String(b.total) }), el("td", { class: "u-num", text: ml(b.awayPrice) + " / " + ml(b.homePrice) })])); });
+    kids.push(el("details", { class: "u-books" }, [el("summary", { text: "Each sportsbook (" + x.books.length + ", this computer only)" }),
+      el("table", { class: "u-table" }, [el("thead", {}, el("tr", {}, [el("th", { text: "Book" }), el("th", { class: "u-num", text: teamAbbr(x.home) + " spread" }), el("th", { class: "u-num", text: "Total" }),
+        el("th", { class: "u-num", text: "Moneyline " + teamAbbr(x.away) + " / " + teamAbbr(x.home) })])), bt])]));
+  }
+  var LM = store.get("model"), hist = lineHistoryText(LM && LM.lines ? LM.lines[x.id] : null, teamAbbr(x.home));
+  if (hist) kids.push(el("p", { class: "u-note u-linehist", text: hist }));
+  // what the feed had about either team between the two looks of each big move: context, not cause
+  var bl = betweenLooks(LM && LM.lines ? LM.lines[x.id] : null, LM ? LM.events : [], [x.away, x.home]);
+  if (bl.length) {
+    var when = function (t) { return new Date(t).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
+    var hm = teamAbbr(x.home), sg = function (v) { return (v > 0 ? "+" : v < 0 ? "\u2212" : "") + Math.abs(v); };
+    kids.push(el("div", { class: "u-between" }, [el("p", { class: "u-note", text: "Seen in the feed between two looks at the line. These happened around the move; the feed does not say what caused it." })].concat(bl.map(function (m) {
+      var head = [m.dSpread != null && m.dSpread !== 0 ? hm + " " + sg(m.from.spread) + " \u2192 " + sg(m.to.spread) : null, m.dTotal != null && m.dTotal !== 0 ? "total " + m.from.total + " \u2192 " + m.to.total : null].filter(Boolean).join(", ") +
+        " by " + when(m.to.at) + (m.openWindow ? " (since the opening line, whose time is not given: the 7 days before)" : " (since " + when(m.from.at) + ")");
+      return el("div", {}, [el("p", { text: head }), m.events.length ? el("ul", { class: "u-list" }, m.events.map(function (e) {
+        return el("li", {}, [e.title + " ", e.url ? el("a", { href: e.url, target: "_blank", rel: "noopener", text: (e.publisher || "source") + " \u2197" }) : el("span", { class: "u-note", text: e.publisher || "" })]);
+      })) : el("p", { class: "u-note", text: "Nothing about either team in the feed between these two looks." })]);
+    }))));
+  }
   body.appendChild(section("Line", kids));
-  if (x.weather) body.appendChild(section("Weather", [el("p", { text: weatherText(x.weather) }), el("p", { class: "u-note" }, ["Descriptive, not part of the forecast. ", weatherCredit(x.weather.source)])]));
+  // official warnings first: the National Weather Service's own words, linked to its forecast page
+  var alerts = (x.alerts || []).map(function (a) {
+    var until = a.ends != null ? " until " + new Date(a.ends).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" }) : "";
+    return el("p", { class: "u-alert u-sev-" + a.severity.toLowerCase() }, [el("b", { text: "\u26A0 " + a.event }), " (" + a.severity.toLowerCase() + ")" + until + (a.headline ? ". " + a.headline : "") + ". ",
+      a.url ? el("a", { href: a.url, target: "_blank", rel: "noopener", text: "National Weather Service \u2197" }) : "National Weather Service"]);
+  });
+  if (x.weather) body.appendChild(section("Weather", alerts.concat([el("p", { text: weatherText(x.weather) }), el("p", { class: "u-note" }, ["Descriptive, not part of the forecast. ", weatherCredit(x.weather.source)])])));
+  else if (alerts.length) body.appendChild(section("Weather", alerts.concat([el("p", { class: "u-note", text: "Descriptive, not part of the forecast." })])));
   else if (x.venue && x.venue.indoor) body.appendChild(section("Weather", el("p", { class: "u-note", text: "Indoor stadium." })));
   if (x.gi >= 0) {
     var mvw = modelView(x.gi), rb = ratingsBlendProb(x.gi), mine = modeProb(x.gi), tbody = el("tbody");
@@ -4425,7 +4627,7 @@ function boot() {
   var chips = Array.isArray(saved.feedTypes) ? saved.feedTypes.filter(function (c) { return FEED_CHIPS.some(function (x) { return x[0] === c; }); }) : [];
   store = createStore(Object.assign(init, { search: "", feedTypes: chips, payload: fab, origin: fab ? "snapshot" : "none", fetchedAt: null, pollFails: 0, pollError: null,
     mediaTab: mtab, mediaKind: mkind, mediaShorts: saved.mediaShorts === true, mediaBlocked: false,
-    breaker: "closed", model: buildModel(fab), sim: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
+    breaker: "closed", model: buildModel(fab), sim: null, why: null, simBusy: false, simError: null, deepProgress: null, deepError: null, mobileTab: "feed" }));
   watchMediaBlocks();   // before anything renders a thumbnail, so the first refusal is heard
 
   buildRail(byId("uRail"));
@@ -4477,7 +4679,7 @@ function boot() {
     if (has("sim", "model", "search", "team", "focus")) renderTeamsPanel();
     if (has("payload", "origin", "pollFails", "sim", "simBusy", "simError", "fetchedAt", "breaker")) { renderHealth(); renderStatus(); refreshBadges(); }
     if (has("mode", "layers", "timeRange", "sim", "simBusy", "simError", "deepProgress", "deepError", "payload", "origin")) renderRail();
-    if (has("team", "game", "view") || (has("sim", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
+    if (has("team", "game", "view") || (has("sim", "why", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
     if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
   });

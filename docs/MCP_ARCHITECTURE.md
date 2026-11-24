@@ -88,7 +88,7 @@ Team arguments take the page's abbreviations (`BUF`, `NYG`, `LAR`, `WAS`, `JAX`,
 | `get_standings` | `conference?` (AFC, NFC) | Records from the engine's finished games (wins, losses, ties, percentage, points, division and conference records) by division, and the seeds if the season ended today |
 | `get_playoff_odds` | `team?`, `sims?` 1000-100000 (default 20000) | Playoffs, division, top seed, reach and win the Super Bowl, projected wins; with `team`, the chance of each seed; `monteCarloMargin95` |
 | `run_simulation` | `picks` {engine game id: winner}, `sims?`, `seed?` | The same chances with the picks applied, the chances without them (same sims and seed), and the change, for all 32 teams |
-| `get_what_changed` | none | Snapshot compared (file, date, build), playoff movers of 3 points or more, line moves of 2 points of win chance or more, new lines, results added, and the largest moves even when under the thresholds |
+| `get_what_changed` | none | Snapshot compared (file, date, build), playoff movers of 3 points or more (each with `why`: own results, other results, lines, ratings and the rest, when the snapshot is version 2; `explanation` says whether and how), line moves of 2 points of win chance or more, new lines, results added, and the largest moves even when under the thresholds |
 | `get_source_health` | none | Every source: status, scope, tier, breaker, age, last success, last error, failures, latency, records; plus `engine` and `forecast-snapshots` |
 | `search` | `query` (1-200 characters) | Case-insensitive matches grouped as teams (names, nicknames, aliases, cities), events (titles), injured players and engine game ids |
 

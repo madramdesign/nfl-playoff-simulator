@@ -41,12 +41,12 @@
 | CBS Sports NFL RSS (`rss-cbs`) | Headlines | `www.cbssports.com/rss/headlines/nfl/` | None | Free | | Minutes | 36 items | **Owner decision** (as PFT) | Good | Yahoo RSS | Nov. 21: 36 items |
 | NFL.com RSS | | `www.nfl.com/rss/rsslanding?searchString=home` | | | | | | **No**: returns an HTML page, not a feed | | | Nov. 21 |
 | Open-Meteo (`open-meteo`) | Hourly temperature, wind, gusts, precipitation, snowfall at outdoor stadiums | https://open-meteo.com/en/docs | None | Free non-commercial | One multi-location call per 30 min / 10,000 a day | Hourly | 16-day forecast | **Conditions**: non-commercial, link to open-meteo.com beside the data | Good | api.weather.gov | Nov. 21: 168 hourly rows |
-| api.weather.gov (`nws`, not wired) | US forecasts | https://www.weather.gov/documentation/services-web-api | None (User-Agent) | Free | Retry after about 5 s on error | Hourly | 7 days | **Yes** | Good | Open-Meteo | Nov. 21: answered |
+| api.weather.gov (`nws-alerts`, wired Nov. 23) | Active weather alerts (wind, winter, cold, heat, storms, fog) at outdoor stadiums with a game in the next 2 days; only alerts in force from 3 h before to 4 h after kickoff are kept | `api.weather.gov/alerts/active?point=<lat>,<lon>`; link: `forecast.weather.gov/MapClick.php?lat=..&lon=..` | None (User-Agent) | Free | Every 30 min, 3 stadiums at a time; retry after about 5 s on error | Minutes | Active alerts only | **Yes** (US government work; credited "National Weather Service" with a link) | Good | Open-Meteo forecast (no alerts) | Nov. 23: answered for 6 stadiums, no alerts in force; points outside the US answer 400 and count as outside coverage |
 | Sleeper (`sleeper-trending`, wired Nov. 23) | NFL state (season, week), trending adds and drops (24 h, top 25 each); the 5 MB player database is not used, nflverse's roster crosswalk names the players | `api.sleeper.app/v1/state/nfl`, `/players/nfl/trending/add`, `/players/nfl/trending/drop` | None | Free non-commercial | 3 calls an hour / under 1,000 a minute | Real time (trends) | Current | **Conditions**: non-commercial, credit Sleeper for trends ("Trending data: Sleeper" in the team panel) | Good | Nothing: the block is left out | Nov. 23: week 11; 25 adds and 25 drops, all named through the crosswalk |
 | nflverse depth charts (`nflverse-depth`, wired Nov. 23) | Every team's depth chart: player, nflverse and ESPN ids, group, slot, rank; dated snapshots | `github.com/nflverse/nflverse-data/releases/download/depth_charts/depth_charts_<season>.csv` (about 80 MB: a snapshot per team per day since March, not in date order) | None | Free | Every 12 h; only each team's newest snapshot is kept | Daily snapshots | Season | **Yes**: CC-BY-4.0, credit nflverse | Good | ESPN injuries' own starter flag; last game's starting quarterback | Nov. 23: 2,395 rows, 32 teams, as of 19:11 UTC; 142 of 143 injured players matched by id |
 | nflverse weekly rosters (`nflverse-rosters`, wired Nov. 23) | Each week's players with ids on other services (nflverse, ESPN, Sleeper and more): the player crosswalk | `.../weekly_rosters/roster_weekly_<season>.csv` (about 10 MB) | None | Free | Every 12 h | Weekly | Season | **Yes**: CC-BY-4.0, credit nflverse | Good | Unmatched Sleeper players are counted, not named | Nov. 23: week 12, 2,574 players, 1,826 with a Sleeper id |
 | Curated news (`curated-news`) | Hand-checked items with source links; quarterback changes | `data/news.json` | None | Free | | Daily | 10 days | **Yes** (own words, linked) | | | Nov. 21 |
-| The Odds API (not wired) | Multi-book moneyline, spread, total; props via event endpoint | https://the-odds-api.com/ | Key | 500 credits a month free | about 166 NFL pulls a month | Minutes | Paid plans only | **Owner decision** (needs a key) | Good | ESPN scoreboard (one book) | Not called (no key) |
+| The Odds API (`odds-api`, built Nov. 23, off until a key is set) | Moneyline, spread and total from each US book, for games not yet started (this week's); the consensus is the median spread and total and the median no-vig home chance | `api.the-odds-api.com/v4/sports/americanfootball_nfl/odds/?regions=us&markets=h2h,spreads,totals&oddsFormat=american&commenceTimeFrom=..&commenceTimeTo=..`; key in the `x-api-key` header, never in the URL | Key (`ODDS_API_KEY`) | 500 credits a month free; a look costs markets × regions = 3 | Every 8 h on the server plus the daily snapshot (about 360 credits a month at most); stops below 15 credits left until the next month; reads `x-requests-remaining` | Minutes | Paid plans only | **Conditions**: show and store in the app; no re-serving as a raw feed. So only the consensus is published; each book's prices only on the local server (the public-snapshot check refuses them) | Not yet called (no key) | ESPN scoreboard (one book), nflverse (one book) | Written from the v4 guide (checked Nov. 23); fixture tests only |
 
 ## Build-time and historical sources
 
@@ -69,6 +69,22 @@
 Wired in M8 (Nov. 21, 2026) as fabric sources `youtube-official` (the NFL's and all 32 teams' channel feeds, every 30 minutes) and `podcasts-nfl` (six shows, every 6 hours, reading only the start of each feed). Rules and evidence levels: `MEDIA_ARCHITECTURE.md`.
 
 No stream is proxied, downloaded or re-hosted. Live game broadcasts are not available from any authorized free source and are not planned.
+
+## Official club news feeds (checked Nov. 23–24, 2026)
+
+All 32 clubs publish an RSS 2.0 feed at `https://www.<club domain>/rss/news` (up to 100 items, each with a date and a link to the club's own site). Each club has its own terms page; none clearly allows a site to show its headlines with links to the articles:
+
+| Terms pattern | Clubs |
+|---|---|
+| RSS ("Modular Content") clause, but links only to the home page without written permission | BAL, PIT, HOU, LV, DAL, NYG, PHI, GB, MIN, CAR, NO, SEA; DET and ARI also need express permission per use |
+| RSS clause, but no deep links and no automated access at all | SF, LAC, LAR |
+| RSS clause, deep-link question open | DEN (no robots clause found), CHI (links allowed but revocable), KC (any link needs written consent) |
+| Personal, non-commercial use only, no RSS clause | MIA, NYJ, WAS, TB, JAX (also bars robots) |
+| Robots or automated access barred | BUF (any link needs consent), NE, CIN, CLE, TEN (also bans text and data mining) |
+| Commercial robots barred only, no RSS or link clause | IND |
+| No terms page found; the FAQ asks for written consent for any use | ATL |
+
+**Usable? No, not without permission** (backlog F14). The options are the owner writing to clubs, linking only to each club's home page, or a personal local reader for the few clubs whose terms do not bar automated access. Raw downloads and per-club details are in the Nov. 23 research hand-back.
 
 ## Team logos and marks (checked Nov. 23, 2026)
 

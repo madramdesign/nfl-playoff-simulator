@@ -379,6 +379,38 @@ var DIVT=[],CONFT=[[],[]],DM=[],CM=[];
 (function(){var t,o;for(t=0;t<NT;t++){(DIVT[TM[t].d]=DIVT[TM[t].d]||[]).push(t);CONFT[TM[t].c].push(t)}
   for(t=0;t<NT;t++){DM[t]=DIVT[TM[t].d].filter(function(o){return o!==t});CM[t]=CONFT[TM[t].c].filter(function(o){return o!==t})}})();
 function baseProb(i){return 1/(1+Math.pow(10,-GD[i]/400))}
+// Home chance in game i in the blend, with no what-if: the mode saved forecasts are made in.
+function blendProb(i){var d=LINE[i]!=null?LINE[i]:(GDM[i]+GDR[i])/2;return 1/(1+Math.pow(10,-d/400))}
+// ---- why the playoff chances moved since a saved forecast (backlog F04) ----
+// P: a saved forecast (scripts/snapshot.js) of version 2 or later: probs (each remaining game's home chance then),
+// gaps (for the games due within two weeks then: each team's playoff chance if the home team wins minus if it loses)
+// and games (those games' away and home abbreviations). changeWatch(P): the games still to play whose chance has moved,
+// to be watched in the current run. Null when P cannot be explained (older format).
+function changeWatch(P){if(!P||!(P.v>=2)||!P.probs)return null;var w=[];
+  for(var i=0;i<GAMES.length;i++){var was=P.probs[GAMES[i][0]];if(was!=null&&Math.abs(blendProb(i)-was)>=.002)w.push(i)}return w}
+// explainChange(P,r): r is simulate() in the blend with no picks or what-ifs, watching changeWatch(P). Each team's
+// change in playoff chance, split to first order: own results and other teams' results since P (each result's surprise,
+// result minus P's chance, times what the game was worth to the team in P's simulation); betting lines posted or moved,
+// and rating changes, in the games still to play (change in chance times what the game is worth now). rest is what is
+// left: effects between games, results P had no figures for, and both simulations' own noise. All in probability units.
+function explainChange(P,r){
+  if(!P||!(P.v>=2)||!P.probs||!P.gaps||!P.games||!Array.isArray(P.teams)||!Array.isArray(P.playoffs)||!r||!r.watch)return null;
+  var map=TM.map(function(t){return P.teams.indexOf(t.a)}),ix={};if(map.some(function(j){return j<0}))return null;
+  TM.forEach(function(t,i){ix[t.a]=i});
+  var out=TM.map(function(t,i){return{team:i,was:P.playoffs[map[i]],now:r.po[i]/r.n,own:0,others:0,lines:0,ratings:0,results:[],moves:[]}});
+  var left={},byPair={},matched=0,k;GAMES.forEach(function(g){left[g[0]]=1});D.played.forEach(function(g){byPair[g[0]+"-"+g[1]]=g});
+  Object.keys(P.gaps).forEach(function(id){
+    var pr=P.games[id],gp=P.gaps[id],was=P.probs[id];if(left[id]||!pr||!Array.isArray(gp)||was==null)return;
+    var a=ix[pr[0]],h=ix[pr[1]],row=a!=null&&h!=null?byPair[a+"-"+h]:null;if(!row)return;
+    matched++;var o=row[3]>row[2]?1:row[3]<row[2]?0:.5,d=o-was;
+    for(k=0;k<NT;k++){var c=d*(gp[map[k]]||0);if(k===a||k===h){out[k].own+=c;out[k].results.push({id:id,away:a,home:h,awayScore:row[2],homeScore:row[3],was:was,effect:c})}else out[k].others+=c}});
+  Object.keys(r.watch).forEach(function(s){
+    var i=+s,w=r.watch[s],g=GAMES[i],was=g?P.probs[g[0]]:null;if(!g||was==null||!w.nH||!w.nA)return;
+    var dp=blendProb(i)-was,part=LINE[i]!=null?"lines":"ratings";
+    for(k=0;k<NT;k++){var c=dp*(w.H[k]/w.nH-w.A[k]/w.nA);out[k][part]+=c;if(Math.abs(c)>=.001)out[k].moves.push({gi:i,id:g[0],kind:part,was:was,now:blendProb(i),effect:c})}});
+  out.forEach(function(x){x.total=x.now-x.was;x.rest=x.total-x.own-x.others-x.lines-x.ratings;
+    x.results.sort(function(a,b){return Math.abs(b.effect)-Math.abs(a.effect)});x.moves.sort(function(a,b){return Math.abs(b.effect)-Math.abs(a.effect)});x.moves=x.moves.slice(0,5)});
+  return{date:P.date||null,built:P.built||null,teams:out,results:matched,resultsSince:Number.isInteger(P.played)?D.played.length-P.played:null}}
 function phi(z){var x=Math.abs(z)/Math.SQRT2,k=1/(1+.3275911*x),e=1-(((((1.061405429*k-1.453152027)*k)+1.421413741)*k-.284496736)*k+.254829592)*k*Math.exp(-x*x);return z>=0?.5*(1+e):.5*(1-e)}
 // In-game home win chance: current margin plus the share of the pregame spread still to be played, over the scoring spread left in the game.
 function liveProbFor(i,L){var fr=L.q>=5?.04:((4-L.q)*15+Math.min(15,Math.max(0,L.m)))/60,sp=GD[i]/25,mg=L.h-L.a;

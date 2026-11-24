@@ -29,7 +29,7 @@ function load() {
       const data = fs.readFileSync(pinned, "utf8").trim();
       src = src.replace(/^var D=.*$/m, () => data);
     }
-    const E = new Function(src + ";return {simulate,seedsToday,baseProb,GAMES,TM,D,HFA,SHRINK}")();
+    const E = new Function(src + ";return {simulate,seedsToday,baseProb,GAMES,TM,D,HFA,SHRINK,blendProb:typeof blendProb==='function'?blendProb:null,changeWatch:typeof changeWatch==='function'?changeWatch:null,explainChange:typeof explainChange==='function'?explainChange:null}")();
     if (!Array.isArray(E.GAMES) || !Array.isArray(E.TM) || E.TM.length !== 32 || typeof E.simulate !== "function") throw new Error("engine globals missing or malformed");
     const gameIndex = new Map(E.GAMES.map((g, i) => [g[0], i]));
     const pairIndex = new Map(E.GAMES.map((g, i) => [E.TM[g[2]].a + "@" + E.TM[g[3]].a, i]));

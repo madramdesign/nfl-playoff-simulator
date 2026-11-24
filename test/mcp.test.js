@@ -180,6 +180,8 @@ test("protocol and every tool over stdio (fixture, default scopes)", async () =>
     envelope("get_what_changed", s);
     assert.ok(/^data\/snapshots\/\d{4}-\d{2}-\d{2}\.json$/.test(s.comparedWith.file) && s.comparedWith.date);
     assert.ok(Array.isArray(s.playoffMovers) && Array.isArray(s.lineMoves));
+    assert.ok(s.explanation && typeof s.explanation.available === "boolean" && (s.explanation.available ? s.playoffMovers.every((m) => m.why && typeof m.why.rest === "number") : typeof s.explanation.reason === "string"),
+      "each mover's change is split when the saved forecast allows it, and says why not otherwise");
 
     s = (await c.call("get_source_health", {})).structuredContent;
     envelope("get_source_health", s);
@@ -251,6 +253,24 @@ test("argument validator", () => {
   assert.strictEqual({}.polluted, undefined);
 });
 
+test("what changed: a version-2 saved forecast splits each mover's change (F04)", async () => {
+  const os = require("os"), fs = require("fs");
+  const eng = require(path.join(root, "mcp", "engine.js")), L = eng.load(), E = L.E;
+  const P = JSON.parse(JSON.stringify(require(path.join(root, "scripts", "snapshot.js")).makeSnapshot(E, 4000, "2026-11-01")));
+  const k = E.GAMES.findIndex((g) => g[6] != null && P.playoffs[g[3]] > 0.2 && P.playoffs[g[3]] < 0.8), g = E.GAMES[k], home = E.TM[g[3]].a;   // a home team with something at stake
+  P.built = "an earlier build"; P.probs[g[0]] = Math.round((P.probs[g[0]] - 0.1) * 1000) / 1000; P.playoffs[g[3]] = Math.max(0, P.playoffs[g[3]] - 0.1);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-snap-"));
+  fs.writeFileSync(path.join(dir, "2026-11-01.json"), JSON.stringify(P));
+  process.env.NFLU_SNAPSHOT_DIR = dir;
+  try {
+    const s = (await createTools({ env: {}, fetchImpl: async () => { throw new Error("offline"); } }).call("get_what_changed", {})).structuredContent;
+    assert.ok(s.explanation.available === true && /First order/.test(s.explanation.method));
+    const m = s.playoffMovers.find((x) => x.team === home);
+    assert.ok(m && m.why, "the home team of the moved line is a mover, with a split");
+    assert.ok(m.why.lines > 0 && m.why.lineAndRatingMoves[0].gameId === g[0] && m.why.lineAndRatingMoves[0].kind === "lines", "the moved line is named");
+    assert.ok(Math.abs(m.why.ownResults + m.why.otherResults + m.why.lines + m.why.ratings + m.why.rest - m.change) <= 0.004, "the parts add up to the change");
+  } finally { delete process.env.NFLU_SNAPSHOT_DIR; fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("with every source offline, answers say so instead of looking empty", async () => {
   const t = createTools({ env: {}, fetchImpl: async () => { throw new Error("offline"); } });
   let r = await t.call("get_injuries", { team: "NYG" });
