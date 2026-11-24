@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "nfl-universe",
-      "runtimeExecutable": "node",
-      "runtimeArgs": ["server.js"],
+      "runtimeExecutable": "zsh",
+      "runtimeArgs": ["-c", "exec node server.js"],
       "port": 3000
     }
   ]

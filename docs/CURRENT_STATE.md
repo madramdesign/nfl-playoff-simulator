@@ -5,7 +5,7 @@
 ## Last updated
 - Date: 2026-11-23
 - Branches:
-  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); a fifth on Nov. 23 (reliability batch: F31, F01 parts 3–4, F30); a sixth on Nov. 23 (more odds sources: line history, NWS stadium alerts, The Odds API adapter switched off until a key is set, what moved the odds); a seventh on Nov. 23 (model events in the feed, F22); an eighth on Nov. 23 (the panel layout's second review fixes); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
+  - `main`: milestone 1 (`8bd0cff`) and the M8 media center (`0523d28`), each merged on Nov. 21, 2026 as one squash commit; pull requests #1 to #3 from `claude/kind-bohr-75erpe` (Nov. 23: fixture pinning, public hosting, focus bar); then, on Nov. 23, one squash commit of the integration branch with the Nov. 22 work below (feed fix, panel layout, live check notes); a second on Nov. 23 (live-data heartbeat, honest game-event times, logo research, map helmets); a third on Nov. 23 (depth charts, player crosswalk, Sleeper trends); the feature-research docs (`a85f25c`, from the research session); a fourth squash on Nov. 23 (snapshot carry-forward, F01); a fifth on Nov. 23 (reliability batch: F31, F01 parts 3–4, F30); a sixth on Nov. 23 (more odds sources: line history, NWS stadium alerts, The Odds API adapter switched off until a key is set, what moved the odds); a seventh on Nov. 23 (model events in the feed, F22); an eighth on Nov. 23 (the panel layout's second review fixes); a ninth on Nov. 23 (the preview reads the owner's environment; The Odds API's first real call recorded); plus the daily data refresh. Commit hashes quoted elsewhere in these docs belong to the branch histories they came from.
   - `worktree-nfl-universe` (worktree `.claude/worktrees/nfl-universe`): integration branch for the next milestones; kept in step with `main`.
 - Commit: see `git log -1` on each branch.
 
@@ -120,7 +120,7 @@
 
 ## Decisions waiting on the owner
 1. Language-model provider and cost ceiling, or none (DEC-009).
-2. The Odds API key: the adapter is built and off; set `ODDS_API_KEY` in the environment where the server and the daily refresh run (and, optionally, as a GitHub secret for the backup refresh).
+2. The Odds API key for the published page: set on the owner's Mac on Nov. 23 (`~/.zshenv`; the preview pane starts the server through `zsh -c` so it is read), first real call good (14 games, 8 books each). The daily refresh is a claude.ai cloud routine ("NFL simulator daily refresh", 4:35 AM Eastern) whose environment has no `ODDS_API_KEY`, so the published page carries no consensus until the owner adds it there.
 3. Where the server should run beyond this machine, if anywhere.
 
 ## Effects of the merge to watch
