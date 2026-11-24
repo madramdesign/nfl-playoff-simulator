@@ -501,7 +501,9 @@ a.u-ev-title:hover{text-decoration:underline}
 .u-gline{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u-gsrc{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u-gprob{font-size:11px;display:grid;gap:2px}
-.u-gprob i{display:block;height:3px;background:var(--accent);border-radius:2px}
+.u-gpct{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+.u-gteam.is-fav .u-gpct{color:var(--ink);font-weight:700}
+.u-gsplit{display:flex;gap:2px;height:4px}.u-gsplit i{display:block;height:100%;background:var(--line);border-radius:2px}.u-gsplit i.is-fav{background:var(--accent)}
 .u-gtag{font:700 9px var(--body);border:1px solid var(--line);border-radius:3px;padding:0 3px;text-transform:uppercase}
 .u-gwx{color:var(--u-warn);border-color:var(--u-warn)}
 .u-gfoot{font-size:11px;color:var(--muted);margin:6px 0 0}
@@ -3130,6 +3132,14 @@ function gameStateLabel(x) {
   return x.kickoff ? fmtKick(x.kickoff) : x.dateLabel || "Scheduled";
 }
 // A game still listed as not started more than 15 minutes after kickoff: the data is behind, and the card says so.
+// Pure: both teams' chances from the home team's (or null), the favorite and a short label: "CIN favored, 72%",
+// or "Even" when both round to 50%.
+function winSplit(hp, away, home) {
+  if (hp == null || !isFinite(hp) || hp < 0 || hp > 1) return null;
+  var even = Math.round(hp * 100) === 50, fav = even ? null : hp > 0.5 ? home : away, fp = hp > 0.5 ? hp : 1 - hp;
+  return { away: 1 - hp, home: hp, fav: fav, text: even ? "Even: 50% each" : teamAbbr(fav) + " favored, " + fmtPct(fp) };
+}
+NFLU.winSplit = winSplit;
 function kickoffPassed(x) { var t = Date.parse(x.kickoff || ""); return x.state === "pre" && isFinite(t) && Date.now() - t > 15 * 60e3; }
 function buildGamesPanel(host) {
   var gids = ["espn-scoreboard", "nflverse-games", "open-meteo"];
@@ -3148,9 +3158,16 @@ function renderGames() {
   gamesPanel.render(function (body) {
     var list = el("div", { class: "u-strip", role: "list" }), anyWx = null;
     games.forEach(function (x) {
-      var hp = gameHomeProb(x), lt = lineText(x), w = x.weather;
+      var hp = gameHomeProb(x), lt = lineText(x), w = x.weather, ws = winSplit(hp, x.away, x.home);
       if (w && w.flags && w.flags.length && !anyWx) anyWx = w.source;
-      var row = function (t, score, win) { /* scores of an in-progress game that is not live are still shown, with the age in the state line */ return el("div", { class: "u-gteam" + (win ? " is-win" : "") }, [el("b", { text: teamAbbr(t) }), el("span", { class: "u-gnick", text: TEAMS[t].nick }), score != null && x.state !== "pre" ? el("span", { class: "u-gscore", text: String(score) }) : null]); };
+      // scores of an in-progress game that is not live are still shown, with the age in the state line; each team's
+      // chance to win sits at the end of its row (the favorite's in bold) until the game is final
+      var row = function (t, score, win) {
+        var pct = ws ? (t === x.home ? ws.home : ws.away) : null;
+        return el("div", { class: "u-gteam" + (win ? " is-win" : "") + (ws && ws.fav === t ? " is-fav" : "") }, [el("b", { text: teamAbbr(t) }), el("span", { class: "u-gnick", text: TEAMS[t].nick }),
+          score != null && x.state !== "pre" ? el("span", { class: "u-gscore", text: String(score) }) : null,
+          pct != null ? el("span", { class: "u-gpct", title: teamName(t) + " win chance", text: fmtPct(pct) }) : null]);
+      };
       var awayWin = x.state === "post" && x.awayScore > x.homeScore, homeWin = x.state === "post" && x.homeScore > x.awayScore;
       var live = x.state === "in" && isLiveGame(x);
       list.appendChild(el("button", { type: "button", role: "listitem", class: "u-gcard is-" + (x.state === "in" && !live ? "stalein" : x.state) + (st.game === x.key ? " is-sel" : ""), "data-game": x.key, "aria-label": teamName(x.away) + " at " + teamName(x.home) + ", " + gameStateLabel(x) }, [
@@ -3160,7 +3177,8 @@ function renderGames() {
         row(x.away, x.awayScore, awayWin), row(x.home, x.homeScore, homeWin),
         el("div", { class: "u-gline", title: lt.src, text: lt.text }),
         lt.short ? el("div", { class: "u-gsrc", title: lt.src, text: lt.short }) : null,
-        hp != null ? el("div", { class: "u-gprob", title: "Home win chance: " + gameProbSource(x) }, [el("span", { text: teamAbbr(x.home) + " " + fmtPct(hp) }), el("i", { style: { width: (hp * 100).toFixed(0) + "%" } })]) : null
+        ws ? el("div", { class: "u-gprob", title: "Win chance: " + gameProbSource(x) }, [el("span", { text: ws.text }),
+          el("div", { class: "u-gsplit", "aria-hidden": "true" }, [el("i", { class: ws.fav === x.away ? "is-fav" : "", style: { width: (ws.away * 100).toFixed(1) + "%" } }), el("i", { class: ws.fav === x.home ? "is-fav" : "", style: { width: (ws.home * 100).toFixed(1) + "%" } })])]) : null
       ]));
     });
     body.appendChild(list);
@@ -3369,7 +3387,11 @@ function renderGameDetail(key, body) {
     el("div", {}, [el("b", { text: Hh.a }), x.state !== "pre" && x.homeScore != null ? el("span", { text: String(x.homeScore) }) : null])]);
   body.appendChild(tb);
   if (x.situation && x.situation.text) body.appendChild(el("p", { class: "u-note", text: "Situation: " + x.situation.text + (x.situation.possession ? " · " + x.situation.possession + " ball" : "") + (x.situation.redZone ? " · red zone" : "") }));
-  if (hp != null) body.appendChild(el("p", {}, [el("b", { text: Hh.nick + " " + fmtPct(hp) }), " to win (" + gameProbSource(x, live) + ")"]));
+  // both teams' chances, the favorite first
+  if (hp != null) {
+    var first = hp >= 0.5 ? [Hh, hp, A, 1 - hp] : [A, 1 - hp, Hh, hp];
+    body.appendChild(el("p", {}, [el("b", { text: first[0].nick + " " + fmtPct(first[1]) }), " to win, " + first[2].nick + " " + fmtPct(first[3]) + " (" + gameProbSource(x, live) + ")"]));
+  }
   // both in-game numbers side by side when the feed gives its own, so the gap between them is visible
   if (live && x.gi >= 0 && x.winProb && num(x.winProb.home) != null) body.appendChild(el("p", { class: "u-note", text: "This page's own in-game model (score, time left, pregame line) gives the " + Hh.nick + " " + fmtPct(pageLiveProb(x)) + "; the feed's chance is the one used in the simulation." }));
   var lt = lineText(x), kids = [el("p", { text: lt.text }), lt.src ? el("p", { class: "u-note", text: "Source: " + lt.src }) : null];

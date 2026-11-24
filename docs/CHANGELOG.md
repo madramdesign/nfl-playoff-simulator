@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-24 (who is favored, on every game card)
+- Each game card in "This week" shows both teams' chances to win at the end of their rows, the favorite in bold, with a two-sided bar and a label ("CIN favored, 54%", or "Even" at 50%). The game panel names both teams, favorite first. Same numbers as before (the page's model before kickoff, the feed's live chance in play); finals show none.
+
 ## 2026-11-24 (the daily data fetch moves to GitHub Actions)
 - The published page's data (weather, alerts, headlines, videos, podcasts, fantasy trends and, once the `ODDS_API_KEY` secret is set, the sportsbook consensus) is now fetched by a GitHub Actions job at about 2 AM Eastern, where every source is reachable. The claude.ai daily refresh keeps that snapshot instead of fetching again from its workspace, which reaches only GitHub (DEC-021). It explains why weather, headlines and videos were missing from the published page.
 

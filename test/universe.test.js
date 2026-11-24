@@ -397,6 +397,19 @@ ok(U.cleanBooks(undefined).length === 0, "no books");
   eq(WR.rows[2][2], A0 + " at " + H0 + ": " + H0 + " 50% → 55% (+0.4)", "a moved line named with the home team's chance");
   ok(U.whyRows(null) === null, "nothing to explain");
 }
+// ---- who is favored, by how much (game cards) ----
+{
+  const cin = idx("CIN"), was = idx("WAS");
+  const a = U.winSplit(0.28, cin, was);
+  ok(Math.abs(a.away - 0.72) < 1e-9 && a.home === 0.28 && a.fav === cin && a.text === "CIN favored, 72%", "the away team favored");
+  const b = U.winSplit(0.85, cin, was);
+  ok(b.fav === was && b.text === "WAS favored, 85%", "the home team favored");
+  const c = U.winSplit(0.504, cin, was);
+  ok(c.fav === null && c.text === "Even: 50% each", "a game both round to 50% has no favorite");
+  ok(U.winSplit(0.996, cin, was).text === "WAS favored, >99%" && U.winSplit(0.506, cin, was).text === "WAS favored, 51%", "the page's percent rules");
+  ok([null, undefined, NaN, -0.1, 1.2].every((v) => U.winSplit(v, cin, was) === null), "no chance (a final, or bad data): nothing shown");
+}
+
 // ---- model events (F22) ----
 {
   eq([U.builtDay("Nov. 23, 2026"), U.builtDay("Sept. 3, 2026"), U.builtDay("May 1, 2026"), U.builtDay("yesterday"), U.builtDay(null)],

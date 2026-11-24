@@ -354,7 +354,9 @@ a.u-ev-title:hover{text-decoration:underline}
 .u-gline{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u-gsrc{font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .u-gprob{font-size:11px;display:grid;gap:2px}
-.u-gprob i{display:block;height:3px;background:var(--accent);border-radius:2px}
+.u-gpct{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
+.u-gteam.is-fav .u-gpct{color:var(--ink);font-weight:700}
+.u-gsplit{display:flex;gap:2px;height:4px}.u-gsplit i{display:block;height:100%;background:var(--line);border-radius:2px}.u-gsplit i.is-fav{background:var(--accent)}
 .u-gtag{font:700 9px var(--body);border:1px solid var(--line);border-radius:3px;padding:0 3px;text-transform:uppercase}
 .u-gwx{color:var(--u-warn);border-color:var(--u-warn)}
 .u-gfoot{font-size:11px;color:var(--muted);margin:6px 0 0}

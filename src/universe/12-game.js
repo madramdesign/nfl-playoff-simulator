@@ -32,7 +32,11 @@ function renderGameDetail(key, body) {
     el("div", {}, [el("b", { text: Hh.a }), x.state !== "pre" && x.homeScore != null ? el("span", { text: String(x.homeScore) }) : null])]);
   body.appendChild(tb);
   if (x.situation && x.situation.text) body.appendChild(el("p", { class: "u-note", text: "Situation: " + x.situation.text + (x.situation.possession ? " · " + x.situation.possession + " ball" : "") + (x.situation.redZone ? " · red zone" : "") }));
-  if (hp != null) body.appendChild(el("p", {}, [el("b", { text: Hh.nick + " " + fmtPct(hp) }), " to win (" + gameProbSource(x, live) + ")"]));
+  // both teams' chances, the favorite first
+  if (hp != null) {
+    var first = hp >= 0.5 ? [Hh, hp, A, 1 - hp] : [A, 1 - hp, Hh, hp];
+    body.appendChild(el("p", {}, [el("b", { text: first[0].nick + " " + fmtPct(first[1]) }), " to win, " + first[2].nick + " " + fmtPct(first[3]) + " (" + gameProbSource(x, live) + ")"]));
+  }
   // both in-game numbers side by side when the feed gives its own, so the gap between them is visible
   if (live && x.gi >= 0 && x.winProb && num(x.winProb.home) != null) body.appendChild(el("p", { class: "u-note", text: "This page's own in-game model (score, time left, pregame line) gives the " + Hh.nick + " " + fmtPct(pageLiveProb(x)) + "; the feed's chance is the one used in the simulation." }));
   var lt = lineText(x), kids = [el("p", { text: lt.text }), lt.src ? el("p", { class: "u-note", text: "Source: " + lt.src }) : null];

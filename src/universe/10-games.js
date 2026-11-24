@@ -6,6 +6,14 @@ function gameStateLabel(x) {
   return x.kickoff ? fmtKick(x.kickoff) : x.dateLabel || "Scheduled";
 }
 // A game still listed as not started more than 15 minutes after kickoff: the data is behind, and the card says so.
+// Pure: both teams' chances from the home team's (or null), the favorite and a short label: "CIN favored, 72%",
+// or "Even" when both round to 50%.
+function winSplit(hp, away, home) {
+  if (hp == null || !isFinite(hp) || hp < 0 || hp > 1) return null;
+  var even = Math.round(hp * 100) === 50, fav = even ? null : hp > 0.5 ? home : away, fp = hp > 0.5 ? hp : 1 - hp;
+  return { away: 1 - hp, home: hp, fav: fav, text: even ? "Even: 50% each" : teamAbbr(fav) + " favored, " + fmtPct(fp) };
+}
+NFLU.winSplit = winSplit;
 function kickoffPassed(x) { var t = Date.parse(x.kickoff || ""); return x.state === "pre" && isFinite(t) && Date.now() - t > 15 * 60e3; }
 function buildGamesPanel(host) {
   var gids = ["espn-scoreboard", "nflverse-games", "open-meteo"];
@@ -24,9 +32,16 @@ function renderGames() {
   gamesPanel.render(function (body) {
     var list = el("div", { class: "u-strip", role: "list" }), anyWx = null;
     games.forEach(function (x) {
-      var hp = gameHomeProb(x), lt = lineText(x), w = x.weather;
+      var hp = gameHomeProb(x), lt = lineText(x), w = x.weather, ws = winSplit(hp, x.away, x.home);
       if (w && w.flags && w.flags.length && !anyWx) anyWx = w.source;
-      var row = function (t, score, win) { /* scores of an in-progress game that is not live are still shown, with the age in the state line */ return el("div", { class: "u-gteam" + (win ? " is-win" : "") }, [el("b", { text: teamAbbr(t) }), el("span", { class: "u-gnick", text: TEAMS[t].nick }), score != null && x.state !== "pre" ? el("span", { class: "u-gscore", text: String(score) }) : null]); };
+      // scores of an in-progress game that is not live are still shown, with the age in the state line; each team's
+      // chance to win sits at the end of its row (the favorite's in bold) until the game is final
+      var row = function (t, score, win) {
+        var pct = ws ? (t === x.home ? ws.home : ws.away) : null;
+        return el("div", { class: "u-gteam" + (win ? " is-win" : "") + (ws && ws.fav === t ? " is-fav" : "") }, [el("b", { text: teamAbbr(t) }), el("span", { class: "u-gnick", text: TEAMS[t].nick }),
+          score != null && x.state !== "pre" ? el("span", { class: "u-gscore", text: String(score) }) : null,
+          pct != null ? el("span", { class: "u-gpct", title: teamName(t) + " win chance", text: fmtPct(pct) }) : null]);
+      };
       var awayWin = x.state === "post" && x.awayScore > x.homeScore, homeWin = x.state === "post" && x.homeScore > x.awayScore;
       var live = x.state === "in" && isLiveGame(x);
       list.appendChild(el("button", { type: "button", role: "listitem", class: "u-gcard is-" + (x.state === "in" && !live ? "stalein" : x.state) + (st.game === x.key ? " is-sel" : ""), "data-game": x.key, "aria-label": teamName(x.away) + " at " + teamName(x.home) + ", " + gameStateLabel(x) }, [
@@ -36,7 +51,8 @@ function renderGames() {
         row(x.away, x.awayScore, awayWin), row(x.home, x.homeScore, homeWin),
         el("div", { class: "u-gline", title: lt.src, text: lt.text }),
         lt.short ? el("div", { class: "u-gsrc", title: lt.src, text: lt.short }) : null,
-        hp != null ? el("div", { class: "u-gprob", title: "Home win chance: " + gameProbSource(x) }, [el("span", { text: teamAbbr(x.home) + " " + fmtPct(hp) }), el("i", { style: { width: (hp * 100).toFixed(0) + "%" } })]) : null
+        ws ? el("div", { class: "u-gprob", title: "Win chance: " + gameProbSource(x) }, [el("span", { text: ws.text }),
+          el("div", { class: "u-gsplit", "aria-hidden": "true" }, [el("i", { class: ws.fav === x.away ? "is-fav" : "", style: { width: (ws.away * 100).toFixed(1) + "%" } }), el("i", { class: ws.fav === x.home ? "is-fav" : "", style: { width: (ws.home * 100).toFixed(1) + "%" } })])]) : null
       ]));
     });
     body.appendChild(list);
