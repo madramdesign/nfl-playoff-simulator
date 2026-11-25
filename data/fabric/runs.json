@@ -82,5 +82,34 @@
   "down": [],
   "carried": [],
   "tooOld": []
+ },
+ {
+  "at": "2026-11-25T05:23:40.613Z",
+  "week": 12,
+  "games": 16,
+  "events": 110,
+  "newEvents": 47,
+  "ok": [
+   "nflverse-games",
+   "nflverse-injuries",
+   "nflverse-depth",
+   "nflverse-rosters",
+   "sleeper-trending",
+   "open-meteo",
+   "nws-alerts",
+   "rss-yahoo",
+   "curated-news",
+   "youtube-official",
+   "podcasts-nfl",
+   "odds-api"
+  ],
+  "stale": [
+   "rss-espn"
+  ],
+  "down": [],
+  "carried": [
+   "rss-espn"
+  ],
+  "tooOld": []
  }
 ]
