@@ -97,30 +97,29 @@ def qb_flags(text, season, inj_text):
             out[str(order.index(r["team"]))] = {"name": r["full_name"], "status": status or None, "practice": practice or None}
     return out, week
 
-FP_TEAM = {"JAC": "JAX", "LAR": "LA", "WSH": "WAS", "GBP": "GB", "KCC": "KC", "NEP": "NE", "NOS": "NO", "SFO": "SF", "TBB": "TB", "LVR": "LV"}
 def _plain(name): return "".join(ch for ch in (name or "").lower() if ch.isalpha()).replace("jr", "").replace("sr", "")
 
-def fantasypros_qb(text, season):
+def fantasypros_qb(text, season, path=None, today=None):
     """Teams whose projected starting quarterback (FantasyPros weekly projections) is not the one who started their last game.
-    A flag for the reasoning panel only. It is not used in the ratings: there is no history to backtest it against."""
-    path = os.path.join(ROOT, "data", "fantasypros", "qb_projections.json")
+    A flag for the reasoning panel only. It is not used in the ratings: there is no history to backtest it against.
+    Reads data/fantasypros/qb_top.json (each team's top-projected quarterback; scripts/fetch_fantasypros.py), never
+    FantasyPros's raw answer, which this public repository does not keep."""
+    path = path or os.path.join(ROOT, "data", "fantasypros", "qb_top.json")
     if not os.path.exists(path): return None
     try:
-        raw = json.load(open(path)); data = raw["data"]; players = data["players"]; week = int(data.get("week") or 0)
+        raw = json.load(open(path)); teams = raw["teams"]; week = int(raw.get("week") or 0)
         fetched = datetime.datetime.fromisoformat(raw["fetched"]).date()
+        best = {t: (v["name"], float(v["points"])) for t, v in teams.items() if isinstance(v, dict) and isinstance(v.get("name"), str)}
     except Exception as err:
         print("FantasyPros projections file could not be read:", err); return None
-    if (datetime.date.today() - fetched).days > 4: print("FantasyPros projections are more than four days old; skipped"); return None
+    if ((today or datetime.date.today()) - fetched).days > 4: print("FantasyPros projections are more than four days old; skipped"); return None
     rows = [r for r in csv.DictReader(io.StringIO(text)) if r["season"] == str(season) and r["game_type"] == "REG"]
     last = {}
     for r in sorted((r for r in rows if num(r["home_score"]) is not None), key=lambda r: int(r["week"])):
         last[r["home_team"]] = r["home_qb_name"]; last[r["away_team"]] = r["away_qb_name"]
-    best = {}
-    for p in players:
-        team = FP_TEAM.get(p.get("team_id"), p.get("team_id")); pts = num((p.get("stats") or {}).get("points"))
-        if team in last and pts is not None and (team not in best or pts > best[team][1]): best[team] = (p.get("name"), pts)
     order = [t for ts in DIV.values() for t in ts]; out = {}
     for team, (name, pts) in best.items():
+        if team not in last or team not in order: continue
         if pts >= 5 and _plain(name) != _plain(last[team]): out[str(order.index(team))] = {"proj": name, "last": last[team], "points": round(pts, 1)}
     return {"week": week, "fetched": raw["fetched"][:10], "teams": out}
 

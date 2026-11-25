@@ -3,3 +3,6 @@ node_modules/
 *.csv
 .claude/worktrees/
 .cache/
+# FantasyPros: only the derived file is kept (their raw answers are not published)
+data/fantasypros/*.json
+!data/fantasypros/qb_top.json

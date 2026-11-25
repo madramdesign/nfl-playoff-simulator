@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (FantasyPros: only what the page uses)
+- With the FantasyPros key now set, the daily job would have committed FantasyPros's raw answers (every quarterback projection, injury news, the player list) to this public repository. It now makes one call instead of three and commits only `data/fantasypros/qb_top.json`, each team's top-projected quarterback with his projected points, credited; the build reads that file. Raw files are ignored by git, and the script refuses to keep the raw answer inside the repository.
+
 ## 2026-11-25 (data fetch timing)
 - GitHub started the daily data fetch almost 12 hours late on Nov. 24, so the morning refresh missed it. The fetch now runs every 3 hours and the refresh keeps a snapshot up to 8 hours old. The Odds API is looked at no more than once every 11 hours per place (about 13 credits a day at most), and GitHub's cache of this public repository never holds a sportsbook's own prices.
 - The FantasyPros job no longer fails every day without its key: it notes that the key is missing and stops.

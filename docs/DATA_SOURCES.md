@@ -9,7 +9,7 @@ Sources, costs and licence notes are in [RESEARCH_PLAYOFF_PREDICTOR.md](RESEARCH
 | Games, scores, lines | `--csv` | nflverse `games.csv` |
 | Weekly team stats | `--team-stats` | nflverse `stats_team_week_{season}.csv` |
 | Injury report | `--injuries` | nflverse `injuries_{season}.csv` |
-| FantasyPros quarterback projections | none | `data/fantasypros/qb_projections.json`, written by `scripts/fetch_fantasypros.py` (needs `FANTASYPROS_API_KEY`; run by the GitHub Actions workflow) |
+| FantasyPros quarterback projections | none | `data/fantasypros/qb_top.json` (each team's top-projected quarterback only; FantasyPros's raw answer is not kept in this public repository), written by `scripts/fetch_fantasypros.py` (needs `FANTASYPROS_API_KEY`; run daily by the GitHub Actions workflow, one call) |
 | Quarterback values | `--qb` | nfelo `qb_elos.csv` (credit nfeloapp.com) |
 | League news | none | `data/news.json`, maintained by the daily run |
 | Previous forecast | none | latest file in `data/snapshots/` (version 2 from Nov. 24, 2026 adds each remaining game's home chance and, for the next two weeks' games, what each is worth to every team: used to explain changes) |

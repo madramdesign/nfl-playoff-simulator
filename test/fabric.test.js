@@ -213,6 +213,53 @@ test("the public snapshot keeps the schedule's previous week's finals; a local f
   const worse = JSON.parse(JSON.stringify(u)); worse.recentFinals[0].awayScore = -3; worse.recentFinals[0].home = "XXX"; worse.recentFinals[0].kickoff = "soon";
   assert.strictEqual(C.validateUniverse(worse, T).filter((e) => /^recentFinals/.test(e)).length, 3, "bad score, team and time refused");
 });
+test("FantasyPros: only each team's top-projected quarterback is kept; the raw answer never enters the repository", () => {
+  const os = require("os"), fs = require("fs"), { spawnSync } = require("child_process");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-fp-"));
+  const py = (args, opts) => spawnSync("python3", ["-I"].concat(args), Object.assign({ cwd: root, encoding: "utf8", env: { PATH: process.env.PATH } }, opts));
+  try {
+    // an answer in the documented shape (invented values): two Bills, a Jaguar and a Ram under FantasyPros's own ids, bad rows
+    const answer = { sport: "NFL", week: 12, players: [
+      { name: "Fixture Allen", team_id: "BUF", stats: { points: 22.14 } }, { name: "Bills Backup", team_id: "BUF", stats: { points: 3.2 } },
+      { name: "Fixture Lawrence", team_id: "JAC", stats: { points: "15.0" } }, { name: "Fixture Stafford", team_id: "LAR", stats: { points: 18 } },
+      { name: "No Points", team_id: "NYG", stats: {} }, { name: "", team_id: "DAL", stats: { points: 9 } }, "not a player", { name: "No Team", stats: { points: 30 } }] };
+    fs.writeFileSync(path.join(dir, "answer.json"), JSON.stringify(answer));
+    const r = py(["scripts/fetch_fantasypros.py", "--from-file", path.join(dir, "answer.json"), "--out", path.join(dir, "out")]);
+    assert.strictEqual(r.status, 0, r.stderr);
+    const kept = JSON.parse(fs.readFileSync(path.join(dir, "out", "qb_top.json"), "utf8"));
+    assert.deepStrictEqual(kept.teams, { BUF: { name: "Fixture Allen", points: 22.1 }, JAX: { name: "Fixture Lawrence", points: 15 }, LA: { name: "Fixture Stafford", points: 18 } },
+      "each team's top quarterback under nflverse's team codes; rows without a team, name or points left out");
+    assert.ok(kept.week === 12 && kept.credit === "Quarterback projections are based on data obtained from FantasyPros" && kept.source === "FantasyPros API" && /^\d{4}-\d\d-\d\dT/.test(kept.fetched));
+    assert.deepStrictEqual(fs.readdirSync(path.join(dir, "out")), ["qb_top.json"], "nothing else written");
+    assert.ok(!fs.readFileSync(path.join(dir, "out", "qb_top.json"), "utf8").includes("Bills Backup"), "no other player's projection");
+    assert.ok(/answer keys: players, sport, week \| players: 8 \| week: 12 \| teams with a quarterback: 3/.test(r.stdout), "the log shows the answer's shape, not its contents");
+    const inside = py(["scripts/fetch_fantasypros.py", "--from-file", path.join(dir, "answer.json"), "--out", path.join(dir, "out2"), "--raw", path.join(root, "data", "fantasypros")]);
+    assert.ok(inside.status !== 0 && /outside this repository/.test(inside.stderr) && !fs.existsSync(path.join(dir, "out2")), "the raw answer may not be kept inside the repository");
+    fs.writeFileSync(path.join(dir, "odd.json"), JSON.stringify({ message: "rate limited" }));
+    const odd = py(["scripts/fetch_fantasypros.py", "--from-file", path.join(dir, "odd.json"), "--out", path.join(dir, "out3")]);
+    assert.ok(odd.status !== 0 && /keys: message/.test(odd.stderr) && !fs.existsSync(path.join(dir, "out3")), "an answer of another shape: a clear failure naming its keys, nothing written");
+    fs.writeFileSync(path.join(dir, "empty.json"), JSON.stringify({ week: 12, players: [{ name: "No Points", team_id: "BUF", stats: {} }] }));
+    const empty = py(["scripts/fetch_fantasypros.py", "--from-file", path.join(dir, "empty.json"), "--out", path.join(dir, "out4")]);
+    assert.ok(empty.status !== 0 && /no team's quarterback could be read/.test(empty.stderr) && !fs.existsSync(path.join(dir, "out4")), "players but none usable: a failure, no empty file");
+    assert.strictEqual(py(["scripts/fetch_fantasypros.py"]).status === 0, false, "no key: no call, a failure");
+    const ignored = spawnSync("git", ["check-ignore", "-q", "data/fantasypros/qb_projections.json"], { cwd: root }).status === 0 && spawnSync("git", ["check-ignore", "-q", "data/fantasypros/qb_top.json"], { cwd: root }).status !== 0;
+    assert.ok(ignored, "git ignores any raw FantasyPros file but keeps the derived one");
+    const wf = fs.readFileSync(path.join(root, ".github/workflows/fantasypros.yml"), "utf8");
+    assert.ok(/git add data\/fantasypros\/qb_top\.json\n/.test(wf) && !/git add data\/fantasypros\n/.test(wf), "the workflow commits the derived file only");
+    // the build: a team whose top projection is not its last starter is flagged; the same starter and a low projection are not
+    fs.writeFileSync(path.join(dir, "games.csv"), GAMES_CSV);
+    fs.writeFileSync(path.join(dir, "qb_top.json"), JSON.stringify({ fetched: "2026-11-24T12:00:00+00:00", week: 12, teams: {
+      NYG: { name: "Other Passer", points: 18 }, DAL: { name: "Dallas Starter", points: 17 }, IND: { name: "Low One", points: 3 }, XXX: { name: "Nobody", points: 30 } } }));
+    const code = "import sys, json, datetime; sys.path.insert(0, 'scripts'); import build; " +
+      "t = open(sys.argv[1]).read(); print(json.dumps(build.fantasypros_qb(t, 2026, sys.argv[2], datetime.date(2026, 11, 25)))); print(json.dumps(build.fantasypros_qb(t, 2026, sys.argv[2], datetime.date(2026, 12, 2))))";
+    const b = py(["-c", code, path.join(dir, "games.csv"), path.join(dir, "qb_top.json")]);
+    assert.strictEqual(b.status, 0, b.stderr);
+    const [fresh, old] = b.stdout.trim().split("\n").filter((l) => l.startsWith("{") || l === "null").map((l) => JSON.parse(l));
+    assert.deepStrictEqual(Object.values(fresh.teams), [{ proj: "Other Passer", last: "Fixture Passer", points: 18 }], "only the Giants are flagged");
+    assert.ok(fresh.week === 12 && fresh.fetched === "2026-11-24", "with the week and the day it was fetched");
+    assert.strictEqual(old, null, "more than four days old: not used");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("nflverse injuries: latest week, game status only", () => {
   const r = pub.normalizeInjuries(INJ_CSV, 2026);
   assert.strictEqual(r.week, 11); assert.deepStrictEqual(Object.keys(r.teams).sort(), ["LAR", "NYG"]);

@@ -1,7 +1,9 @@
 name: Fetch FantasyPros data
 
 # Runs on GitHub's servers, which can reach the FantasyPros API. The key lives in the repository secret
-# FANTASYPROS_API_KEY (Settings > Secrets and variables > Actions) and is never written to a file.
+# FANTASYPROS_API_KEY (Settings > Secrets and variables > Actions) and is never written to a file. This repository is
+# public, so only data/fantasypros/qb_top.json is committed (each team's top-projected quarterback, credited);
+# FantasyPros's raw answer is never written into it. One call a day of the 100 the free key allows.
 on:
   schedule:
     - cron: "10 8 * * *"   # daily, about 3:10 AM Eastern, before the page refresh
@@ -36,7 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/fantasypros
-          git diff --cached --quiet || git commit -m "FantasyPros data refresh"
+          git add data/fantasypros/qb_top.json
+          git diff --cached --quiet || git commit -m "FantasyPros quarterback projections (top per team)"
           git pull --rebase origin main
           git push origin HEAD:main
