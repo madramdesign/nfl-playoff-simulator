@@ -2,6 +2,17 @@
   "_note": "League news that can change team strength. Maintained by the daily scheduled run; items older than 10 days are dropped. `headline` is a short ticker line and `summary` one or two sentences, both in our own words, with a link to the source. For kind qb_change, `to` becomes the team's current starter in the build. `lineBefore` is optional: the home team's win chance for a game as observed before the news, keyed by game id.",
   "items": [
     {
+      "date": "2026-11-24",
+      "team": "PIT",
+      "kind": "qb_change",
+      "from": "Aaron Rodgers",
+      "to": "Mason Rudolph",
+      "headline": "Steelers bench Aaron Rodgers; Mason Rudolph to start vs. Broncos",
+      "summary": "The Steelers will start Mason Rudolph on Friday against Denver and said Aaron Rodgers will be inactive. ESPN's sources called it a coaches' decision after two straight losses.",
+      "source": "ESPN",
+      "url": "https://www.espn.com/nfl/story/_/id/50589757/steelers-bench-struggling-qb-aaron-rodgers-start-mason-rudolph"
+    },
+    {
       "date": "2026-11-20",
       "team": "IND",
       "kind": "qb_change",
