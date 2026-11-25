@@ -652,7 +652,7 @@ test("the refresh keeps GitHub's fresh snapshot instead of fetching again (DEC-0
   assert.deepStrictEqual([S.isFresh(g, 4, at + 3.9 * H), S.isFresh(g, 4, at + 4 * H), S.isFresh(g, 4, at - 4 * 60000), S.isFresh(g, 4, at - 10 * 60000), S.isFresh(null, 4, at), S.isFresh({ generatedAt: "x" }, 4, at)],
     [true, false, true, false, false, false], "under the hours, never from the future beyond five minutes");
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-  assert.ok(/^node scripts\/fabric-snapshot\.js --keep-if-fresh 8 && /.test(pkg.scripts.refresh), "npm run refresh keeps a snapshot under 8 hours old");
+  assert.ok(/^node scripts\/request-fetch\.js --if-stale 8 && node scripts\/fabric-snapshot\.js --keep-if-fresh 8 && /.test(pkg.scripts.refresh), "npm run refresh asks GitHub for a fetch when main's snapshot is stale (DEC-023), then keeps a snapshot under 8 hours old");
   const wf = fs.readFileSync(path.join(root, ".github/workflows/data-fetch.yml"), "utf8");
   assert.ok(/run: node scripts\/fabric-snapshot\.js\n/.test(wf) && /ODDS_API_KEY: \$\{\{ secrets\.ODDS_API_KEY \}\}/.test(wf) && /group: data-refresh/.test(wf) && /github\.ref == 'refs\/heads\/main'/.test(wf),
     "the workflow always fetches, passes the optional key, shares the refresh queue and runs only from main");
@@ -1155,7 +1155,8 @@ test("the daily refresh starts the data fetch itself and waits for it (DEC-023)"
         fetchedAfterRequest = true; return;
       }
     })();
-    const out = await R.main(["--timeout-sec", "30", "--every-sec", "0.05"], { cwd: work, now: () => (now += 50), log: () => {} });
+    const opts = { cwd: work, now: () => (now += 50), log: () => {}, env: {} };
+    const out = await R.main(["--timeout-sec", "30", "--every-sec", "0.05"], opts);
     await github;
     assert.deepStrictEqual(out, { requested: true, fresh: true }, "requested, and the fresh snapshot arrived");
     assert.ok(fetchedAfterRequest && JSON.parse(fs.readFileSync(path.join(work, "data/fabric/latest.json"), "utf8")).generatedAt === "2026-11-26T09:36:10Z", "the clone now has GitHub's new snapshot");
@@ -1163,12 +1164,33 @@ test("the daily refresh starts the data fetch itself and waits for it (DEC-023)"
     assert.deepStrictEqual(g(bare, "show", "--name-only", "--format=%s", "main~1").split("\n"), ["Request a data fetch", "", "data/fabric/fetch-request.json"], "the request commit holds the request file only");
     // an hour later nothing arrives: it gives up after the timeout, without failing
     now += 3600e3;
-    const late = await R.main(["--timeout-sec", "0.2", "--every-sec", "0.05"], { cwd: work, now: () => (now += 50), log: () => {} });
+    const late = await R.main(["--timeout-sec", "0.2", "--every-sec", "0.05"], opts);
     assert.deepStrictEqual(late, { requested: true, fresh: false }, "no snapshot in time: the refresh goes on");
+    const commits = () => g(bare, "rev-list", "--count", "main");
+    // the guards used by npm run refresh
+    let n0;
+    g(hub, "fetch", "--quiet", "origin", "main"); g(hub, "reset", "--quiet", "--hard", "origin/main");
+    fs.writeFileSync(path.join(hub, "data/fabric/latest.json"), snap(new Date(now).toISOString()));   // GitHub has just fetched
+    g(hub, "commit", "--quiet", "-am", "Data fetch (GitHub Actions)"); g(hub, "push", "--quiet", "origin", "HEAD:main");
+    n0 = commits();
+    const fresh = await R.main(["--if-stale", "8", "--timeout-sec", "0.2", "--every-sec", "0.05"], opts);
+    assert.deepStrictEqual([fresh.requested, fresh.fresh, fresh.skipped, commits()], [false, true, "fresh", n0], "main already has a recent snapshot: no request");
+    assert.strictEqual(JSON.parse(fs.readFileSync(path.join(work, "data/fabric/latest.json"), "utf8")).generatedAt, new Date(Date.parse(JSON.parse(g(bare, "show", "main:data/fabric/latest.json")).generatedAt)).toISOString(),
+      "and the checkout is brought up to it, so the refresh keeps it");
+    now += 9 * 3600e3;   // nine hours on, the snapshot is stale again
+    const onGitHub = await R.main(["--if-stale", "8", "--timeout-sec", "0.2", "--every-sec", "0.05"], Object.assign({}, opts, { env: { GITHUB_ACTIONS: "true" } }));
+    const off = await R.main(["--if-stale", "8"], Object.assign({}, opts, { env: { NFLU_FETCH_REQUEST: "0" } }));
+    assert.deepStrictEqual([onGitHub.skipped, off.skipped, commits()], ["github", "off", n0], "never on GitHub Actions (the backup refresh fetches itself), nor when turned off");
+    fs.writeFileSync(path.join(work, "local.txt"), "x"); g(work, "add", "local.txt"); g(work, "commit", "--quiet", "-m", "local work");
+    const ahead = await R.main(["--if-stale", "8", "--timeout-sec", "0.2", "--every-sec", "0.05"], opts);
+    assert.deepStrictEqual([ahead.skipped, commits(), g(work, "log", "-1", "--format=%s")], ["local-commits", n0, "local work"], "a checkout with commits not on GitHub pushes nothing and is left as it is");
+    g(work, "reset", "--quiet", "--hard", "HEAD~1");
+    const stale = await R.main(["--if-stale", "8", "--timeout-sec", "0.2", "--every-sec", "0.05"], opts);
+    assert.deepStrictEqual([stale.requested, Number(commits()), g(bare, "log", "-1", "--format=%s", "main")], [true, Number(n0) + 1, "Request a data fetch"], "stale: the request is made");
     // GitHub cannot be reached: no request, no failure
     g(work, "remote", "set-url", "origin", path.join(dir, "missing.git"));
-    const off = await R.main(["--timeout-sec", "0.2", "--every-sec", "0.05"], { cwd: work, now: () => (now += 50), log: () => {} });
-    assert.deepStrictEqual(off, { requested: false, fresh: false }, "the request cannot be pushed: said so, and the refresh goes on");
+    const down = await R.main(["--timeout-sec", "0.2", "--every-sec", "0.05"], opts);
+    assert.deepStrictEqual(down, { requested: false, fresh: false, skipped: "error" }, "GitHub cannot be reached: said so, and the refresh goes on");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test("the page policy hashes scripts the way the browser does", () => {
