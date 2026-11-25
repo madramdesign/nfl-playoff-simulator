@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (NFL TV on the hosted site)
+- Checked on Render: five of the twelve videos played, the same four were refused as on the owner's computer and skipped, and three were press conferences posted as live streams starting hours later, where NFL TV stood still on "Live in 4 hours". Such streams now go to the end of the reel, behind press sessions that have happened, and one still not started after 12 seconds on screen is skipped for the visit.
+
 ## 2026-11-25 (NFL TV)
 - A new panel at the top of the right column, NFL TV, plays the teams' newest press conferences and media sessions, then the league's newest videos, one after another. On a wide screen it starts by itself, muted, while it is on screen; on a phone a tap starts it with sound; "Turn off NFL TV" is remembered. The NFL blocks its own videos and its game footage on sites it has not approved, so the page uses YouTube's official player script to skip any video it is refused and remembers those in the browser; when none can play, the panel lists them as links. The NFL Channel on NFL.com and the NFL's YouTube live page are links, since neither can be embedded. Saved panel layouts gain the panel at the top of their right column. YouTube's Terms of Service and Google's Privacy Policy are linked beside YouTube's players (DEC-022).
 - "Addresses the media" titles now count as press sessions in the media panel's filter.

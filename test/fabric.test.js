@@ -952,6 +952,11 @@ test("NFL TV: team press sessions, then the league's newest videos, that may be 
   const crowd = ["BUF", "MIA", "NYJ", "NE", "KC", "DEN", "LV"].flatMap((tm, k) => [P("e" + tm.padEnd(9, "x") + "1", tm, 10 + k), P("e" + tm.padEnd(9, "x") + "2", tm, 10 + k)]);
   const full = media.reelCandidates(many.concat(crowd), LG);
   assert.ok(full.length === 12 && full.slice(0, 10).every((v) => v.kind === "press") && ids(full.slice(10)).join() === "cccccccccck,ccccccccccj", "twelve at most: ten press sessions, then two league videos");
+  const soon = Object.assign(P("dddddddddup", "KC", 26), { upcoming: true });
+  assert.deepStrictEqual(ids(media.reelCandidates(mix.concat([soon]), LG)), ["ddddddddd03", "ddddddddd02", "ddddddddd04", "cccccccccck", "ccccccccccj", "dddddddddup"],
+    "a press session with no views yet (a live stream not begun) goes last, even though it is the newest");
+  assert.ok(!ids(media.reelCandidates(many.concat(crowd, [soon]), LG)).includes("dddddddddup") && media.reelCandidates(many.concat(crowd, [soon]), LG).length === 12,
+    "with a full reel, a press session not begun gives way to one that has");
   const buried = Array.from({ length: 8 }, (_, k) => P("f" + String(k).padStart(10, "0"), "KC", 20 + k, "video")).concat([P("fpressold01", "KC", 5)]);
   assert.deepStrictEqual(media.reelCandidates(buried, LG), [], "a press session older than its channel's newest eight is not in the media block, so it is not a candidate");
   assert.deepStrictEqual(ids(media.reelCandidates([P("gdupdupdup1", "KC", 9), P("gdupdupdup1", "KC", 9)], LG)), ["gdupdupdup1"], "a video found twice is a candidate once");
@@ -1167,6 +1172,12 @@ test("YouTube feeds: video ids checked, Shorts and press conferences recognised,
   assert.strictEqual(v[1].kind, "short"); assert.strictEqual(v[1].title, "Practice sights & sounds");
   assert.strictEqual(v[0].embedUrl, "https://www.youtube-nocookie.com/embed/bbbbbbbbbb1");
   assert.strictEqual(media.normalizeYoutubeFeed(YT_NFL, { team: null, name: "NFL", channelId: "UCDVYQ4Zhbm3S2dlz7P1GBDg" }).length, 2, "malformed video id dropped");
+  const stat = (views) => YT_TEAM.replace("</published></entry>", '</published><media:group><media:community><media:starRating count="0"/><media:statistics views="' + views + '"/></media:community></media:group></entry>');
+  assert.ok(media.normalizeYoutubeFeed(stat("0"), c)[0].upcoming === true && ["3", "1520"].every((n) => !("upcoming" in media.normalizeYoutubeFeed(stat(n), c)[0])) && !("upcoming" in v[0]),
+    "no views in the feed: marked upcoming (a scheduled live stream); any views at all, or no figure, not marked");
+  const soonV = media.normalizeYoutubeFeed(stat("0"), c)[0];
+  assert.deepStrictEqual(C.cleanMedia({ channels: media.channelList(), videos: [soonV, Object.assign({}, v[2], { upcoming: "yes" })], podcasts: [] }).videos.map((x) => x.videoId), [soonV.videoId],
+    "upcoming is true or absent; a video that passes otherwise is refused for anything else");
   assert.throws(() => media.normalizeYoutubeFeed("<html></html>", c), /not a YouTube feed/);
   assert.strictEqual(media.videoKind("Head coach meets the media", false), "press");
   assert.ok(["LIVE: The Houston Texans address the media", "Aaron Jones Sr. Addressed the Media Following Vikings vs. 49ers"].every((t) => media.videoKind(t, false) === "press"), "addresses the media: a media session");

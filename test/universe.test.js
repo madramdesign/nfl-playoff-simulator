@@ -414,6 +414,9 @@ ok(U.cleanBooks(undefined).length === 0, "no books");
   ok(U.tvInView(0.51, 360, 203, false) && U.tvInView(1, 200, 200, false), "more than half on screen, at least 200 by 200: may start by itself");
   ok(!U.tvInView(0.5, 360, 203, false) && !U.tvInView(1, 360, 199, false) && !U.tvInView(1, 199, 300, false) && !U.tvInView(1, 360, 203, true),
     "not at exactly half, not under 200 pixels either way, not while the page is hidden (YouTube's Required Minimum Functionality)");
+  ok(U.tvNotYetLive(-1, true) && U.tvNotYetLive(5, true), "a live stream that has not begun (shown as \"Live in 4 hours\")");
+  ok(!U.tvNotYetLive(-1, false) && !U.tvNotYetLive(1, true) && !U.tvNotYetLive(3, true) && !U.tvNotYetLive(2, true) && !U.tvNotYetLive(-1, undefined),
+    "not a video waiting for a tap, nor a live stream playing, loading or paused by the viewer");
   ok([100, 101, 150].every(U.tvLasting) && ![2, 5, 153, undefined, "150"].some(U.tvLasting), "remembered only when the owner refuses this site or the video is gone");
   eq(U.tvRemember([A, "junk", B], [A, Cc]), [B, A, Cc], "each once, newest last, junk dropped");
   const many = Array.from({ length: 70 }, (_, k) => ("v" + String(k).padStart(10, "0")).slice(0, 11));

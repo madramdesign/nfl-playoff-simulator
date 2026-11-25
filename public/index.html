@@ -4190,10 +4190,10 @@ Object.assign(NFLU, { isMediaBlock: isMediaBlock, videoAction: videoAction, podc
 // embed; the NFL turns embedding off for its YouTube game streams), so they are links.
 var tvPanel = null;
 var tvState = { key: null, tapped: false, sound: false, player: null, slot: null, ids: [], i: -1, current: null, skipped: 0, failed: dict(), nowEl: null,
-  ready: false, held: false, view: false, ratio: 0, w: 0, h: 0, io: null };
+  ready: false, held: false, view: false, ratio: 0, w: 0, h: 0, io: null, later: 0, tick: null, waitId: null, waitMs: 0 };
 var NFL_CHANNEL_LIVE = "https://www.nfl.com/watch/nfl-channel-live";
 var TV_API = "https://www.youtube.com/iframe_api", TV_HOST = "https://www.youtube-nocookie.com";
-var TV_ID_RE = /^[A-Za-z0-9_-]{11}$/, TV_BAD_MAX = 60;
+var TV_ID_RE = /^[A-Za-z0-9_-]{11}$/, TV_BAD_MAX = 60, TV_TICK_MS = 3000, TV_WAIT_MS = 12000;
 
 // ---- pure parts ----
 // The ids to play, in order: well formed, each once, none of those known not to play here.
@@ -4222,11 +4222,14 @@ function tvRemember(list, ids) {
   var out = (Array.isArray(list) ? list : []).filter(function (id) { return typeof id === "string" && TV_ID_RE.test(id) && ids.indexOf(id) < 0; });
   return out.concat(ids.filter(function (id) { return TV_ID_RE.test(id); })).slice(-TV_BAD_MAX);
 }
+// A live stream that has not begun: teams post their press conferences as scheduled live streams, which the player shows
+// as "Live in 4 hours" without an error, never starting and never ending. state: the player's (-1 not started, 5 ready).
+function tvNotYetLive(state, live) { return live === true && (state === -1 || state === 5); }
 // Whether the player may start by itself (muted). env: {wide, reducedMotion, saveData, off, blocked, closed, count}.
 function tvAutoplay(env) {
   return !!(env && env.wide && !env.reducedMotion && !env.saveData && !env.off && !env.blocked && !env.closed && env.count > 0);
 }
-NFLU.tvQueue = tvQueue; NFLU.tvStep = tvStep; NFLU.tvVars = tvVars; NFLU.tvInView = tvInView; NFLU.tvLasting = tvLasting; NFLU.tvRemember = tvRemember; NFLU.tvAutoplay = tvAutoplay;
+NFLU.tvQueue = tvQueue; NFLU.tvStep = tvStep; NFLU.tvVars = tvVars; NFLU.tvInView = tvInView; NFLU.tvNotYetLive = tvNotYetLive; NFLU.tvLasting = tvLasting; NFLU.tvRemember = tvRemember; NFLU.tvAutoplay = tvAutoplay;
 
 // ---- the player ----
 // The videos not to try: those remembered in this browser, and those that failed during this visit.
@@ -4293,9 +4296,24 @@ function tvViewCheck() {
     }
   } catch (e) { uReport("NFL TV", e); }
 }
+// Every few seconds while a video is on screen: one that is a live stream not yet begun, still waiting after TV_WAIT_MS of
+// being on screen, is skipped for this visit (it may be live by the next).
+function tvTick() {
+  var p = tvState.player, id = tvState.current;
+  if (!p || !tvState.ready || !id || !tvState.view) { tvState.waitMs = 0; return; }
+  var st, live;
+  try { st = p.getPlayerState(); live = (p.getVideoData() || {}).isLive; } catch (e) { return; }
+  if (!tvNotYetLive(st, live)) { tvState.waitMs = 0; return; }
+  if (tvState.waitId !== id) { tvState.waitId = id; tvState.waitMs = 0; }
+  tvState.waitMs += TV_TICK_MS;
+  if (tvState.waitMs < TV_WAIT_MS) return;
+  tvState.waitMs = 0; tvState.failed[id] = 1; tvState.later++;
+  tvNext();
+}
 function tvDestroy() {
   var p = tvState.player;
   if (tvState.io) { try { tvState.io.disconnect(); } catch (e) { /* gone */ } }
+  if (tvState.tick) { clearInterval(tvState.tick); tvState.tick = null; }
   tvState.player = null; tvState.slot = null; tvState.current = null; tvState.nowEl = null; tvState.io = null; tvState.ready = false; tvState.held = false; tvState.view = false;
   if (p && typeof p.destroy === "function") { try { p.destroy(); } catch (e) { /* already gone */ } }
 }
@@ -4308,7 +4326,8 @@ function tvCaption() {
   clearNode(box);
   box.appendChild(el("span", { class: "u-tvtitle", text: v ? (v.channel ? v.channel + ": " : "") + v.title : "Loading…" }));
   box.appendChild(el("span", { text: " " + (tvState.sound ? "" : "Muted: unmute in the player. ") + (n > 1 && at >= 0 ? "Video " + (at + 1) + " of " + n + ". " : "") +
-    (tvState.skipped ? tvState.skipped + " skipped: their owners do not let this site show them. " : "") }));
+    (tvState.skipped ? tvState.skipped + " skipped: their owners do not let this site show them. " : "") +
+    (tvState.later ? tvState.later + (tvState.later > 1 ? " live streams" : " live stream") + " not started yet, skipped. " : "") }));
   if (n > 1) box.appendChild(el("button", { type: "button", class: "u-linkbtn", "data-fk": "tv-next", text: "Next video", onclick: function () { tvNext(); } }));
   box.appendChild(document.createTextNode(" · "));
   box.appendChild(el("button", { type: "button", class: "u-linkbtn", "data-fk": "tv-off", text: "Turn off NFL TV", onclick: function () { tvState.tapped = false; lsSet({ tvOff: true }); renderTv(); } }));
@@ -4346,6 +4365,7 @@ function tvStart(slot) {
       },
       onStateChange: function (e) { if (e && e.data === 0) tvNext(); },   // 0: the video ended
       onError: function (e) { tvFailed(e && e.data); } } });
+  tvState.tick = setInterval(tvTick, TV_TICK_MS);
   tvCaption();
 }
 
@@ -4399,7 +4419,7 @@ function renderTv() {
   tvPanel.render(function (body) {
     if (mode === "nodata") body.appendChild(el("p", { class: "u-note", text: "No media data yet." }));
     else if (mode === "empty") body.appendChild(el("p", { class: "u-note", text: "No official video can be played here right now: the newest ones do not allow other sites to show them." }));
-    else if (mode === "none") tvList(body, "The newest videos picked for NFL TV cannot be shown on this site (their owners, usually the NFL, block it), so these open on YouTube:", reel);
+    else if (mode === "none") tvList(body, "None of the videos picked for NFL TV can play here right now (the NFL blocks most of its own on other sites, and a live press conference may not have started), so these open on YouTube:", reel);
     else if (mode === "blocked") tvList(body, "The site showing this page blocks video players from other sites, so these open on YouTube:", reel);
     else if (mode === "noapi") tvList(body, "YouTube's player could not be loaded here, so these open on YouTube:", reel);
     else if (mode === "play") {
@@ -4407,7 +4427,7 @@ function renderTv() {
       body.appendChild(box);
       var now = el("p", { class: "u-tvnow", text: "Loading YouTube's player…" });
       body.appendChild(now);
-      tvState.slot = slot; tvState.nowEl = now; tvState.sound = !!tvState.tapped; tvState.ids = ids; tvState.i = -1; tvState.skipped = 0;
+      tvState.slot = slot; tvState.nowEl = now; tvState.sound = !!tvState.tapped; tvState.ids = ids; tvState.i = -1; tvState.skipped = 0; tvState.later = 0;
       tvWatch(box);
       tvLoadApi(function (ok) {
         if (tvState.slot !== slot) return;
