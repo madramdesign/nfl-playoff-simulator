@@ -847,6 +847,44 @@ Status: Research. Owner asked on Nov. 25, 2026: "can we add any live NFL news to
 - Constraints: club feeds are blocked on permission (F14); every item keeps its source link and time; headlines are summarised in our own words or shown as the source's title with a link, never copied in full.
 - Also needed for the published page: ESPN's feed refuses GitHub's servers (DEC-024), so its headlines come only from Yahoo's feed and the curated news; a further lawful source that GitHub can reach would fill that gap.
 
+## FEATURE-F55 — Player contracts (OverTheCap via nflverse)
+
+Status: Research (gated on the owner's reading of OverTheCap's terms)
+Priority: P1 · Size M
+Category: Data
+Tag: NEW
+Plan: `PLAN_CONTRACTS_AND_AVAILABILITY.md` §1
+
+Problem: the project has no contract data (value, years, guarantees). Questions like "who can afford a veteran quarterback" can't be answered.
+
+Proposed Solution:
+- Source: the nflverse `contracts` release (OverTheCap data). The current file is parquet only; the CSV stopped in 2022.
+- A GitHub Actions step installs pyarrow on the runner only. It writes a derived `data/contracts/active.json`, joined to `gsis_id` through `otc_id` in `players.csv`, with an unresolved list.
+- Shown in the team drawer with "OverTheCap via nflverse" and the release date.
+- No model use.
+
+Dependencies: Gate A (OverTheCap terms); F15 crosswalk (exists).
+Risk: terms; format changes; identity errors.
+
+## FEATURE-F56 — Player availability history (official injury designations)
+
+Status: Research (gated on the owner approving the health-data rules)
+Priority: P1 · Size M
+Category: Intelligence
+Tag: EXISTING—IMPROVE (current-week injury report and depth charts are wired)
+Plan: `PLAN_CONTRACTS_AND_AVAILABILITY.md` §2
+
+Problem: only this week's report is known. There is no history of games missed, practice trend or return to play.
+
+Proposed Solution:
+- A point-in-time history built from nflverse `injuries` (2009 on), `weekly_rosters` status, `snap_counts` and `depth_charts`.
+- A team-drawer availability section and an MCP tool.
+- Strictly official designations only: no diagnoses, no "injury-prone" labels.
+- An injury-factor backtest under M4 before any model use.
+
+Dependencies: Gate B (health-data rules as a DEC entry).
+Risk: sensitive data misread as medical judgment; leakage in the backtest.
+
 ---
 
 ## Rejected or superseded entries
