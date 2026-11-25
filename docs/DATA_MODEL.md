@@ -61,7 +61,7 @@ Team index `i` in `shared/teams.json` equals the team's index in `D.teams`, so t
 
 **Fantasy** (optional): `{source, lookbackHours, week, adds[], drops[], unmatched {adds, drops}, crosswalk}`, each entry `{name, team, pos, count, sleeperId, gsisId}`. Sleeper's most added and dropped players across its fantasy leagues over `lookbackHours`, in Sleeper's order, named and placed on a team through nflverse's weekly-roster crosswalk (`sleeper_id`); a team defence's id is its abbreviation. A player the crosswalk lacks is counted in `unmatched`, never guessed at. Fan activity, not news or a forecast; credit "Trending data: Sleeper" wherever shown.
 
-**Media** (optional): `{channels, videos, podcasts}` from official channels and podcasts; field list and rules in [MEDIA_ARCHITECTURE.md](MEDIA_ARCHITECTURE.md).
+**Media** (optional): `{channels, videos, podcasts, reel}` from official channels and podcasts; `reel` (NFL TV, DEC-022) lists at most 12 video ids, each once and each among `videos`, in playing order; field list and rules in [MEDIA_ARCHITECTURE.md](MEDIA_ARCHITECTURE.md).
 
 **Public snapshot**: the same shape with only `public` sources, no `situation` or `winProb`, and odds and weather only from public sources. `validatePublicSnapshot` enforces it; the snapshot script refuses to write a file that fails.
 

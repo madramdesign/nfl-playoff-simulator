@@ -5,20 +5,37 @@ const html = fs.readFileSync(path.join(__dirname, "..", "public", "index.html"),
 const engine = html.match(/<script id="engine">([\s\S]*?)<\/script>/)[1];
 const universe = html.match(/<script id="universe">([\s\S]*?)<\/script>/)[1];
 const U = new Function(engine + "\n" + universe + "\n;return globalThis.NFLU")();
-const Y = U && U.layout;
+// The registry (six panels since NFL TV, DEC-022) is checked first. The rest of the file exercises the layout logic on the
+// five panels it was written for: the functions take the panel list as an argument, so the logic is the same.
+const REG = U && U.layout;
+const FIVE = ["feed", "media", "games", "teams", "health"];
+const Y = REG && Object.assign({}, REG, { defaultLayout: (ids) => REG.defaultLayout(ids || FIVE), sanitizeLayout: (raw, ids) => REG.sanitizeLayout(raw, ids || FIVE),
+  loadLayout: (ids) => REG.loadLayout(ids || FIVE) });
 let n = 0;
 const ok = (c, m) => { assert.ok(c, m); n++; };
 const eq = (a, b, m) => { assert.deepStrictEqual(a, b, m); n++; };
 ok(Y && typeof Y.sanitizeLayout === "function", "the layout functions are exposed without a DOM");
 ok(!U.booted, "nothing boots without a DOM");
 
-const IDS = Y.PANEL_IDS;
+// ---- the registry: six panels, NFL TV first in the panel column ----
+const R0 = REG.defaultLayout();
+eq(REG.PANEL_IDS, ["feed", "media", "tv", "games", "teams", "health"], "the six panels, in phone tab order");
+eq(R0.zones, { left: ["teams"], right: ["tv", "feed", "media", "health"], bottom: ["games"] }, "NFL TV sits at the top of the panel column");
+eq(R0.tabs, ["feed", "media", "tv", "games", "teams", "health"], "phone tabs: Feed, Media, NFL TV, Games, Teams, Health");
+ok(REG.PANEL_IDS.every((id) => typeof REG.PANEL_NAMES[id] === "string" && REG.PANEL_NAMES[id]) && REG.PANEL_NAMES.tv === "NFL TV", "every panel has a display name");
+const savedBeforeTv = { v: 1, zones: { left: ["teams"], right: ["feed", "health", "media"], bottom: ["games"] }, tabs: ["feed", "media", "games", "teams", "health"], hidden: ["health"], sizes: { feed: { h: 400 } }, split: 0.6 };
+const afterTv = REG.sanitizeLayout(savedBeforeTv);
+eq([afterTv.zones.right, afterTv.tabs, afterTv.hidden, afterTv.sizes, afterTv.split], [["tv", "feed", "health", "media"], ["feed", "media", "games", "teams", "health", "tv"], ["health"], { feed: { h: 400 } }, 0.6],
+  "a layout saved before NFL TV keeps everything and gains the new panel at the top of its default column and at the end of the tabs");
+eq(REG.sanitizeLayout({ v: 1, zones: { left: ["teams"], right: ["health"], bottom: ["games", "feed", "media"] } }).zones.right, ["tv", "health"], "before the next default panel still in the column");
+eq(REG.sanitizeLayout({ v: 1, zones: { left: ["teams", "health"], right: [], bottom: ["games", "feed", "media"] } }).zones.right, ["tv"], "alone in an emptied column");
+
+const IDS = FIVE;
 const D0 = Y.defaultLayout();
 const all = (L) => Y.flatOrder(L).slice().sort();
 const frozen = (L) => JSON.parse(JSON.stringify(L));
 
 // ---- defaults ----
-eq(IDS, ["feed", "media", "games", "teams", "health"], "the five panels, in phone tab order");
 eq(D0.zones, { left: ["teams"], right: ["feed", "media", "health"], bottom: ["games"] }, "default arrangement matches today's page");
 eq(D0.tabs, ["feed", "media", "games", "teams", "health"], "default phone tabs: Feed, Media, Games, Teams, Health");
 eq([D0.hidden, D0.sizes, D0.split], [[], {}, null], "nothing hidden, no sizes, default map width");

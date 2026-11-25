@@ -66,6 +66,8 @@
 | Team websites | Press conference video | Links only | **Yes** to link | Nov. 21 (Patriots, Bills) |
 | Official NFL podcasts | NFL Daily, Good Morning Football, NFL: The Insiders, NFL News Hub, The NFL Report, NFL Game Previews | Public RSS on Omny (feed URLs in WS3 notes) | **Conditions**: list episodes and link or play the feed's own audio file; display terms not stated | Nov. 21: episodes in November |
 
+NFL TV (Nov. 25, 2026, DEC-022): fabric source `youtube-reel` asks YouTube's oEmbed endpoint (no key, three at a time, each video once) whether each picked video may be embedded; the page uses YouTube's IFrame Player API (`https://www.youtube.com/iframe_api`), which makes the page an API client under the YouTube API Services Terms and Developer Policies (checked Nov. 25: automatic playback only while more than half of the player is visible, at most one player playing by itself, a viewport of at least 200 by 200 pixels, no overlays, a referrer sent, YouTube named as the source with links to its terms). The NFL blocks its own videos, and team videos with its game footage, on sites it has not approved; oEmbed does not show that block.
+
 Wired in M8 (Nov. 21, 2026) as fabric sources `youtube-official` (the NFL's and all 32 teams' channel feeds, every 30 minutes) and `podcasts-nfl` (six shows, every 6 hours, reading only the start of each feed). Rules and evidence levels: `MEDIA_ARCHITECTURE.md`.
 
 No stream is proxied, downloaded or re-hosted. Live game broadcasts are not available from any authorized free source and are not planned.

@@ -12,9 +12,9 @@
 var LAYOUT_V = 1;
 var LAYOUT_ZONES = ["left", "right", "bottom"];
 var ZONE_LABEL = { left: "left column", right: "panel column", bottom: "bottom row" };
-var PANEL_IDS = ["feed", "media", "games", "teams", "health"];   // also the default tab order on phones
-var PANEL_NAMES = { feed: "Intelligence feed", media: "Media", games: "Games", teams: "Teams", health: "System health" };
-var DEFAULT_ZONES = { left: ["teams"], right: ["feed", "media", "health"], bottom: ["games"] };
+var PANEL_IDS = ["feed", "media", "tv", "games", "teams", "health"];   // also the default tab order on phones
+var PANEL_NAMES = { feed: "Intelligence feed", media: "Media", tv: "NFL TV", games: "Games", teams: "Teams", health: "System health" };
+var DEFAULT_ZONES = { left: ["teams"], right: ["tv", "feed", "media", "health"], bottom: ["games"] };
 // Sizes in CSS pixels. The grid numbers must match the wide layout in 00-universe.css: a 252 px left column, a
 // zero-width divider track and three 8 px gaps, a map at least 320 px and a panel column at least 300 px wide.
 var LIM = { minH: 120, maxH: 1600, stepH: 20, maxSpan: 4, minSplit: 0.3, maxSplit: 0.9, stepSplit: 0.02, colMin: 300, gap: 8,
@@ -53,8 +53,17 @@ function sanitizeLayout(raw, ids) {
   var out = { v: LAYOUT_V, zones: {}, tabs: [], hidden: [], sizes: {}, split: null }, seen = {}, ts = {};
   var rz = raw.zones && typeof raw.zones === "object" && !Array.isArray(raw.zones) ? raw.zones : null;
   LAYOUT_ZONES.forEach(function (z) { out.zones[z] = cleanIdList(rz ? rz[z] : def.zones[z], ids, seen); });
-  // a panel the saved layout does not place (one added since it was saved) goes where the defaults put it
-  LAYOUT_ZONES.forEach(function (z) { def.zones[z].forEach(function (id) { if (!seen[id]) { seen[id] = 1; out.zones[z].push(id); } }); });
+  // a panel the saved layout does not place (one added since it was saved) goes where the defaults put it: in its default
+  // zone, before the next panel the defaults put after it (so NFL TV, first by default, arrives at the top)
+  LAYOUT_ZONES.forEach(function (z) {
+    var dz = def.zones[z];
+    dz.forEach(function (id, k) {
+      if (seen[id]) return;
+      seen[id] = 1;
+      var next = dz.slice(k + 1).map(function (x) { return out.zones[z].indexOf(x); }).filter(function (i) { return i >= 0; })[0];
+      if (next == null) out.zones[z].push(id); else out.zones[z].splice(next, 0, id);
+    });
+  });
   out.tabs = cleanIdList(raw.tabs, ids, ts);
   def.tabs.forEach(function (id) { if (!ts[id]) out.tabs.push(id); });
   out.hidden = cleanIdList(raw.hidden, ids, {});
@@ -288,6 +297,7 @@ function fitZones() {
 }
 // Panel() calls this when its collapse button is used.
 function onPanelFold(id) {
+  if (id === "tv") renderTv();   // folding NFL TV stops its player; opening it follows the usual rules
   if (!LAYOUT || !lay.slots[id]) return;
   lay.slots[id].classList.toggle("is-folded", PANELS[id].root.classList.contains("is-collapsed"));
   fitZones();

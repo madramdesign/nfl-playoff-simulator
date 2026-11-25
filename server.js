@@ -156,7 +156,8 @@ function cspFor(html) {
   let m;
   // the browser hashes the script as its HTML parser sees it, with every line break turned into a plain \n
   while ((m = re.exec(html))) hashes.push("'sha256-" + require("crypto").createHash("sha256").update(m[1].replace(/\r\n?/g, "\n"), "utf8").digest("base64") + "'");
-  return ["default-src 'self'", "script-src 'self' " + hashes.join(" "), "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  // https://www.youtube.com: YouTube's IFrame Player API, which NFL TV loads when it plays (DEC-022)
+  return ["default-src 'self'", "script-src 'self' https://www.youtube.com " + hashes.join(" "), "worker-src 'self' blob:", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: blob: https://i.ytimg.com", "frame-src https://www.youtube-nocookie.com https://www.youtube.com",
     "media-src 'self' https:", "connect-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'self'", "frame-ancestors 'self'"].join("; ");
 }

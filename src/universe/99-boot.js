@@ -29,6 +29,10 @@ function boot() {
   buildMap(byId("uMap"));
   buildTabs(byId("uTabs"));
   buildFocusBar(byId("uFocus"));
+  // NFL TV sits at the top of the panel column (DEC-022)
+  var tvHost = el("div", { class: "u-host", id: "uTvHost" }), fh = byId("uFeedHost");
+  fh.parentNode.insertBefore(tvHost, fh);
+  buildTvPanel(tvHost);
   buildFeedPanel(byId("uFeedHost"));
   // the media host sits between the feed and health in the right column (one column and a "Media" tab on phones)
   var mediaHost = el("div", { class: "u-host", id: "uMediaHost" }), hh = byId("uHealthHost");
@@ -80,6 +84,7 @@ function boot() {
     if (has("team", "game", "view") || (has("sim", "why", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
     if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
+    if (has("model", "mediaBlocked")) renderTv();
   });
 
   applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus();

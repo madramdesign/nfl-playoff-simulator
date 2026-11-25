@@ -371,6 +371,10 @@ function fakeFetch(broken = new Set()) {
     if (host.endsWith("/injuries")) return body(ESPN_INJ);
     if (host.endsWith("/transactions")) return body(TX);
     if (host.endsWith("/summary")) return body(SUMMARY);
+    if (host.endsWith("youtube.com/oembed")) {   // YouTube's embed check: the second league video has embedding turned off
+      const vid = new URL(new URL(url).searchParams.get("url")).searchParams.get("v");
+      return vid === "aaaaaaaaaa2" ? { ok: false, status: 401, json: async () => ({}), text: async () => "Unauthorized" } : body({ type: "video", title: "x" });
+    }
     if (host.includes("youtube.com/feeds")) return body(null, url.includes("UCDVYQ4Zhbm3S2dlz7P1GBDg") ? YT_NFL : url.includes("UCcEvCxUe2Sm5W6MliEUv0vg") ? YT_TEAM : YT_ATOM("Other team", []));
     if (host.includes("omnycontent")) return body(null, POD("Fixture show", 6));
     return { ok: false, status: 404, json: async () => ({}), text: async () => "" };
@@ -929,6 +933,60 @@ test("the snapshot carries a failed Odds API's consensus for games not yet start
   assert.ok(u.games[0].market && u.games[0].market.spread === -14.5 && !u.games[1].market, "a game under way does not get an old pregame line");
   assert.ok(u.sources["odds-api"].status === "stale" && u.sources["odds-api"].carriedFrom === "2026-11-21T16:00:00Z");
 });
+test("NFL TV: team press sessions, then the league's newest videos, that may be embedded; kept in the snapshot; refusals left out (DEC-022)", async () => {
+  const calls = [], base = fakeFetch();
+  const u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: async (url, o) => { if (String(url).includes("/oembed")) calls.push(String(url)); return base(url, o); } }).universe();
+  assert.deepStrictEqual(u.media.reel, ["bbbbbbbbbb1", "aaaaaaaaaa1"], "the Bills' press conference first, then the league's highlight; the preview with embedding off is left out");
+  assert.ok(calls.length === 3 && calls.every((c) => c.startsWith("https://www.youtube.com/oembed?format=json&url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3D")), "the press conference and the league channel's two valid videos were checked, by oEmbed; the team's Short was not");
+  assert.ok(u.sources["youtube-reel"].status === "ok" && u.sources["youtube-reel"].records === 2 && /^1 of the 3 videos picked do not allow embedding$/.test(u.sources["youtube-reel"].note));
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
+  const media = require(path.join(root, "lib/fabric/adapters/media.js"));
+  const many = Array.from({ length: 12 }, (_, k) => ({ videoId: "cccccccccc" + String.fromCharCode(97 + k), channelId: "UCDVYQ4Zhbm3S2dlz7P1GBDg", kind: k === 11 ? "short" : "video", published: new Date(Date.UTC(2026, 10, 1 + k)).toISOString() }))
+    .concat([{ videoId: "dddddddddd1", channelId: "UCother0000000000000000", kind: "video", published: "2026-11-30T00:00:00Z" }]);
+  const LG = "UCDVYQ4Zhbm3S2dlz7P1GBDg", ids = (list) => list.map((v) => v.videoId);
+  const P = (id, team, day, kind = "press") => ({ videoId: id, channelId: "UC" + team.padEnd(22, "0"), team, kind, published: new Date(Date.UTC(2026, 10, day, 12)).toISOString() });
+  const mix = many.concat([P("ddddddddd01", "BUF", 20), P("ddddddddd02", "BUF", 21), P("ddddddddd03", "BUF", 22), P("ddddddddd04", "MIA", 19),
+    P("ddddddddd05", "MIA", 23, "highlights"), P("ddddddddd06", "MIA", 24, "short"), Object.assign(P("ddddddddd07", "NYJ", 25), { team: null })]);
+  assert.deepStrictEqual(ids(media.reelCandidates(mix, LG)), ["ddddddddd03", "ddddddddd02", "ddddddddd04", "cccccccccck", "ccccccccccj"],
+    "press sessions newest first, at most two a team, no highlights, Shorts or teamless videos; then the league's two newest videos (its newest, a Short, left out)");
+  const crowd = ["BUF", "MIA", "NYJ", "NE", "KC", "DEN", "LV"].flatMap((tm, k) => [P("e" + tm.padEnd(9, "x") + "1", tm, 10 + k), P("e" + tm.padEnd(9, "x") + "2", tm, 10 + k)]);
+  const full = media.reelCandidates(many.concat(crowd), LG);
+  assert.ok(full.length === 12 && full.slice(0, 10).every((v) => v.kind === "press") && ids(full.slice(10)).join() === "cccccccccck,ccccccccccj", "twelve at most: ten press sessions, then two league videos");
+  const buried = Array.from({ length: 8 }, (_, k) => P("f" + String(k).padStart(10, "0"), "KC", 20 + k, "video")).concat([P("fpressold01", "KC", 5)]);
+  assert.deepStrictEqual(media.reelCandidates(buried, LG), [], "a press session older than its channel's newest eight is not in the media block, so it is not a candidate");
+  assert.deepStrictEqual(ids(media.reelCandidates([P("gdupdupdup1", "KC", 9), P("gdupdupdup1", "KC", 9)], LG)), ["gdupdupdup1"], "a video found twice is a candidate once");
+  const snap = media.snapshotMedia({ channels: [], podcasts: [], reel: ["ccccccccccb"], videos: many.slice(0, 12).map((v) => Object.assign({}, v, { title: "t" })) });
+  assert.ok(snap.videos.some((v) => v.videoId === "ccccccccccb") && snap.videos.length === 5, "the snapshot keeps 3 videos and 1 Short per channel, plus any reel video");
+  const bad = JSON.parse(JSON.stringify(u)); bad.media.reel = ["aaaaaaaaaa1", "aaaaaaaaaa1", "zzzzzzzzzzz"];
+  assert.strictEqual(C.validateUniverse(bad, T).filter((e) => /^media\.reel/.test(e)).length, 2, "a repeated id and an id not among the videos are refused");
+  assert.deepStrictEqual(C.cleanMedia(bad.media).reel, ["aaaaaaaaaa1"], "and cleaned away at the boundary");
+  const { carryForward } = require(path.join(root, "lib/fabric/carry.js"));
+  const down = JSON.parse(JSON.stringify(u)); down.sources["youtube-reel"] = Object.assign({}, down.sources["youtube-reel"], { status: "down", lastOk: null }); down.media.reel = [];
+  const kept = carryForward(u, down, NOW() + 3600000);
+  assert.ok(kept.carried.includes("youtube-reel") && kept.u.media.reel.join() === "bbbbbbbbbb1,aaaaaaaaaa1" && kept.u.sources["youtube-reel"].status === "stale", "a failed check keeps the last reel, shown stale");
+});
+test("NFL TV: each video is checked once, and the reel follows the current feed", async () => {
+  const os = require("os"), fs = require("fs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-reel-"));
+  try {
+    let t = NOW(), feed = YT_NFL; const calls = [], base = fakeFetch();
+    const fetchImpl = async (url, o) => {
+      if (String(url).includes("/oembed")) calls.push(new URL(new URL(String(url)).searchParams.get("url")).searchParams.get("v"));
+      if (String(url).includes("UCDVYQ4Zhbm3S2dlz7P1GBDg")) return { ok: true, status: 200, json: async () => null, text: async () => feed };
+      return base(url, o);
+    };
+    const run = () => createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: () => t, fetchImpl }).universe({ fresh: true });
+    const u1 = await run();
+    assert.deepStrictEqual([u1.media.reel, calls.slice().sort()], [["bbbbbbbbbb1", "aaaaaaaaaa1"], ["aaaaaaaaaa1", "aaaaaaaaaa2", "bbbbbbbbbb1"]]);
+    // an hour later a new league video is out: only it is checked, and the reel is built from the feed as it is now
+    feed = YT_ATOM("NFL", [["aaaaaaaaaa3", "Bengals vs. Commanders Highlights | Week 11", "2026-11-21T17:00:00+00:00"], ["aaaaaaaaaa1", "Dolphins vs. Bills Highlights | Week 11", "2026-11-21T15:00:00+00:00"]]);
+    t += 3600000; calls.length = 0;
+    const u2 = await run();
+    assert.deepStrictEqual(calls, ["aaaaaaaaaa3"], "the video already answered for is not checked again");
+    assert.deepStrictEqual(u2.media.reel, ["bbbbbbbbbb1", "aaaaaaaaaa3", "aaaaaaaaaa1"], "the press session, then the league's newest first; the video gone from the feed is gone from the reel");
+    assert.deepStrictEqual(C.validatePublicSnapshot(u2, T), []);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("the contract checks the fantasy block", () => {
   const ok = { v: 1, generatedAt: "2026-11-22T00:00:00Z", season: 2026, week: 11, seasonType: "regular", sources: { "sleeper-trending": { id: "sleeper-trending", label: "x", tier: 2, scope: "public", status: "ok", breaker: "closed", lastOk: null, lastError: null, ageSec: 0, latencyMs: 1, fails: 0, records: 1, maxStaleSec: 1 } },
     games: [], events: [], injuries: {}, transactions: [], fantasy: { source: "sleeper-trending", lookbackHours: 24, week: 11, adds: [{ name: "A", team: "NYG", pos: "QB", count: 5, sleeperId: "1" }], drops: [], unmatched: { adds: 0, drops: 0 } } };
@@ -1001,7 +1059,8 @@ test("everything down still yields a valid, empty, honest payload", async () => 
   const u = await f.universe();
   assert.deepStrictEqual(C.validateUniverse(u, T), []);
   assert.strictEqual(u.sources["odds-api"].status, "disabled", "no key: off, not down");
-  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws-alerts", "odds-api"].includes(s.id));   // weather sources depend on the schedule
+  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws-alerts", "odds-api", "youtube-reel"].includes(s.id));   // weather and NFL TV depend on other sources
+  assert.ok(/unavailable/i.test(u.sources["youtube-reel"].note || "") && u.media && (u.media.reel || []).length === 0, "NFL TV says why it has nothing");
   assert.ok(net.length >= 8 && net.every((s) => s.status === "down"), "every network source reports down");
   assert.strictEqual(u.sources["open-meteo"].records, 0); assert.ok(/unavailable/i.test(u.sources["open-meteo"].note || ""), "weather says why it has nothing");
   assert.ok(/unavailable/i.test(u.sources["nws-alerts"].note || "") && !u.games.some((g) => g.alerts), "NWS alerts say why they have nothing");
@@ -1061,6 +1120,7 @@ test("the page policy hashes scripts the way the browser does", () => {
   const h = (csp) => csp.split("script-src")[1].split(";")[0];
   assert.strictEqual(h(cspFor(lf.replace(/\n/g, "\r\n"))), h(cspFor(lf)), "Windows line breaks hash like the browser's normalised ones");
   assert.strictEqual((h(cspFor(lf)).match(/'sha256-/g) || []).length, 1, "external scripts are not hashed");
+  assert.deepStrictEqual(h(cspFor(lf)).trim().split(/\s+/).filter((x) => !/^'sha256-/.test(x)), ["'self'", "https://www.youtube.com"], "the only outside script source: YouTube's player API, for NFL TV (DEC-022)");
 });
 test("/api/live: a fetch that throws at once does not leave a stuck request", async () => {
   const srv = require(path.join(root, "server.js")), errLog = console.error; console.error = () => {};
@@ -1109,6 +1169,7 @@ test("YouTube feeds: video ids checked, Shorts and press conferences recognised,
   assert.strictEqual(media.normalizeYoutubeFeed(YT_NFL, { team: null, name: "NFL", channelId: "UCDVYQ4Zhbm3S2dlz7P1GBDg" }).length, 2, "malformed video id dropped");
   assert.throws(() => media.normalizeYoutubeFeed("<html></html>", c), /not a YouTube feed/);
   assert.strictEqual(media.videoKind("Head coach meets the media", false), "press");
+  assert.ok(["LIVE: The Houston Texans address the media", "Aaron Jones Sr. Addressed the Media Following Vikings vs. 49ers"].every((t) => media.videoKind(t, false) === "press"), "addresses the media: a media session");
   assert.strictEqual(media.videoKind("Week 12 Highlights", false), "highlights");
 });
 test("podcast feeds: newest episodes only, https audio only, durations parsed", () => {

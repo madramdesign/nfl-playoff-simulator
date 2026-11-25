@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-25 (NFL TV)
+- A new panel at the top of the right column, NFL TV, plays the teams' newest press conferences and media sessions, then the league's newest videos, one after another. On a wide screen it starts by itself, muted, while it is on screen; on a phone a tap starts it with sound; "Turn off NFL TV" is remembered. The NFL blocks its own videos and its game footage on sites it has not approved, so the page uses YouTube's official player script to skip any video it is refused and remembers those in the browser; when none can play, the panel lists them as links. The NFL Channel on NFL.com and the NFL's YouTube live page are links, since neither can be embedded. Saved panel layouts gain the panel at the top of their right column. YouTube's Terms of Service and Google's Privacy Policy are linked beside YouTube's players (DEC-022).
+- "Addresses the media" titles now count as press sessions in the media panel's filter.
+
 ## 2026-11-25 (FantasyPros and The Odds API, first runs on GitHub)
 - Both keys are set as GitHub secrets and both jobs ran. The Odds API: all 16 of this week's games carry the median line across 8 US sportsbooks in the published data, 485 credits left. FantasyPros: the answer had the expected fields; all 32 teams mapped. Its first run showed that names carry suffixes ("Patrick Mahomes II"), which would have flagged the Chiefs as a possible quarterback change; names are now compared without Jr., Sr., II, III, IV or V, and free agents (`FA`) are dropped. On real data three teams are flagged: Arizona, Indianapolis and New England.
 

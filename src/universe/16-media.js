@@ -51,7 +51,7 @@ function mediaTeam(a) { return typeof a === "string" && TIDX[a] != null ? TIDX[a
 function mediaTeams(list) { var out = []; (Array.isArray(list) ? list : []).forEach(function (a) { var i = mediaTeam(a); if (i != null && out.indexOf(i) < 0) out.push(i); }); return out; }
 function normMedia(payload) {
   var m = payload && payload.media && typeof payload.media === "object" ? payload.media : null;
-  var out = { present: !!m, channels: [], videos: [], podcasts: [] };
+  var out = { present: !!m, channels: [], videos: [], podcasts: [], reel: [] };
   if (!m) return out;
   var seenCh = dict(), seenV = dict(), seenP = dict();
   (Array.isArray(m.channels) ? m.channels : []).forEach(function (c) {
@@ -80,6 +80,9 @@ function normMedia(payload) {
   });
   out.videos.sort(function (a, b) { return b.ts - a.ts; });
   out.podcasts.sort(function (a, b) { return b.ts - a.ts; });
+  // NFL TV's reel: the payload's order, only videos above that have a checked embed address, each once
+  var byVid = dict(), seenR = dict(); out.videos.forEach(function (v) { byVid[v.videoId] = v; });
+  out.reel = (Array.isArray(m.reel) ? m.reel : []).filter(function (id) { return typeof id === "string" && byVid[id] && byVid[id].embed && !seenR[id] && (seenR[id] = 1); }).slice(0, 12).map(function (id) { return byVid[id]; });
   return out;
 }
 
@@ -259,7 +262,18 @@ function renderMedia() {
     body.appendChild(mediaCredit());
   });
 }
-function mediaCredit() { return el("p", { class: "u-credit u-mcredit", text: "Video: YouTube · official channels. Podcasts: official NFL shows. " + (mediaBlocked() ? "Opened on YouTube or the show's own page" : "Played in YouTube's own player or the feed's own audio file") + "; nothing is copied." }); }
+function mediaCredit() {
+  var blocked = mediaBlocked();
+  return el("p", { class: "u-credit u-mcredit" }, ["Video: YouTube · official channels. Podcasts: official NFL shows. " + (blocked ? "Opened on YouTube or the show's own page" : "Played in YouTube's own player or the feed's own audio file") + "; nothing is copied.",
+    blocked ? null : [" ", ytTerms()]]);
+}
+// YouTube API Services Developer Policies III.A.1, III.A.2 and III.F.2.a: wherever YouTube's player is used, name YouTube
+// as the source and link its Terms of Service and Google's Privacy Policy.
+var YT_TERMS = "https://www.youtube.com/t/terms", GOOGLE_PRIVACY = "https://policies.google.com/privacy";
+function ytTerms() {
+  return el("span", { class: "u-ytterms" }, ["This page uses YouTube API Services: ", el("a", { href: YT_TERMS, target: "_blank", rel: "noopener", text: "YouTube Terms of Service" }), ", ",
+    el("a", { href: GOOGLE_PRIVACY, target: "_blank", rel: "noopener", text: "Google Privacy Policy" }), "."]);
+}
 
 // ---- player dialog: built on demand, torn down on close so playback stops ----
 var playerLastFocus = null, playerKey = null;

@@ -252,12 +252,13 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-
   /* a zone wide enough for more than one column (the bottom row; the panel column once widened) is a grid */
   .u-zone.u-dock,.u-zone[data-cols]:not([data-cols="1"]){display:grid;grid-template-columns:repeat(var(--cols,1),minmax(0,1fr));align-items:start;align-content:start}
   .u-body[data-tab] .u-host{display:flex;flex-direction:column;position:relative;min-height:0}
-  .u-body[data-tab] #uFeedHost,.u-body[data-tab] #uMediaHost,.u-body[data-tab] #uHealthHost,.u-body[data-tab] #uTeamsHost,.u-body[data-tab] #uGamesHost{display:flex}
+  .u-body[data-tab] #uTvHost,.u-body[data-tab] #uFeedHost,.u-body[data-tab] #uMediaHost,.u-body[data-tab] #uHealthHost,.u-body[data-tab] #uTeamsHost,.u-body[data-tab] #uGamesHost{display:flex}
   .u-host>.u-panel{flex:1 1 auto}
   /* one-column zones share their height; a panel given a height keeps it; a folded panel is only its header */
   .u-zone:not(.u-dock)>.u-host:not(.is-folded){flex:1 1 0;min-height:150px}
   .u-zone>#uFeedHost:not(.has-h):not(.is-folded){flex-grow:1.2}
   .u-zone>#uHealthHost:not(.has-h):not(.is-folded){flex-grow:.6}
+  .u-zone:not(.u-dock)>#uTvHost:not(.has-h):not(.is-folded){flex:0 0 auto;min-height:0}   /* the player's own height */
   #uZoneLeft>.u-host:not(.is-folded){min-height:260px}
   .u-zone:not(.u-dock)>.u-host.has-h:not(.is-folded){flex:0 0 var(--h);height:var(--h);min-height:0}
   .u-zone>.u-host.is-folded{flex:0 0 auto}
@@ -332,6 +333,16 @@ html.u-view-sim .u-ask,html.u-view-sim .u-search,html.u-view-sim .u-pill,html.u-
 .u-table{width:100%;border-collapse:collapse;font-size:12px}
 .u-table th{font:500 10.5px var(--body);color:var(--muted);text-align:left;padding:3px 4px;border-bottom:1px solid var(--line)}
 .u-table td{padding:4px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+/* NFL TV (16-tv.js) */
+.u-tvframe{position:relative;width:100%;aspect-ratio:16/9;min-width:200px;min-height:200px;background:#000;border-radius:6px;overflow:hidden}
+.u-tvframe iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.u-tvposter{position:relative;display:block;width:100%;aspect-ratio:16/9;padding:0;border:0;border-radius:6px;overflow:hidden;background:#000;cursor:pointer;color:#fff}
+.u-tvposter img{width:100%;height:100%;object-fit:cover;opacity:.75}
+.u-tvplay{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:30px;line-height:1;background:rgba(0,0,0,.55);border-radius:50%;width:64px;height:64px;display:flex;align-items:center;justify-content:center}
+.u-tvcap{position:absolute;left:0;right:0;bottom:0;padding:6px 8px;font:500 12px var(--body);text-align:left;background:linear-gradient(transparent,rgba(0,0,0,.8))}
+.u-tvnow{margin:6px 0 0;font-size:11px;color:var(--muted)}
+.u-tvtitle{display:block;margin-bottom:2px;font-size:12px;font-weight:500;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.u-tvlinks{display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0 0;font-size:12px}
 .u-ev-open{font:inherit;background:none;border:0;padding:0;text-align:left;cursor:pointer;width:100%}
 .u-ev-basis{font-style:italic}
 .u-why td{white-space:normal;vertical-align:top}.u-why td.u-num{white-space:nowrap}.u-why .u-note{margin:2px 0 0}
@@ -3866,7 +3877,7 @@ function mediaTeam(a) { return typeof a === "string" && TIDX[a] != null ? TIDX[a
 function mediaTeams(list) { var out = []; (Array.isArray(list) ? list : []).forEach(function (a) { var i = mediaTeam(a); if (i != null && out.indexOf(i) < 0) out.push(i); }); return out; }
 function normMedia(payload) {
   var m = payload && payload.media && typeof payload.media === "object" ? payload.media : null;
-  var out = { present: !!m, channels: [], videos: [], podcasts: [] };
+  var out = { present: !!m, channels: [], videos: [], podcasts: [], reel: [] };
   if (!m) return out;
   var seenCh = dict(), seenV = dict(), seenP = dict();
   (Array.isArray(m.channels) ? m.channels : []).forEach(function (c) {
@@ -3895,6 +3906,9 @@ function normMedia(payload) {
   });
   out.videos.sort(function (a, b) { return b.ts - a.ts; });
   out.podcasts.sort(function (a, b) { return b.ts - a.ts; });
+  // NFL TV's reel: the payload's order, only videos above that have a checked embed address, each once
+  var byVid = dict(), seenR = dict(); out.videos.forEach(function (v) { byVid[v.videoId] = v; });
+  out.reel = (Array.isArray(m.reel) ? m.reel : []).filter(function (id) { return typeof id === "string" && byVid[id] && byVid[id].embed && !seenR[id] && (seenR[id] = 1); }).slice(0, 12).map(function (id) { return byVid[id]; });
   return out;
 }
 
@@ -4074,7 +4088,18 @@ function renderMedia() {
     body.appendChild(mediaCredit());
   });
 }
-function mediaCredit() { return el("p", { class: "u-credit u-mcredit", text: "Video: YouTube · official channels. Podcasts: official NFL shows. " + (mediaBlocked() ? "Opened on YouTube or the show's own page" : "Played in YouTube's own player or the feed's own audio file") + "; nothing is copied." }); }
+function mediaCredit() {
+  var blocked = mediaBlocked();
+  return el("p", { class: "u-credit u-mcredit" }, ["Video: YouTube · official channels. Podcasts: official NFL shows. " + (blocked ? "Opened on YouTube or the show's own page" : "Played in YouTube's own player or the feed's own audio file") + "; nothing is copied.",
+    blocked ? null : [" ", ytTerms()]]);
+}
+// YouTube API Services Developer Policies III.A.1, III.A.2 and III.F.2.a: wherever YouTube's player is used, name YouTube
+// as the source and link its Terms of Service and Google's Privacy Policy.
+var YT_TERMS = "https://www.youtube.com/t/terms", GOOGLE_PRIVACY = "https://policies.google.com/privacy";
+function ytTerms() {
+  return el("span", { class: "u-ytterms" }, ["This page uses YouTube API Services: ", el("a", { href: YT_TERMS, target: "_blank", rel: "noopener", text: "YouTube Terms of Service" }), ", ",
+    el("a", { href: GOOGLE_PRIVACY, target: "_blank", rel: "noopener", text: "Google Privacy Policy" }), "."]);
+}
 
 // ---- player dialog: built on demand, torn down on close so playback stops ----
 var playerLastFocus = null, playerKey = null;
@@ -4150,6 +4175,257 @@ Object.assign(NFLU, { isMediaBlock: isMediaBlock, videoAction: videoAction, podc
   PODCAST_AUDIO_RE: PODCAST_AUDIO_RE, playerFrameAttrs: playerFrameAttrs, audioAttrs: audioAttrs,
   filterVideos: filterVideos, filterPodcasts: filterPodcasts, teamVideos: teamVideos, gameVideos: gameVideos, channelOrder: channelOrder, videoCounts: videoCounts });
 
+// ---- src/universe/16-tv.js
+// NFL TV (DEC-022): a panel that plays official videos one after another: the teams' newest press conferences and media
+// sessions, then the league channel's newest videos (the `youtube-reel` source picks them and checks with YouTube's oEmbed
+// that each may be embedded at all). The NFL also blocks its own videos, and team videos with its game footage, on sites
+// it has not approved, and only the player can tell: so the page uses YouTube's official IFrame Player API, loaded only
+// when the panel plays, and moves to the next video whenever the player reports one it cannot play here. A video that
+// will never play here is remembered in this browser, so it is not tried again; when none is left, the panel shows links.
+// It starts by itself, muted, only where that is welcome: a wide screen, no request for reduced motion or reduced data,
+// not turned off by the viewer (remembered), the panel open, and a host that does not block outside players. Anywhere
+// else a tap starts it, with sound. YouTube's rules for its player (Required Minimum Functionality) are kept: playback
+// starts by itself only while more than half of the player is on screen, the player is at least 200 by 200 pixels, no
+// other player on the page starts by itself, nothing covers it, and YouTube's terms are linked beside it. The NFL Channel and the NFL's live game streams cannot be embedded (NFL.com offers no
+// embed; the NFL turns embedding off for its YouTube game streams), so they are links.
+var tvPanel = null;
+var tvState = { key: null, tapped: false, sound: false, player: null, slot: null, ids: [], i: -1, current: null, skipped: 0, failed: dict(), nowEl: null,
+  ready: false, held: false, view: false, ratio: 0, w: 0, h: 0, io: null };
+var NFL_CHANNEL_LIVE = "https://www.nfl.com/watch/nfl-channel-live";
+var TV_API = "https://www.youtube.com/iframe_api", TV_HOST = "https://www.youtube-nocookie.com";
+var TV_ID_RE = /^[A-Za-z0-9_-]{11}$/, TV_BAD_MAX = 60;
+
+// ---- pure parts ----
+// The ids to play, in order: well formed, each once, none of those known not to play here.
+function tvQueue(ids, bad) {
+  var seen = dict();
+  return (Array.isArray(ids) ? ids : []).filter(function (id) { return typeof id === "string" && TV_ID_RE.test(id) && !(bad && bad[id]) && !seen[id] && (seen[id] = 1); });
+}
+// After video i (-1: before the first), the next to play, round and round; a video in bad is skipped. -1: none left.
+function tvStep(ids, i, bad) {
+  var n = (ids || []).length;
+  for (var k = 1; k <= n; k++) { var j = (((i + k) % n) + n) % n; if (!(bad && bad[ids[j]])) return j; }
+  return -1;
+}
+// The player's settings: starts by itself only when it may (play), muted unless the viewer started it, plays inline on
+// phones, and suggests only videos from the same channel when one ends.
+function tvVars(sound, play) { return { autoplay: play ? 1 : 0, mute: sound ? 0 : 1, playsinline: 1, rel: 0 }; }
+// Whether playback may start by itself (YouTube's Required Minimum Functionality): the page showing, more than half of
+// the player visible, and the player at least 200 by 200 pixels.
+function tvInView(ratio, w, h, hidden) { return !hidden && ratio > 0.5 && w >= 200 && h >= 200; }
+// The player's error codes that mean this video will not play on this site, whenever it is tried (remembered): 100 gone
+// or private, 101 and 150 its owner does not allow it here. Others (2 a bad request, 5 the browser's player failed)
+// may pass, so they are skipped for this visit only.
+function tvLasting(code) { return code === 100 || code === 101 || code === 150; }
+// The remembered list with ids added: each once, newest last, at most TV_BAD_MAX.
+function tvRemember(list, ids) {
+  var out = (Array.isArray(list) ? list : []).filter(function (id) { return typeof id === "string" && TV_ID_RE.test(id) && ids.indexOf(id) < 0; });
+  return out.concat(ids.filter(function (id) { return TV_ID_RE.test(id); })).slice(-TV_BAD_MAX);
+}
+// Whether the player may start by itself (muted). env: {wide, reducedMotion, saveData, off, blocked, closed, count}.
+function tvAutoplay(env) {
+  return !!(env && env.wide && !env.reducedMotion && !env.saveData && !env.off && !env.blocked && !env.closed && env.count > 0);
+}
+NFLU.tvQueue = tvQueue; NFLU.tvStep = tvStep; NFLU.tvVars = tvVars; NFLU.tvInView = tvInView; NFLU.tvLasting = tvLasting; NFLU.tvRemember = tvRemember; NFLU.tvAutoplay = tvAutoplay;
+
+// ---- the player ----
+// The videos not to try: those remembered in this browser, and those that failed during this visit.
+function tvBad() {
+  var bad = dict(), list = lsGet().tvBad;
+  (Array.isArray(list) ? list : []).forEach(function (id) { if (typeof id === "string") bad[id] = 1; });
+  for (var id in tvState.failed) bad[id] = 1;
+  return bad;
+}
+// YouTube's IFrame Player API, loaded once and only when NFL TV is about to play. done(true) when it is ready, done(false)
+// when it cannot load (no network, or a page policy that refuses outside scripts).
+var tvApi = { state: "idle", waiting: [] };
+function tvLoadApi(done) {
+  if (ROOT.YT && typeof ROOT.YT.Player === "function" && tvApi.state !== "loading") return done(true);
+  if (tvApi.state === "failed") return done(false);
+  tvApi.waiting.push(done);
+  if (tvApi.state === "loading") return;
+  tvApi.state = "loading";
+  var timer = null;
+  var finish = function (ok) {
+    if (tvApi.state !== "loading") return;
+    tvApi.state = ok ? "ready" : "failed";
+    clearTimeout(timer);
+    var w = tvApi.waiting; tvApi.waiting = [];
+    w.forEach(function (f) { try { f(ok); } catch (e) { uReport("NFL TV", e); } });
+  };
+  var prev = ROOT.onYouTubeIframeAPIReady;
+  ROOT.onYouTubeIframeAPIReady = function () { if (typeof prev === "function") { try { prev(); } catch (e) { /* not ours */ } } finish(!!(ROOT.YT && ROOT.YT.Player)); };
+  timer = setTimeout(function () { finish(false); }, 15000);
+  try {
+    var s = document.createElement("script");
+    s.src = TV_API; s.async = true;
+    s.onerror = function () { finish(false); };
+    document.head.appendChild(s);
+  } catch (e) { finish(false); }
+}
+// Is the player on screen enough? Kept current by an IntersectionObserver (which also sees the columns' own scrolling)
+// and by the page being hidden or shown; a change starts a video held back, or pauses a muted one that left the screen.
+function tvWatch(box) {
+  tvState.view = false; tvState.ratio = 0;
+  var r0 = box.getBoundingClientRect ? box.getBoundingClientRect() : { width: 0, height: 0 };
+  tvState.w = r0.width; tvState.h = r0.height;
+  if (typeof ROOT.IntersectionObserver !== "function") {   // no observer: judged once, from the window alone
+    var vh = ROOT.innerHeight || 0, vis = Math.max(0, Math.min(r0.bottom, vh) - Math.max(r0.top, 0));
+    tvState.ratio = r0.height ? vis / r0.height : 0; tvViewCheck();
+    return;
+  }
+  tvState.io = new ROOT.IntersectionObserver(function (entries) {
+    var e = entries[entries.length - 1];
+    tvState.ratio = e.intersectionRatio; tvState.w = e.boundingClientRect.width; tvState.h = e.boundingClientRect.height;
+    tvViewCheck();
+  }, { threshold: [0, 0.25, 0.5, 0.51, 0.75, 1] });
+  tvState.io.observe(box);
+}
+function tvViewCheck() {
+  tvState.view = tvInView(tvState.ratio, tvState.w, tvState.h, !!document.hidden);
+  var p = tvState.player;
+  if (!p || !tvState.ready) return;
+  try {
+    if (tvState.view && tvState.held) { tvState.held = false; p.playVideo(); }
+    else if (!tvState.view && !tvState.sound && !tvState.held) {
+      var st = p.getPlayerState();
+      if (st === 1 || st === 3) { p.pauseVideo(); tvState.held = true; }   // muted and off screen: wait until it is back
+    }
+  } catch (e) { uReport("NFL TV", e); }
+}
+function tvDestroy() {
+  var p = tvState.player;
+  if (tvState.io) { try { tvState.io.disconnect(); } catch (e) { /* gone */ } }
+  tvState.player = null; tvState.slot = null; tvState.current = null; tvState.nowEl = null; tvState.io = null; tvState.ready = false; tvState.held = false; tvState.view = false;
+  if (p && typeof p.destroy === "function") { try { p.destroy(); } catch (e) { /* already gone */ } }
+}
+function tvVideo(id) { return (mediaRefs().reel || []).filter(function (v) { return v.videoId === id; })[0] || null; }
+function tvCaption() {
+  var box = tvState.nowEl;
+  if (!box) return;
+  // counted among the videos that may still play here
+  var v = tvVideo(tvState.current), bad = tvBad(), left = tvState.ids.filter(function (id) { return !bad[id]; }), n = left.length, at = left.indexOf(tvState.current);
+  clearNode(box);
+  box.appendChild(el("span", { class: "u-tvtitle", text: v ? (v.channel ? v.channel + ": " : "") + v.title : "Loading…" }));
+  box.appendChild(el("span", { text: " " + (tvState.sound ? "" : "Muted: unmute in the player. ") + (n > 1 && at >= 0 ? "Video " + (at + 1) + " of " + n + ". " : "") +
+    (tvState.skipped ? tvState.skipped + " skipped: their owners do not let this site show them. " : "") }));
+  if (n > 1) box.appendChild(el("button", { type: "button", class: "u-linkbtn", "data-fk": "tv-next", text: "Next video", onclick: function () { tvNext(); } }));
+  box.appendChild(document.createTextNode(" · "));
+  box.appendChild(el("button", { type: "button", class: "u-linkbtn", "data-fk": "tv-off", text: "Turn off NFL TV", onclick: function () { tvState.tapped = false; lsSet({ tvOff: true }); renderTv(); } }));
+}
+// Play the next video that may still play here; with none left, the panel shows its links instead.
+function tvNext() {
+  var p = tvState.player;
+  if (!p) return;
+  var j = tvStep(tvState.ids, tvState.i, tvBad());
+  if (j < 0) { tvDestroy(); tvState.key = null; renderTv(); return; }
+  tvState.i = j; tvState.current = tvState.ids[j];
+  // off screen, the next video is only made ready; it starts when the player is back in view
+  try { if (tvState.view) p.loadVideoById(tvState.current); else { p.cueVideoById(tvState.current); tvState.held = true; } } catch (e) { uReport("NFL TV", e); }
+  tvCaption();
+}
+// The player could not play the current video here: skip it, and remember it when that will not change.
+function tvFailed(code) {
+  var id = tvState.current;
+  if (!id || !tvState.player) return;
+  tvState.failed[id] = 1; tvState.skipped++;
+  if (tvLasting(code)) lsSet({ tvBad: tvRemember(lsGet().tvBad, [id]) });
+  tvNext();
+}
+function tvStart(slot) {
+  if (tvState.slot !== slot) return;   // a later drawing replaced this one while the API was loading
+  var j = tvStep(tvState.ids, -1, tvBad());
+  if (j < 0) { tvState.key = null; tvState.slot = null; renderTv(); return; }
+  tvState.i = j; tvState.current = tvState.ids[j];
+  tvState.held = !tvState.view;   // out of view now: loaded, and started once it is in view
+  tvState.player = new ROOT.YT.Player(slot, { host: TV_HOST, width: "100%", height: "100%", videoId: tvState.current, playerVars: tvVars(tvState.sound, tvState.view),
+    events: {
+      onReady: function (e) {
+        try { var f = e.target.getIframe(); f.title = "NFL TV: official NFL and team videos (YouTube player)"; } catch (x) { /* cosmetic */ }
+        tvState.ready = true; tvViewCheck();
+      },
+      onStateChange: function (e) { if (e && e.data === 0) tvNext(); },   // 0: the video ended
+      onError: function (e) { tvFailed(e && e.data); } } });
+  tvCaption();
+}
+
+// ---- the panel ----
+function tvEnv() {
+  var mm = function (q) { try { return ROOT.matchMedia(q).matches; } catch (e) { return false; } };
+  var conn = ROOT.navigator && ROOT.navigator.connection;
+  return { wide: isWide(), reducedMotion: mm("(prefers-reduced-motion: reduce)"), saveData: !!(conn && conn.saveData), off: lsGet().tvOff === true,
+    blocked: mediaBlocked(), closed: !tvPanel || tvPanel.hidden || tvPanel.root.classList.contains("is-collapsed") };
+}
+function buildTvPanel(host) {
+  tvPanel = Panel({ id: "tv", title: "NFL TV", sources: ["youtube-reel", "youtube-official"], cls: "u-tvpanel" });
+  tvPanel.loading("Loading NFL TV…");
+  host.appendChild(tvPanel.root);
+  // a panel hidden from the Panels menu or folded stops playing; shown or opened again, it follows the same rules
+  var setHidden = tvPanel.setHidden;
+  tvPanel.setHidden = function (h) { setHidden(h); renderTv(); };
+  try { ROOT.matchMedia(WIDE_MQ).addListener(function () { renderTv(); }); } catch (e) { /* older browsers: the next render decides */ }
+  try { document.addEventListener("visibilitychange", function () { tvViewCheck(); }); } catch (e) { /* no page visibility: the observer decides */ }
+}
+function tvLinks(md) {
+  var league = (md.channels || []).filter(function (c) { return c.team == null && c.live; })[0];
+  return el("p", { class: "u-tvlinks" }, [
+    el("a", { href: NFL_CHANNEL_LIVE, target: "_blank", rel: "noopener", text: "NFL Channel, live on NFL.com ↗" }),
+    league ? el("a", { href: league.live, target: "_blank", rel: "noopener", text: "NFL on YouTube: live page ↗" }) : null]);
+}
+function tvList(body, note, reel) {
+  body.appendChild(el("p", { class: "u-note", text: note }));
+  if (reel.length) body.appendChild(el("ul", { class: "u-list" }, reel.slice(0, 4).map(function (v) {
+    return el("li", {}, [el("a", { href: v.url, target: "_blank", rel: "noopener", text: (v.channel ? v.channel + ": " : "") + v.title + " ↗" })]); })));
+}
+function renderTv() {
+  if (!tvPanel) return;
+  var md = mediaRefs(), env = tvEnv(), bad = tvBad();
+  var reel = (md.reel || []).filter(function (v) { return v.embed && v.url; });
+  var ids = tvQueue(reel.map(function (v) { return v.videoId; }), bad);
+  env.count = ids.length;
+  var playing = ids.length > 0 && !env.blocked && !env.closed && (tvAutoplay(env) || tvState.tapped);
+  var mode = env.closed ? "closed" : !md.present ? "nodata" : env.blocked ? "blocked" : !ids.length ? (reel.length ? "none" : "empty")
+    : playing ? (tvApi.state === "failed" ? "noapi" : "play") : "poster";
+  // a player already going keeps the video it is on; a new reel takes over from the next video
+  if (mode === "play" && tvState.slot && tvState.sound === !!tvState.tapped && tvState.key && tvState.key.indexOf("play|") === 0) {
+    tvState.ids = ids; tvState.i = ids.indexOf(tvState.current); tvCaption();
+    return;
+  }
+  var key = mode + "|" + (mode === "play" ? !!tvState.tapped : ids.join(",") + "|" + reel.length + "|" + env.off);
+  if (key === tvState.key && tvPanel.body.firstChild) return;   // the same thing, already showing
+  tvState.key = key;
+  tvDestroy();
+  if (mode === "closed") { clearNode(tvPanel.body); return; }   // stops a playing video; drawn again when opened
+  tvPanel.render(function (body) {
+    if (mode === "nodata") body.appendChild(el("p", { class: "u-note", text: "No media data yet." }));
+    else if (mode === "empty") body.appendChild(el("p", { class: "u-note", text: "No official video can be played here right now: the newest ones do not allow other sites to show them." }));
+    else if (mode === "none") tvList(body, "The newest videos picked for NFL TV cannot be shown on this site (their owners, usually the NFL, block it), so these open on YouTube:", reel);
+    else if (mode === "blocked") tvList(body, "The site showing this page blocks video players from other sites, so these open on YouTube:", reel);
+    else if (mode === "noapi") tvList(body, "YouTube's player could not be loaded here, so these open on YouTube:", reel);
+    else if (mode === "play") {
+      var slot = el("div", {}), box = el("div", { class: "u-tvframe" }, [slot]);
+      body.appendChild(box);
+      var now = el("p", { class: "u-tvnow", text: "Loading YouTube's player…" });
+      body.appendChild(now);
+      tvState.slot = slot; tvState.nowEl = now; tvState.sound = !!tvState.tapped; tvState.ids = ids; tvState.i = -1; tvState.skipped = 0;
+      tvWatch(box);
+      tvLoadApi(function (ok) {
+        if (tvState.slot !== slot) return;
+        if (ok) tvStart(slot); else { tvState.key = null; tvState.slot = null; renderTv(); }
+      });
+    } else {
+      var first = tvVideo(ids[0]) || reel[0];
+      body.appendChild(el("button", { type: "button", class: "u-tvposter", "data-fk": "tv-play", "aria-label": "Play NFL TV: " + ids.length + " official videos, starting with " + first.title,
+        onclick: function () { tvState.tapped = true; lsSet({ tvOff: false }); renderTv(); } }, [
+          first.thumb ? el("img", { src: first.thumb, alt: "", width: "320", height: "180", loading: "lazy", referrerpolicy: "no-referrer" }) : null,
+          el("span", { class: "u-tvplay", "aria-hidden": "true", text: "▶" }), el("span", { class: "u-tvcap", text: first.title })]));
+      body.appendChild(el("p", { class: "u-note", text: env.off ? "Turned off: it will not start by itself until you play it again." : "Starts by itself, muted, on wide screens; tap to play here." }));
+    }
+    body.appendChild(tvLinks(md));
+    if (mode === "play" || mode === "poster") body.appendChild(el("p", { class: "u-credit" }, ["Played in YouTube's own player. ", ytTerms()]));
+  });
+}
+
 // ---- src/universe/17-layout.js
 // Panel layout: the viewer can move panels (drag a header, or the grip and arrow keys), hide and show them (the Panels
 // menu), resize them (bottom and right edges) and change the map's share of the width (the divider). The layout is
@@ -4165,9 +4441,9 @@ Object.assign(NFLU, { isMediaBlock: isMediaBlock, videoAction: videoAction, podc
 var LAYOUT_V = 1;
 var LAYOUT_ZONES = ["left", "right", "bottom"];
 var ZONE_LABEL = { left: "left column", right: "panel column", bottom: "bottom row" };
-var PANEL_IDS = ["feed", "media", "games", "teams", "health"];   // also the default tab order on phones
-var PANEL_NAMES = { feed: "Intelligence feed", media: "Media", games: "Games", teams: "Teams", health: "System health" };
-var DEFAULT_ZONES = { left: ["teams"], right: ["feed", "media", "health"], bottom: ["games"] };
+var PANEL_IDS = ["feed", "media", "tv", "games", "teams", "health"];   // also the default tab order on phones
+var PANEL_NAMES = { feed: "Intelligence feed", media: "Media", tv: "NFL TV", games: "Games", teams: "Teams", health: "System health" };
+var DEFAULT_ZONES = { left: ["teams"], right: ["tv", "feed", "media", "health"], bottom: ["games"] };
 // Sizes in CSS pixels. The grid numbers must match the wide layout in 00-universe.css: a 252 px left column, a
 // zero-width divider track and three 8 px gaps, a map at least 320 px and a panel column at least 300 px wide.
 var LIM = { minH: 120, maxH: 1600, stepH: 20, maxSpan: 4, minSplit: 0.3, maxSplit: 0.9, stepSplit: 0.02, colMin: 300, gap: 8,
@@ -4206,8 +4482,17 @@ function sanitizeLayout(raw, ids) {
   var out = { v: LAYOUT_V, zones: {}, tabs: [], hidden: [], sizes: {}, split: null }, seen = {}, ts = {};
   var rz = raw.zones && typeof raw.zones === "object" && !Array.isArray(raw.zones) ? raw.zones : null;
   LAYOUT_ZONES.forEach(function (z) { out.zones[z] = cleanIdList(rz ? rz[z] : def.zones[z], ids, seen); });
-  // a panel the saved layout does not place (one added since it was saved) goes where the defaults put it
-  LAYOUT_ZONES.forEach(function (z) { def.zones[z].forEach(function (id) { if (!seen[id]) { seen[id] = 1; out.zones[z].push(id); } }); });
+  // a panel the saved layout does not place (one added since it was saved) goes where the defaults put it: in its default
+  // zone, before the next panel the defaults put after it (so NFL TV, first by default, arrives at the top)
+  LAYOUT_ZONES.forEach(function (z) {
+    var dz = def.zones[z];
+    dz.forEach(function (id, k) {
+      if (seen[id]) return;
+      seen[id] = 1;
+      var next = dz.slice(k + 1).map(function (x) { return out.zones[z].indexOf(x); }).filter(function (i) { return i >= 0; })[0];
+      if (next == null) out.zones[z].push(id); else out.zones[z].splice(next, 0, id);
+    });
+  });
   out.tabs = cleanIdList(raw.tabs, ids, ts);
   def.tabs.forEach(function (id) { if (!ts[id]) out.tabs.push(id); });
   out.hidden = cleanIdList(raw.hidden, ids, {});
@@ -4441,6 +4726,7 @@ function fitZones() {
 }
 // Panel() calls this when its collapse button is used.
 function onPanelFold(id) {
+  if (id === "tv") renderTv();   // folding NFL TV stops its player; opening it follows the usual rules
   if (!LAYOUT || !lay.slots[id]) return;
   lay.slots[id].classList.toggle("is-folded", PANELS[id].root.classList.contains("is-collapsed"));
   fitZones();
@@ -4770,6 +5056,10 @@ function boot() {
   buildMap(byId("uMap"));
   buildTabs(byId("uTabs"));
   buildFocusBar(byId("uFocus"));
+  // NFL TV sits at the top of the panel column (DEC-022)
+  var tvHost = el("div", { class: "u-host", id: "uTvHost" }), fh = byId("uFeedHost");
+  fh.parentNode.insertBefore(tvHost, fh);
+  buildTvPanel(tvHost);
   buildFeedPanel(byId("uFeedHost"));
   // the media host sits between the feed and health in the right column (one column and a "Media" tab on phones)
   var mediaHost = el("div", { class: "u-host", id: "uMediaHost" }), hh = byId("uHealthHost");
@@ -4821,6 +5111,7 @@ function boot() {
     if (has("team", "game", "view") || (has("sim", "why", "model", "pollFails", "mediaBlocked") && (st.team || st.game))) renderDrawer();
     if (has("mobileTab")) renderTabs();
     if (has("model", "timeRange", "search", "team", "focus", "mediaTab", "mediaKind", "mediaShorts", "payload", "mediaBlocked")) renderMedia();
+    if (has("model", "mediaBlocked")) renderTv();
   });
 
   applyView(); renderRail(); renderTabs(); renderStatus(); renderFocusBar(); fitFocus();

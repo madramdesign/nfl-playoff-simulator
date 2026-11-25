@@ -397,6 +397,44 @@ ok(U.cleanBooks(undefined).length === 0, "no books");
   eq(WR.rows[2][2], A0 + " at " + H0 + ": " + H0 + " 50% → 55% (+0.4)", "a moved line named with the home team's chance");
   ok(U.whyRows(null) === null, "nothing to explain");
 }
+// ---- NFL TV (DEC-022) ----
+{
+  const A = "aaaaaaaaaa1", B = "aaaaaaaaaa2", Cc = "aaaaaaaaaa3";
+  eq(U.tvQueue([A, "bad id", B, A, "x\"><script>", 42, Cc], { [B]: 1 }), [A, Cc], "well-formed ids, each once, minus those known not to play here");
+  ok(U.tvQueue(null).length === 0 && U.tvQueue("nope").length === 0, "nothing to play from a malformed reel");
+  eq(U.tvStep([A, B, Cc], -1, {}), 0, "the first video first");
+  eq(U.tvStep([A, B, Cc], 0, { [B]: 1 }), 2, "a video that will not play here is skipped");
+  eq(U.tvStep([A, B, Cc], 2, {}), 0, "after the last, round to the first");
+  eq(U.tvStep([A, B, Cc], 1, { [Cc]: 1, [A]: 1 }), 1, "the only one left plays again");
+  eq(U.tvStep([A, B, Cc], 0, { [A]: 1, [B]: 1, [Cc]: 1 }), -1, "none left: -1, and the panel shows links");
+  eq(U.tvStep([], -1, {}), -1, "an empty reel has no next video");
+  eq(U.tvVars(false, true), { autoplay: 1, mute: 1, playsinline: 1, rel: 0 }, "by itself: muted");
+  eq(U.tvVars(true, true).mute, 0, "started by a tap: with sound");
+  eq(U.tvVars(false, false).autoplay, 0, "out of view: loaded, not started");
+  ok(U.tvInView(0.51, 360, 203, false) && U.tvInView(1, 200, 200, false), "more than half on screen, at least 200 by 200: may start by itself");
+  ok(!U.tvInView(0.5, 360, 203, false) && !U.tvInView(1, 360, 199, false) && !U.tvInView(1, 199, 300, false) && !U.tvInView(1, 360, 203, true),
+    "not at exactly half, not under 200 pixels either way, not while the page is hidden (YouTube's Required Minimum Functionality)");
+  ok([100, 101, 150].every(U.tvLasting) && ![2, 5, 153, undefined, "150"].some(U.tvLasting), "remembered only when the owner refuses this site or the video is gone");
+  eq(U.tvRemember([A, "junk", B], [A, Cc]), [B, A, Cc], "each once, newest last, junk dropped");
+  const many = Array.from({ length: 70 }, (_, k) => ("v" + String(k).padStart(10, "0")).slice(0, 11));
+  eq(U.tvRemember(many, [A]).length, 60, "at most 60 remembered");
+  eq(U.tvRemember(many, [A]).slice(-1)[0], A, "the oldest go first");
+  const env = { wide: true, reducedMotion: false, saveData: false, off: false, blocked: false, closed: false, count: 3 };
+  ok(U.tvAutoplay(env), "a wide screen with nothing against it starts by itself");
+  for (const k of ["reducedMotion", "saveData", "off", "blocked", "closed"]) ok(!U.tvAutoplay(Object.assign({}, env, { [k]: true })), "never by itself when " + k);
+  ok(!U.tvAutoplay(Object.assign({}, env, { wide: false })) && !U.tvAutoplay(Object.assign({}, env, { count: 0 })) && !U.tvAutoplay(null), "not on phones, not with nothing to play");
+  const tvPayload = JSON.parse(JSON.stringify(live));
+  const vids = (tvPayload.media && tvPayload.media.videos) || [];
+  if (vids.length >= 2) {
+    tvPayload.media.reel = [vids[1].videoId, vids[0].videoId, vids[1].videoId, "zzzzzzzzzzz"];
+    if (vids.length >= 3) { tvPayload.media.videos[2].embedUrl = "https://evil.example/embed/x"; tvPayload.media.reel.push(vids[2].videoId); }
+    const mm = U.buildModel(tvPayload).media;
+    ok(vids.length < 3 || !mm.reel.some((v) => v.videoId === vids[2].videoId), "a reel video without an allowed player address is left out");
+    eq(mm.reel.map((v) => v.videoId), [vids[1].videoId, vids[0].videoId].filter((id) => mm.videos.some((v) => v.videoId === id && v.embed)), "the reel keeps the payload's order, once each, only known videos with an embed address");
+  }
+  ok(U.buildModel(Object.assign({}, live, { media: Object.assign({}, live.media || {}, { reel: "nope" }) })).media.reel.length === 0, "a malformed reel is empty");
+}
+
 // ---- recent finals: a result the build does not have yet still counts after the week moves on ----
 {
   const g0 = E.GAMES[0], A0 = E.TM[g0[2]].a, H0 = E.TM[g0[3]].a;
