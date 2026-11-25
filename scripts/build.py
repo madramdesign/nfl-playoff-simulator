@@ -97,7 +97,12 @@ def qb_flags(text, season, inj_text):
             out[str(order.index(r["team"]))] = {"name": r["full_name"], "status": status or None, "practice": practice or None}
     return out, week
 
-def _plain(name): return "".join(ch for ch in (name or "").lower() if ch.isalpha()).replace("jr", "").replace("sr", "")
+# A name for comparing sources: letters only, without suffixes (FantasyPros writes "Patrick Mahomes II" and
+# "Anthony Richardson Sr.", nflverse "Patrick Mahomes").
+NAME_SUFFIXES = {"jr", "sr", "ii", "iii", "iv", "v"}
+def _plain(name):
+    words = "".join(ch if ch.isalpha() else " " for ch in (name or "").lower()).split()
+    return "".join(w for w in words if w not in NAME_SUFFIXES)
 
 def fantasypros_qb(text, season, path=None, today=None):
     """Teams whose projected starting quarterback (FantasyPros weekly projections) is not the one who started their last game.

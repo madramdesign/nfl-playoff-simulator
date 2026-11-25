@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (FantasyPros and The Odds API, first runs on GitHub)
+- Both keys are set as GitHub secrets and both jobs ran. The Odds API: all 16 of this week's games carry the median line across 8 US sportsbooks in the published data, 485 credits left. FantasyPros: the answer had the expected fields; all 32 teams mapped. Its first run showed that names carry suffixes ("Patrick Mahomes II"), which would have flagged the Chiefs as a possible quarterback change; names are now compared without Jr., Sr., II, III, IV or V, and free agents (`FA`) are dropped. On real data three teams are flagged: Arizona, Indianapolis and New England.
+
 ## 2026-11-25 (FantasyPros: only what the page uses)
 - With the FantasyPros key now set, the daily job would have committed FantasyPros's raw answers (every quarterback projection, injury news, the player list) to this public repository. It now makes one call instead of three and commits only `data/fantasypros/qb_top.json`, each team's top-projected quarterback with his projected points, credited; the build reads that file. Raw files are ignored by git, and the script refuses to keep the raw answer inside the repository.
 

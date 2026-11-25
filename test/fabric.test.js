@@ -222,7 +222,8 @@ test("FantasyPros: only each team's top-projected quarterback is kept; the raw a
     const answer = { sport: "NFL", week: 12, players: [
       { name: "Fixture Allen", team_id: "BUF", stats: { points: 22.14 } }, { name: "Bills Backup", team_id: "BUF", stats: { points: 3.2 } },
       { name: "Fixture Lawrence", team_id: "JAC", stats: { points: "15.0" } }, { name: "Fixture Stafford", team_id: "LAR", stats: { points: 18 } },
-      { name: "No Points", team_id: "NYG", stats: {} }, { name: "", team_id: "DAL", stats: { points: 9 } }, "not a player", { name: "No Team", stats: { points: 30 } }] };
+      { name: "No Points", team_id: "NYG", stats: {} }, { name: "", team_id: "DAL", stats: { points: 9 } }, "not a player", { name: "No Team", stats: { points: 30 } },
+      { name: "Free Agent", team_id: "FA", stats: { points: 0 } }] };
     fs.writeFileSync(path.join(dir, "answer.json"), JSON.stringify(answer));
     const r = py(["scripts/fetch_fantasypros.py", "--from-file", path.join(dir, "answer.json"), "--out", path.join(dir, "out")]);
     assert.strictEqual(r.status, 0, r.stderr);
@@ -232,7 +233,7 @@ test("FantasyPros: only each team's top-projected quarterback is kept; the raw a
     assert.ok(kept.week === 12 && kept.credit === "Quarterback projections are based on data obtained from FantasyPros" && kept.source === "FantasyPros API" && /^\d{4}-\d\d-\d\dT/.test(kept.fetched));
     assert.deepStrictEqual(fs.readdirSync(path.join(dir, "out")), ["qb_top.json"], "nothing else written");
     assert.ok(!fs.readFileSync(path.join(dir, "out", "qb_top.json"), "utf8").includes("Bills Backup"), "no other player's projection");
-    assert.ok(/answer keys: players, sport, week \| players: 8 \| week: 12 \| teams with a quarterback: 3/.test(r.stdout), "the log shows the answer's shape, not its contents");
+    assert.ok(/answer keys: players, sport, week \| players: 9 \| week: 12 \| teams with a quarterback: 3/.test(r.stdout), "the log shows the answer's shape, not its contents");
     const inside = py(["scripts/fetch_fantasypros.py", "--from-file", path.join(dir, "answer.json"), "--out", path.join(dir, "out2"), "--raw", path.join(root, "data", "fantasypros")]);
     assert.ok(inside.status !== 0 && /outside this repository/.test(inside.stderr) && !fs.existsSync(path.join(dir, "out2")), "the raw answer may not be kept inside the repository");
     fs.writeFileSync(path.join(dir, "odd.json"), JSON.stringify({ message: "rate limited" }));
@@ -249,13 +250,15 @@ test("FantasyPros: only each team's top-projected quarterback is kept; the raw a
     // the build: a team whose top projection is not its last starter is flagged; the same starter and a low projection are not
     fs.writeFileSync(path.join(dir, "games.csv"), GAMES_CSV);
     fs.writeFileSync(path.join(dir, "qb_top.json"), JSON.stringify({ fetched: "2026-11-24T12:00:00+00:00", week: 12, teams: {
-      NYG: { name: "Other Passer", points: 18 }, DAL: { name: "Dallas Starter", points: 17 }, IND: { name: "Low One", points: 3 }, XXX: { name: "Nobody", points: 30 } } }));
+      NYG: { name: "Other Passer", points: 18 }, DAL: { name: "Dallas Starter Jr.", points: 17 }, IND: { name: "Low One", points: 3 }, XXX: { name: "Nobody", points: 30 } } }));
     const code = "import sys, json, datetime; sys.path.insert(0, 'scripts'); import build; " +
       "t = open(sys.argv[1]).read(); print(json.dumps(build.fantasypros_qb(t, 2026, sys.argv[2], datetime.date(2026, 11, 25)))); print(json.dumps(build.fantasypros_qb(t, 2026, sys.argv[2], datetime.date(2026, 12, 2))))";
     const b = py(["-c", code, path.join(dir, "games.csv"), path.join(dir, "qb_top.json")]);
     assert.strictEqual(b.status, 0, b.stderr);
     const [fresh, old] = b.stdout.trim().split("\n").filter((l) => l.startsWith("{") || l === "null").map((l) => JSON.parse(l));
-    assert.deepStrictEqual(Object.values(fresh.teams), [{ proj: "Other Passer", last: "Fixture Passer", points: 18 }], "only the Giants are flagged");
+    assert.deepStrictEqual(Object.values(fresh.teams), [{ proj: "Other Passer", last: "Fixture Passer", points: 18 }], "only the Giants are flagged (a suffix such as Jr. is not a different quarterback)");
+    const names = py(["-c", "import sys; sys.path.insert(0, 'scripts'); import build; print([build._plain(n) for n in ['Patrick Mahomes II', 'Patrick Mahomes', 'Anthony Richardson Sr.', 'Michael Penix Jr.', 'Marvin Harrison III', 'Jrue Holiday', 'C.J. Stroud']])"]);
+    assert.strictEqual(names.stdout.trim(), "['patrickmahomes', 'patrickmahomes', 'anthonyrichardson', 'michaelpenix', 'marvinharrison', 'jrueholiday', 'cjstroud']", "suffixes dropped as whole words only");
     assert.ok(fresh.week === 12 && fresh.fetched === "2026-11-24", "with the week and the day it was fetched");
     assert.strictEqual(old, null, "more than four days old: not used");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }

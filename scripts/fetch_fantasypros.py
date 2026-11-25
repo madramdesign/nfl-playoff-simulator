@@ -39,7 +39,8 @@ def top_qbs(data):
         team, name = FP_TEAM.get(p.get("team_id"), p.get("team_id")), p.get("name")
         try: pts = float((p.get("stats") or {}).get("points"))
         except (TypeError, ValueError): continue
-        if not isinstance(team, str) or not team or not isinstance(name, str) or not name.strip() or pts != pts: continue
+        # "FA": FantasyPros's code for free agents, who have no team to flag
+        if not isinstance(team, str) or not team or team == "FA" or not isinstance(name, str) or not name.strip() or pts != pts: continue
         if team not in best or pts > best[team]["points"]: best[team] = {"name": name.strip()[:60], "points": round(pts, 1)}
     return best
 
