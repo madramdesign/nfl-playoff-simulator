@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "build": "python3 scripts/build.py",
-    "test": "node test/run.js && node test/universe.test.js && python3 test/calibration.test.py && python3 test/odds.test.py",
+    "test": "node test/run.js && node test/universe.test.js && python3 test/calibration.test.py",
     "test:calibration": "python3 test/calibration.test.py",
     "calibration": "python3 scripts/calibration.py",
     "snapshot": "node scripts/snapshot.js",

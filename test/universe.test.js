@@ -216,18 +216,6 @@ ok(Math.abs(maxSwing - ig.swing) < 1e-12, "no watched game swings more than the 
 const rb = (g) => 1 / (1 + Math.pow(10, -(E.SHRINK * ((E.RATE[g[3]] + E.RATE2[g[3]]) / 2 - (E.RATE[g[2]] + E.RATE2[g[2]]) / 2) + (g[4] ? 0 : E.HFA)) / 400));
 const expDis = E.GAMES.map((g, i) => [i, g]).filter(([, g]) => g[6] != null && Math.abs(rb(g) - g[6]) >= 0.08).map(([i]) => i).sort((a, b) => a - b);
 eq(U.disagreementGames().map((d) => d.gi).sort((a, b) => a - b), expDis, "model disagreement lists exactly the games 8+ points apart");
-// sportsbook consensus (D.odds): shown beside the forecast, with movement only from our own first record
-{
-  const g0 = E.GAMES[0], homeA = E.TM[g0[3]].a;
-  const board = { fetched: "2026-11-25T08:20:00Z", source: "The Odds API", games: { [g0[0]]: { books: 7, openAt: "2026-11-23T08:20:00Z", homeProb: { open: 0.55, current: 0.6 }, spread: { open: -2.5, current: -3.5 }, total: { open: 44.5, current: 44.5 } } } };
-  const v = U.oddsBoardView(board, 0);
-  ok(v && v.books === 7 && v.text.startsWith(homeA + " \u22123.5, total 44.5, " + homeA + " 60% to win"), "the consensus line names the home team, spread, total and win chance");
-  ok(/spread \u22122\.5 to \u22123\.5/.test(v.moved) && /home win chance 55% to 60%/.test(v.moved) && !/total/.test(v.moved), "movement lists only what changed since the first record");
-  const fresh = U.oddsBoardView({ fetched: board.fetched, games: { [g0[0]]: { books: 3, openAt: null, homeProb: { open: null, current: 0.6 }, spread: null, total: null } } }, 0);
-  ok(fresh && fresh.moved === null && fresh.tracked === false, "a first record shows no movement and says it is the first record");
-  ok(U.oddsBoardView(null, 0) === null && U.oddsBoardView(board, 1) === null && U.oddsBoardView({ games: { [g0[0]]: { homeProb: { current: "0.6" } } } }, 0) === null, "no board, no row or malformed numbers give nothing");
-  ok(U.oddsBoardView({ games: { constructor: {} } }, 0) === null, "built-in names are not games");
-}
 const brief = U.buildBrief({ M, payload: live, sim: r, events: M.events });
 eq(brief.map((l) => l.id), ["development", "injury", "team", "playoff", "market", "disagree", "game", "uncertain", "overlooked", "redteam"].filter((id) => id !== "team" || E.D.history).filter((id) => id !== "playoff" || E.D.prev).filter((id) => id !== "overlooked" || U.overlookedFactor()), "the brief has its lines in order");
 ok(/Intelligence gaps: .*transactions \(down\)/.test(brief.find((l) => l.id === "redteam").text), "the red-team line names the down transactions feed");

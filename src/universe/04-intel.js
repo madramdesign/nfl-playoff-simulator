@@ -115,26 +115,6 @@ function proveWrong(i, M) {
   return out.sort(function (a, b) { return b.w - a.w; });
 }
 
-// ---- sportsbook consensus (D.odds, built from data/odds/ by scripts/build.py; The Odds API) ----
-// Pure: the lines to show for engine game gi, or null. board: D.odds. Shown beside the forecast, never fed into it.
-function oddsBoardView(board, gi) {
-  var row = board && board.games && GAMES[gi] ? board.games[GAMES[gi][0]] : null;
-  if (!row || typeof row !== "object") return null;
-  var home = TEAMS[GAMES[gi][3]].a, parts = [], moved = [];
-  var pair = function (x) { return x && num(x.current) != null ? { open: num(x.open), current: num(x.current) } : null; };
-  var hp = pair(row.homeProb), sp = pair(row.spread), tot = pair(row.total);
-  if (sp) { parts.push(home + " " + fmtSigned(sp.current)); if (sp.open != null && sp.open !== sp.current) moved.push("spread " + fmtSigned(sp.open) + " to " + fmtSigned(sp.current)); }
-  if (tot) { parts.push("total " + tot.current); if (tot.open != null && tot.open !== tot.current) moved.push("total " + tot.open + " to " + tot.current); }
-  if (hp) { parts.push(home + " " + fmtPct(hp.current) + " to win"); if (hp.open != null && Math.abs(hp.open - hp.current) >= 0.005) moved.push("home win chance " + fmtPct(hp.open) + " to " + fmtPct(hp.current)); }
-  if (!parts.length) return null;
-  var books = num(row.books), t = Date.parse(board.fetched || ""), t0 = Date.parse(row.openAt || "");
-  return { text: parts.join(", "), books: books, homeProb: hp ? hp.current : null,
-    moved: moved.length ? moved.join("; ") : null, since: isFinite(t0) ? t0 : null, fetched: isFinite(t) ? t : null,
-    // no first record yet: say so, so "no movement" is not read as "the line has not moved"
-    tracked: isFinite(t0) };
-}
-NFLU.oddsBoardView = oddsBoardView;
-
 // ---- the brief's ranking functions (pure: inputs in, one ranked answer out) ----
 // set: optional lookup of team indexes in focus (focusSet); without it every team counts. A game counts when either side does.
 function inFocus(set, i) { return !set || !!set[i]; }

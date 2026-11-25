@@ -44,7 +44,7 @@
 | api.weather.gov (`nws`, wired Nov. 23, 2026 as the backup for Open-Meteo: asked only for outdoor games with no current Open-Meteo forecast; hourly temperature, wind and precipitation chance, no gusts or amounts) | US forecasts | https://www.weather.gov/documentation/services-web-api | None (User-Agent) | Free | Retry after about 5 s on error | Hourly | 7 days | **Yes** | Good | Open-Meteo | Nov. 21: answered |
 | Sleeper | NFL state (season, week), trending adds and drops, player database | `api.sleeper.app/v1/state/nfl`, `/players/nfl/trending/add`, `/players/nfl` | None | Free non-commercial | Players at most daily / under 1,000 a minute | Real time (trends) | Current | **Conditions**: non-commercial, credit Sleeper for trends | Good | | Nov. 21: season 2026, week 11 |
 | Curated news (`curated-news`) | Hand-checked items with source links; quarterback changes | `data/news.json` | None | Free | | Daily | 10 days | **Yes** (own words, linked) | | | Nov. 21 |
-| The Odds API (wired Nov. 25, 2026 through a GitHub Action; consensus only is stored; first real run not yet seen) | Multi-book moneyline, spread, total; props via event endpoint | https://the-odds-api.com/ | Key | 500 credits a month free | about 166 NFL pulls a month | Minutes | Paid plans only | **Owner decision** (needs a key) | Good | ESPN scoreboard (one book) | Not called (no key) |
+| The Odds API (not wired) | Multi-book moneyline, spread, total; props via event endpoint | https://the-odds-api.com/ | Key | 500 credits a month free | about 166 NFL pulls a month | Minutes | Paid plans only | **Owner decision** (needs a key) | Good | ESPN scoreboard (one book) | Not called (no key) |
 
 ## Build-time and historical sources
 

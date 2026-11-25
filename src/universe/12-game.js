@@ -39,13 +39,6 @@ function renderGameDetail(key, body) {
   var o = x.odds;
   if (o && o.homeProb && (o.homeProb.current != null)) kids.push(el("p", { class: "u-note", text: "Home win chance from the moneyline: " + (o.homeProb.open != null ? fmtPct(o.homeProb.open) + " at open → " : "") + fmtPct(o.homeProb.current) + (o.homeProb.open != null ? " now" : "") + "." }));
   var mv = gameLineMove(x); if (mv && !o) kids.push(el("p", { class: "u-note", text: "Movement: " + mv.text + "." }));
-  // sportsbook consensus from The Odds API (D.odds): several books, with our own record of how the line moved
-  var ob = x.gi >= 0 && x.state === "pre" ? oddsBoardView(D.odds, x.gi) : null;
-  if (ob) {
-    kids.push(el("p", {}, [el("b", { text: "Sportsbook consensus: " }), ob.text + (ob.books ? " (median of " + ob.books + " book" + (ob.books > 1 ? "s" : "") + ")" : "")]));
-    kids.push(el("p", { class: "u-note", text: (ob.moved ? "Moved since first recorded " + fmtDateUTC(ob.since) + ": " + ob.moved + "." : ob.tracked ? "No movement since first recorded " + fmtDateUTC(ob.since) + "." : "First record of this line, so no movement can be shown yet.") + (ob.fetched ? " Lines as of " + new Date(ob.fetched).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "." : "") + " Not part of the forecast." }));
-    kids.push(el("p", { class: "u-credit" }, ["Consensus lines: ", el("a", { href: "https://the-odds-api.com/", target: "_blank", rel: "noopener", text: "The Odds API" })]));
-  }
   body.appendChild(section("Line", kids));
   if (x.weather) body.appendChild(section("Weather", [el("p", { text: weatherText(x.weather) }), el("p", { class: "u-note" }, ["Descriptive, not part of the forecast. ", weatherCredit(x.weather.source)])]));
   else if (x.venue && x.venue.indoor) body.appendChild(section("Weather", el("p", { class: "u-note", text: "Indoor stadium." })));
