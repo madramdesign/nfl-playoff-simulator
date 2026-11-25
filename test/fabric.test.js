@@ -163,6 +163,56 @@ test("nflverse games: current week, kickoff in UTC, home-side spread, no-vig cha
   assert.strictEqual(g.games.find((x) => x.home === "SF").venue.neutral, true);
   assert.strictEqual(g.games.find((x) => x.home === "NYG").venue.indoor, false, "blank roof falls back to the stadium's");
 });
+test("nflverse games: the weeks before and after come along (rollover and recent finals)", () => {
+  const g = pub.normalizeGames(GAMES_CSV, 2026, Date.parse("2026-11-21T16:00:00Z"));
+  assert.ok(g.prev && g.prev.week === 10 && g.prev.games.length === 1 && g.prev.games[0].state === "post" && g.prev.games[0].homeScore === 24, "the previous week, with its final");
+  assert.ok(g.next && g.next.week === 12 && g.next.seasonType === "regular" && g.next.games.length === 1 && g.next.games[0].home === "IND" && g.next.games[0].state === "pre", "the next week");
+  const last = pub.normalizeGames(GAMES_CSV.split("\n").filter((l) => !/_12_/.test(l)).join("\n"), 2026, Date.parse("2026-11-21T16:00:00Z"));
+  assert.strictEqual(last.next, null, "no next week: none");
+});
+// A scoreboard with every week-11 game the schedule has not scored shown final (and the week-12 game not yet listed).
+const sbFinal = (id, date, home, away, hs, as) => ({ id, date, competitions: [{ status: { period: 4, displayClock: "0:00", type: { state: "post" } },
+  competitors: [{ homeAway: "home", score: String(hs), team: { abbreviation: home } }, { homeAway: "away", score: String(as), team: { abbreviation: away } }] }] });
+const SB_DONE = { week: { number: 11 }, events: [sbFinal("900000002", "2026-11-22T18:00Z", "BUF", "MIA", 26, 9), sbFinal("900000003", "2026-11-23T01:20Z", "SF", "MIN", 35, 10),
+  sbFinal("900000004", "2026-11-22T21:25Z", "NYG", "JAX", 23, 18)] };
+const sbFetch = (sbJson) => { const base = fakeFetch(); return async (url, o) => (String(url).includes("/scoreboard") ? { ok: true, status: 200, json: async () => sbJson, text: async () => JSON.stringify(sbJson) } : base(url, o)); };
+test("week rollover: the live feed showing the week over moves the payload to the next week at once", async () => {
+  const later = () => Date.parse("2026-11-24T05:00:00Z");
+  const u = await createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: later, fetchImpl: sbFetch(SB_DONE) }).universe();
+  assert.strictEqual(u.week, 12, "the next week, before the schedule file has the last score");
+  assert.deepStrictEqual(u.games.map((g) => g.away + "@" + g.home), ["NYG@IND"]);
+  assert.ok(u.games[0].weather && u.games[0].weather.source === "open-meteo", "the new week's outdoor game already has its forecast (fetched with the next week)");
+  assert.deepStrictEqual(u.recentFinals.map((f) => f.away + "@" + f.home + " " + f.awayScore + "-" + f.homeScore).sort(), ["IND@HOU 3-26", "JAX@NYG 18-23", "MIA@BUF 9-26", "MIN@SF 10-35"], "the finished week's finals are kept");
+  assert.ok(u.recentFinals.find((f) => f.home === "SF").source === "espn-scoreboard" && u.recentFinals.find((f) => f.home === "HOU").source === "nflverse-games", "each from where its score came");
+  assert.ok(u.events.some((e) => e.subtype === "final" && /Final: MIN 10, SF 35/.test(e.title)), "the finals still reach the feed");
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  // ESPN already on the next week while the schedule still waits for a score: also moves on
+  const ahead = { week: { number: 12 }, events: [{ id: "900000005", date: "2026-11-29T18:00Z", competitions: [{ status: { period: 0, displayClock: "0:00", type: { state: "pre" } },
+    competitors: [{ homeAway: "home", score: "0", team: { abbreviation: "IND" } }, { homeAway: "away", score: "0", team: { abbreviation: "NYG" } }] }] }] };
+  const u2 = await createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: later, fetchImpl: sbFetch(ahead) }).universe();
+  assert.ok(u2.week === 12 && u2.games.length === 1 && u2.games[0].source === "espn-scoreboard", "ESPN's next week shown, joined to the schedule");
+  // ESPN still listing last week's finals near the new week's first game (Thanksgiving): they are not added to it
+  const tgCsv = GAMES_CSV.replace("2026_12_NYG_IND,2026,REG,12,2026-11-29,13:00", "2026_12_NYG_IND,2026,REG,12,2026-11-26,13:00");
+  const tgFetch = (sbJson) => { const f = sbFetch(sbJson); return async (url, o) => (String(url).includes("/nfldata/") ? { ok: true, status: 200, json: async () => null, text: async () => tgCsv } : f(url, o)); };
+  const mnf = JSON.parse(JSON.stringify(SB_DONE)); mnf.events[2].date = "2026-11-24T01:15Z";   // a Monday night game, 2.7 days before Thanksgiving
+  const u4 = await createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: later, fetchImpl: tgFetch(mnf) }).universe();
+  assert.deepStrictEqual(u4.games.map((g) => g.away + "@" + g.home), ["NYG@IND"], "last week's games stay out of the new week even within three days of it");
+  // one game still going: no rollover
+  const going = JSON.parse(JSON.stringify(SB_DONE)); going.events[1].competitions[0].status.type.state = "in"; going.events[1].competitions[0].status.period = 4;
+  const u3 = await createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: later, fetchImpl: sbFetch(going) }).universe();
+  assert.ok(u3.week === 11 && u3.games.length === 4, "while one game is in progress the week stays");
+  assert.deepStrictEqual(u3.recentFinals.map((f) => f.home), ["NYG"], "the previous week's finals instead (week 10)");
+});
+test("the public snapshot keeps the schedule's previous week's finals; a local final never reaches it", async () => {
+  const u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: fakeFetch() }).universe();
+  assert.ok(u.week === 11 && u.recentFinals.length === 1 && u.recentFinals[0].source === "nflverse-games");
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
+  const bad = JSON.parse(JSON.stringify(u)); bad.sources["espn-scoreboard"] = Object.assign({}, bad.sources["nflverse-games"], { id: "espn-scoreboard", scope: "local" });
+  bad.recentFinals[0].source = "espn-scoreboard";
+  assert.ok(C.validatePublicSnapshot(bad, T).some((e) => /^recentFinals\[0\]: from non-public source/.test(e)));
+  const worse = JSON.parse(JSON.stringify(u)); worse.recentFinals[0].awayScore = -3; worse.recentFinals[0].home = "XXX"; worse.recentFinals[0].kickoff = "soon";
+  assert.strictEqual(C.validateUniverse(worse, T).filter((e) => /^recentFinals/.test(e)).length, 3, "bad score, team and time refused");
+});
 test("nflverse injuries: latest week, game status only", () => {
   const r = pub.normalizeInjuries(INJ_CSV, 2026);
   assert.strictEqual(r.week, 11); assert.deepStrictEqual(Object.keys(r.teams).sort(), ["LAR", "NYG"]);
@@ -548,10 +598,15 @@ test("the refresh keeps GitHub's fresh snapshot instead of fetching again (DEC-0
   assert.deepStrictEqual([S.isFresh(g, 4, at + 3.9 * H), S.isFresh(g, 4, at + 4 * H), S.isFresh(g, 4, at - 4 * 60000), S.isFresh(g, 4, at - 10 * 60000), S.isFresh(null, 4, at), S.isFresh({ generatedAt: "x" }, 4, at)],
     [true, false, true, false, false, false], "under the hours, never from the future beyond five minutes");
   const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
-  assert.ok(/^node scripts\/fabric-snapshot\.js --keep-if-fresh 4 && /.test(pkg.scripts.refresh), "npm run refresh keeps a snapshot under 4 hours old");
+  assert.ok(/^node scripts\/fabric-snapshot\.js --keep-if-fresh 8 && /.test(pkg.scripts.refresh), "npm run refresh keeps a snapshot under 8 hours old");
   const wf = fs.readFileSync(path.join(root, ".github/workflows/data-fetch.yml"), "utf8");
   assert.ok(/run: node scripts\/fabric-snapshot\.js\n/.test(wf) && /ODDS_API_KEY: \$\{\{ secrets\.ODDS_API_KEY \}\}/.test(wf) && /group: data-refresh/.test(wf) && /github\.ref == 'refs\/heads\/main'/.test(wf),
     "the workflow always fetches, passes the optional key, shares the refresh queue and runs only from main");
+  assert.ok(/cron: "17 \*\/3 \* \* \*"/.test(wf) && /uses: actions\/cache@v4\n\s+with:\n\s+path: \.cache\/fabric\/public\n\s+key: fabric-public-\$\{\{ github\.run_id \}\}\n\s+restore-keys: fabric-public-/.test(wf),
+    "every 3 hours, with the fabric's public cache kept between runs");
+  const fp = fs.readFileSync(path.join(root, ".github/workflows/fantasypros.yml"), "utf8");
+  assert.ok(/- name: Fetch\n\s+if: steps\.key\.outputs\.set == 'true'/.test(fp) && /- name: Commit\n\s+if: steps\.key\.outputs\.set == 'true'/.test(fp) && /echo "set=false"/.test(fp),
+    "the FantasyPros job stops quietly without its key");
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-keep-")), quiet = () => {};
   try {
     const t0 = Date.parse("2026-11-24T07:07:00Z"); let made = 0;
@@ -771,13 +826,46 @@ test("The Odds API keeps a credit floor until the next month", async () => {
     await fab().universe({ fresh: true });
     assert.strictEqual(calls.length, 1);
     assert.ok(!fs.readdirSync(path.join(dir, "public")).some((f) => fs.readFileSync(path.join(dir, "public", f), "utf8").includes(ODDS_KEY)), "the key is in no cache file");
-    t += 9 * 3600000;
+    t += 12 * 3600000;   // past the 11-hour minimum interval
     const u = await fab().universe({ fresh: true });
     assert.strictEqual(calls.length, 1, "below the floor: no call this month");
     assert.ok(u.sources["odds-api"].status === "stale" && /credit floor reached: 12 left/.test(u.sources["odds-api"].lastError) && u.games.some((g) => g.market), "the last consensus is kept, shown stale");
     t = Date.parse("2026-12-01T12:00:00Z");
     await fab().universe({ fresh: true });
     assert.strictEqual(calls.length, 2, "a new month: one call to find out");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("a source's minimum interval holds even when fresh data is asked for", async () => {
+  let calls = 0, t = 1e12;
+  const src = createSource({ id: "paid", label: "x", ttlMs: 60000, minIntervalMs: 11 * 3600000, load: async () => { calls++; return { games: [calls] }; } });
+  await src.get({ now: t, force: true }); t += 3 * 3600000;
+  const second = await src.get({ now: t, force: true });
+  assert.ok(calls === 1 && second.mode === "cached" && second.data.games[0] === 1, "three hours later, asked for fresh data: the last look is served");
+  t += 9 * 3600000; await src.get({ now: t, force: true });
+  assert.strictEqual(calls, 2, "after the interval it looks again");
+  let n2 = 0; const p2 = createSource({ id: "free2", label: "x", ttlMs: 60000, load: async () => { n2++; return { games: [] }; } });
+  await p2.get({ now: t, force: true }); await p2.get({ now: t + 1000, force: true });
+  assert.strictEqual(n2, 2, "without one, fresh means fresh");
+});
+test("The Odds API on GitHub: one look per 11 hours across runs, and no book's prices in a public run's cache", async () => {
+  const os = require("os"), fs = require("fs");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-oddscache-"));
+  try {
+    let t = NOW(); const calls = [];
+    const run = () => createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: () => t, fetchImpl: oddsFetch(calls), oddsApiKey: ODDS_KEY }).universe({ fresh: true });
+    const u1 = await run();
+    const cached = JSON.parse(fs.readFileSync(path.join(dir, "public", "odds-api.json"), "utf8"));
+    assert.ok(cached.data.games.length === 1 && cached.data.games.every((g) => Array.isArray(g.books) && g.books.length === 0) && cached.data.games[0].consensus.books === 3,
+      "the public cache keeps the consensus only");
+    assert.ok(!fs.readFileSync(path.join(dir, "public", "odds-api.json"), "utf8").includes("-900") && !JSON.stringify(u1).includes("FanDuel"), "no book's price or name anywhere public");
+    t += 3 * 3600000;
+    const u2 = await run();
+    assert.strictEqual(calls.length, 1, "a run three hours later (a new process, the cache restored) does not call again");
+    assert.ok(u2.sources["odds-api"].status === "ok" && u2.games.find((g) => g.home === "BUF").market.at === u1.games.find((g) => g.home === "BUF").market.at, "and still carries the last look, with its own time");
+    t += 9 * 3600000; await run();
+    assert.strictEqual(calls.length, 2, "after 11 hours it looks again");
+    const lu = await createFabric({ scopes: ["public", "local"], cacheDir: dir, season: 2026, now: () => t, fetchImpl: oddsFetch([]), oddsApiKey: ODDS_KEY }).universe();
+    assert.ok(lu.games.find((g) => g.home === "BUF").books.length === 3, "the local server still lists each book");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test("the snapshot carries a failed Odds API's consensus for games not yet started, never a book's prices", () => {

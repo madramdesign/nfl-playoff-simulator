@@ -1,12 +1,13 @@
 name: Daily data fetch
 
-# The daily data-fabric snapshot (DEC-021). The scheduled refresh on claude.ai runs in a workspace that reaches only
-# GitHub and package registries, so most public sources (weather, headlines, videos, podcasts, The Odds API) failed
-# there. This job fetches them on GitHub's servers a couple of hours before it and commits the snapshot; the refresh's
-# `npm run refresh` then keeps a snapshot under 4 hours old instead of fetching again. Public sources only (DEC-006).
+# The data-fabric snapshot (DEC-021). The scheduled refresh on claude.ai runs in a workspace that reaches only GitHub
+# and package registries, so most public sources (weather, headlines, videos, podcasts, The Odds API) failed there.
+# This job fetches them on GitHub's servers and commits the snapshot; the refresh's `npm run refresh` keeps a snapshot
+# under 8 hours old instead of fetching again. It runs every 3 hours because GitHub starts scheduled jobs late, by up
+# to 12 hours on Nov. 24, 2026, so a once-a-day run could miss the refresh. Public sources only (DEC-006).
 on:
   schedule:
-    - cron: "5 7 * * *"   # daily, about 2:05 AM Eastern (3:05 AM in summer); the claude.ai refresh runs at 4:35 AM
+    - cron: "17 */3 * * *"   # every 3 hours (off the hour, when GitHub's scheduler is busiest)
   workflow_dispatch:
 
 permissions:
@@ -27,6 +28,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      # The fabric's cache between runs: The Odds API is then looked at no more than every 11 hours. A public run keeps
+      # no sportsbook's own prices, so the cache holds only what is published anyway.
+      - name: Restore the fabric's cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/fabric/public
+          key: fabric-public-${{ github.run_id }}
+          restore-keys: fabric-public-
       - name: Fetch every public source and write the snapshot
         run: node scripts/fabric-snapshot.js
         env:
@@ -38,7 +47,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/fabric
           if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
-          git commit -m "Daily data fetch (GitHub Actions)"
+          git commit -m "Data fetch (GitHub Actions)"
           for attempt in 1 2 3; do
             git fetch origin main
             if git rebase origin/main && git push origin HEAD:main; then exit 0; fi

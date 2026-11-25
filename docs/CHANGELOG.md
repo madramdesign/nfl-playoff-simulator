@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-25 (data fetch timing)
+- GitHub started the daily data fetch almost 12 hours late on Nov. 24, so the morning refresh missed it. The fetch now runs every 3 hours and the refresh keeps a snapshot up to 8 hours old. The Odds API is looked at no more than once every 11 hours per place (about 13 credits a day at most), and GitHub's cache of this public repository never holds a sportsbook's own prices.
+- The FantasyPros job no longer fails every day without its key: it notes that the key is missing and stops.
+
+## 2026-11-24 (the week moves on as soon as it is over)
+- On the local server, the moment the live feed shows every game of the week final (or ESPN's scoreboard has already moved to the next week), the command center shows the next week's games, with their lines, weather and odds, instead of waiting hours for the schedule file to record the last score. The finished week's results still count: the payload carries the last week's finals (`recentFinals`), and the page uses any the simulation's data does not have yet in records and the simulation, never twice. ESPN's leftover games from last week no longer slip into the new week. The published page is unchanged: it is rebuilt once a day, and live scores stay on the owner's computer (DEC-006).
+
 ## 2026-11-24 (who is favored, on every game card)
 - Each game card in "This week" shows both teams' chances to win at the end of their rows, the favorite in bold, with a two-sided bar and a label ("CIN favored, 54%", or "Even" at 50%). The game panel names both teams, favorite first. Same numbers as before (the page's model before kickoff, the feed's live chance in play); finals show none.
 

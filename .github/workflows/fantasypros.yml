@@ -18,11 +18,21 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # Until the owner adds the key, the job notes it and stops, instead of failing every day.
+      - name: Is the key set?
+        id: key
+        env:
+          FANTASYPROS_API_KEY: ${{ secrets.FANTASYPROS_API_KEY }}
+        run: |
+          if [ -n "$FANTASYPROS_API_KEY" ]; then echo "set=true" >> "$GITHUB_OUTPUT"
+          else echo "set=false" >> "$GITHUB_OUTPUT"; echo "::notice::FANTASYPROS_API_KEY is not set, so nothing was fetched."; fi
       - name: Fetch
+        if: steps.key.outputs.set == 'true'
         env:
           FANTASYPROS_API_KEY: ${{ secrets.FANTASYPROS_API_KEY }}
         run: python3 scripts/fetch_fantasypros.py
       - name: Commit
+        if: steps.key.outputs.set == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

@@ -98,7 +98,7 @@ function feedInputs(M, meta, now) {
   meta = meta || {}; now = now == null ? Date.now() : now;
   var picks = GAMES.map(function () { return 0; }), liveP = GAMES.map(function () { return null; });
   var out = { finals: 0, ties: 0, lives: 0, feedLive: 0, staleLive: 0 };
-  (M ? M.games : []).forEach(function (g) {
+  resultGames(M).forEach(function (g) {
     if (g.gi < 0) return;
     if (g.state === "post" && num(g.awayScore) != null && num(g.homeScore) != null) {
       if (g.awayScore === g.homeScore) out.ties++;

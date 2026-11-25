@@ -301,13 +301,32 @@ function teamFantasy(F, i) {
   return { adds: pick(F && F.adds), drops: pick(F && F.drops) };
 }
 NFLU.normFantasy = normFantasy; NFLU.teamFantasy = teamFantasy;
+// Pure: the payload's recent finals (the last week's scores, kept after it moved on) that the simulation's data does
+// not have yet: matched to a game the engine still simulates and not already among this week's games from the feed
+// (a schedule-only placeholder for the same game does not hide its final).
+function recentFinalGames(payload, games) {
+  var used = {}; (games || []).forEach(function (x) { if (x.gi >= 0 && x.fromFeed) used[x.gi] = 1; });
+  return ((payload && Array.isArray(payload.recentFinals)) ? payload.recentFinals : []).filter(function (f) {
+    return f && typeof f === "object" && TIDX[f.away] != null && TIDX[f.home] != null && Number.isInteger(f.awayScore) && Number.isInteger(f.homeScore) && f.awayScore >= 0 && f.homeScore >= 0;
+  }).map(function (f) {
+    // a final that names its game matches only that game (never a later meeting of the same teams)
+    var gi = typeof f.gid === "string" && f.gid ? GAMES.findIndex(function (g) { return g[0] === f.gid; }) : matchGameIndex(f);
+    return gi >= 0 && !used[gi] ? (used[gi] = 1, mergeGame(gi, Object.assign({}, f, { state: "post" }))) : null;
+  }).filter(Boolean);
+}
+// Every game whose result the page should count: this week's games and the recent finals.
+function resultGames(M) { return M ? (M.games || []).concat(M.recentFinals || []) : []; }
+NFLU.recentFinalGames = recentFinalGames; NFLU.resultGames = resultGames;
 function buildModel(payload) {
   var g = buildGames(payload), inj = dict(), srcs = dict();
   if (payload && payload.sources) Object.keys(payload.sources).forEach(function (k) { var s = payload.sources[k]; if (s && typeof s === "object") srcs[k] = s; });
   if (payload && payload.injuries) Object.keys(payload.injuries).forEach(function (a) { var t = payload.injuries[a]; if (TIDX[a] != null && t && typeof t === "object") inj[TIDX[a]] = t; });
   var gameByKey = dict();
-  g.games.forEach(function (x) { gameByKey[x.key] = x; if (x.gid) gameByKey[x.gid] = x; if (x.id) gameByKey[x.id] = x; });
-  return { week: g.week, games: g.games, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload), lines: normLines(payload),
+  var recent = recentFinalGames(payload, g.games);
+  // the feed's games first, then the recent finals, then schedule-only placeholders: a key goes to the first that has it
+  var fed = g.games.filter(function (x) { return x.fromFeed; }), pad = g.games.filter(function (x) { return !x.fromFeed; });
+  fed.concat(recent, pad).forEach(function (x) { [x.key, x.gid, x.id].forEach(function (k) { if (k && !gameByKey[k]) gameByKey[k] = x; }); });
+  return { week: g.week, games: g.games, recentFinals: recent, gameByKey: gameByKey, events: buildEvents(payload), injuries: inj, sources: srcs, media: normMedia(payload), fantasy: normFantasy(payload), lines: normLines(payload),
     generatedAt: payload ? Date.parse(payload.generatedAt) : null, fixture: !!(payload && payload._fixture), season: payload ? payload.season : null };
 }
 // Loose shape check for a payload from the network: the full contract lives in lib/contract.js (server side).

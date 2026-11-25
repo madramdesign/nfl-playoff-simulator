@@ -3,9 +3,9 @@
 // written. A source that fails in this run keeps its part of the previous snapshot, reported stale with its true age
 // (lib/fabric/carry.js, backlog F01). Never fails the daily refresh: problems are reported and the script exits 0.
 // Run: node scripts/fabric-snapshot.js
-//      node scripts/fabric-snapshot.js --keep-if-fresh 4   (keep a published snapshot under 4 hours old instead of
+//      node scripts/fabric-snapshot.js --keep-if-fresh 8   (keep a published snapshot under 8 hours old instead of
 //      fetching again: the daily refresh runs where most sources are unreachable, and GitHub Actions fetches them
-//      shortly before it; DEC-021)
+//      every 3 hours; DEC-021)
 "use strict";
 const fs = require("fs"), path = require("path");
 const root = path.join(__dirname, "..");

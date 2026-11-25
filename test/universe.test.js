@@ -397,6 +397,28 @@ ok(U.cleanBooks(undefined).length === 0, "no books");
   eq(WR.rows[2][2], A0 + " at " + H0 + ": " + H0 + " 50% → 55% (+0.4)", "a moved line named with the home team's chance");
   ok(U.whyRows(null) === null, "nothing to explain");
 }
+// ---- recent finals: a result the build does not have yet still counts after the week moves on ----
+{
+  const g0 = E.GAMES[0], A0 = E.TM[g0[2]].a, H0 = E.TM[g0[3]].a;
+  const pay = { v: 1, generatedAt: "2026-11-24T05:00:00Z", season: 2026, week: g0[1] + 1, sources: {}, games: [], events: [],
+    recentFinals: [{ id: "x1", gid: g0[0], week: g0[1], kickoff: "2026-11-24T01:15:00Z", away: A0, home: H0, awayScore: 20, homeScore: 22, source: "espn-scoreboard" },
+      { id: "x2", gid: "2025_01_A_B", week: 1, kickoff: "2026-09-10T00:00:00Z", away: "NYG", home: "DAL", awayScore: 7, homeScore: 3, source: "nflverse-games" },
+      { id: "x3", away: "XXX", home: H0, awayScore: 1, homeScore: 2 }, { id: "x4", away: A0, home: H0, awayScore: -1, homeScore: 2 }] };
+  const RM = U.buildModel(pay);
+  ok(RM.recentFinals.length === 1 && RM.recentFinals[0].gi === 0 && RM.recentFinals[0].state === "post" && RM.recentFinals[0].homeScore === 22, "only a final the engine still simulates, checked again");
+  ok(U.resultGames(RM).length === RM.games.length + 1 && RM.gameByKey[g0[0]] === RM.recentFinals[0], "counted with this week's games and findable by its id");
+  const inp = U.feedInputs(RM, { origin: "live", fetchedAt: Date.now(), fails: 0 }, Date.now());
+  ok(inp.picks[0] === 2 && inp.finals === 1, "the simulation takes the home win as a result");
+  const rec = U.recordOf(g0[3], RM), base = U.recordOf(g0[3], U.buildModel(Object.assign({}, pay, { recentFinals: [] })));
+  ok(rec.w === base.w + 1 && rec.feed === 1, "the team's record includes it");
+  const both = U.buildModel(Object.assign({}, pay, { games: [{ id: "g1", gid: g0[0], week: g0[1], kickoff: "2026-11-24T01:15:00Z", away: A0, home: H0, state: "post", awayScore: 20, homeScore: 22, period: 4, clock: "0:00", source: "espn-scoreboard", venue: {} }] }));
+  ok(both.recentFinals.length === 0 && U.feedInputs(both, {}, Date.now()).finals === 1, "never counted twice when this week's games already have it");
+  // the page showing the final's own week from its schedule: a placeholder for the game must not hide the final
+  const same = U.buildModel(Object.assign({}, pay, { week: g0[1] }));
+  ok(same.games.some((x) => x.gi === 0 && !x.fromFeed) && same.recentFinals.length === 1 && same.gameByKey[g0[0]] === same.recentFinals[0] && U.feedInputs(same, {}, Date.now()).picks[0] === 2,
+    "a schedule placeholder does not hide the final, and the lookup finds the final");
+}
+
 // ---- who is favored, by how much (game cards) ----
 {
   const cin = idx("CIN"), was = idx("WAS");

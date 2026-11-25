@@ -38,7 +38,7 @@ function momentumOf(i, H) {
 // in GAMES), so it matches what the simulation counts. feed: how many of those finals were added.
 function recordOf(i, M) {
   var r = { w: BW[i], l: BL[i], t: BT[i], feed: 0 };
-  (M ? M.games : []).forEach(function (g) {
+  resultGames(M).forEach(function (g) {
     if (g.gi < 0 || g.state !== "post" || (g.away !== i && g.home !== i) || num(g.awayScore) == null || num(g.homeScore) == null) return;
     var mine = g.home === i ? g.homeScore : g.awayScore, theirs = g.home === i ? g.awayScore : g.homeScore;
     if (mine > theirs) r.w++; else if (mine < theirs) r.l++; else r.t++;
@@ -46,7 +46,7 @@ function recordOf(i, M) {
   });
   return r;
 }
-function feedFinalsCount(M) { return (M ? M.games : []).filter(function (g) { return g.gi >= 0 && g.state === "post"; }).length; }
+function feedFinalsCount(M) { return resultGames(M).filter(function (g) { return g.gi >= 0 && g.state === "post"; }).length; }
 function recStr(r) { return r.w + "-" + r.l + (r.t ? "-" + r.t : ""); }
 var CLOSE = (function () {
   var o = TM.map(function () { return [0, 0, 0]; });
