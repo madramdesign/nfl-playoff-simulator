@@ -2,21 +2,29 @@
 // keeps the embedded snapshot and says so. Every 20 s while a game is live, otherwise every 2 minutes; paused while the
 // tab is hidden; backs off (up to 4x) after a failure; a small circuit breaker stops trying for 5 minutes after three
 // failures in a row, then lets one request through. The last good data is kept and marked stale.
-var POLL_LIVE_MS = 20e3, POLL_IDLE_MS = 120e3, BREAKER_TRIP = 3, BREAKER_COOL_MS = 5 * 60e3, FETCH_TIMEOUT_MS = 10e3;
+var POLL_LIVE_MS = 20e3, POLL_IDLE_MS = 120e3, POLL_SOON_MS = 15e3, BREAKER_TRIP = 3, BREAKER_COOL_MS = 5 * 60e3, FETCH_TIMEOUT_MS = 10e3;
 var poll = { timer: 0, inflight: false, fails: 0, breaker: "closed", openedAt: 0, everOk: false, waitingVisible: false, lastTry: 0, lastLatency: null };
 
 function canPoll() { return HAS_DOM && typeof fetch === "function" && /^https?:$/.test(location.protocol); }
-// Pure: how long to wait before the next request.
-function nextPollDelay(anyLive, fails, breaker) {
+// Pure: how long to wait before the next request. soon: no live answer yet, or the last one had sources still loading
+// (a server that has just started answers first with what it has, DEC-025): ask again within 15 s, not 2 minutes.
+function nextPollDelay(anyLive, fails, breaker, soon) {
   if (breaker === "open") return BREAKER_COOL_MS;
   var base = anyLive ? POLL_LIVE_MS : POLL_IDLE_MS;
+  if (soon) base = Math.min(base, POLL_SOON_MS);
   return base * Math.min(4, Math.pow(2, Math.max(0, fails)));
+}
+// Pure: whether a payload has sources still loading.
+function anyLoading(payload) {
+  var ss = payload && payload.sources;
+  return !!ss && Object.keys(ss).some(function (k) { return ss[k] && ss[k].status === "pending"; });
 }
 function schedulePoll() {
   clearTimeout(poll.timer);
   if (!canPoll()) return;
   var M = store.get("model"), anyLive = !!(M && M.games.some(function (g) { return g.state === "in"; }));
-  poll.timer = setTimeout(pollNow, nextPollDelay(anyLive, poll.fails, poll.breaker));
+  var soon = !poll.everOk || (store.get("origin") === "live" && anyLoading(store.get("payload")));
+  poll.timer = setTimeout(pollNow, nextPollDelay(anyLive, poll.fails, poll.breaker, soon));
 }
 function pollNow() {
   if (!canPoll() || poll.inflight) return;
@@ -48,4 +56,4 @@ function startPolling() {
   });
   pollNow();
 }
-NFLU.nextPollDelay = nextPollDelay;
+NFLU.nextPollDelay = nextPollDelay; NFLU.anyLoading = anyLoading;

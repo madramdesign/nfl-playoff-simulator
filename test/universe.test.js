@@ -133,6 +133,9 @@ eq(U.freshness(["open-meteo"], meta({ fails: 2 }), now).state, "stale", "after a
   ok(off.label === "LIVE · 25m" && !off.degraded, "a source switched off on purpose is not counted as degraded");
   const st = U.freshness(["open-meteo", "rss-espn", "odds-api"], meta({ payload: withOff }), now);
   ok(st.label === "LIVE · 25m · 1 degraded" && st.degraded === 1, "a stale source still is, beside one switched off");
+  withOff.sources["odds-api"].status = "pending";
+  const ld = U.freshness(["open-meteo", "rss-espn", "odds-api"], meta({ payload: withOff }), now);
+  ok(ld.label === "LIVE · 25m · 1 degraded · 1 loading" && ld.degraded === 1 && ld.loading === 1, "a source still loading after a start is counted as loading, not degraded");
 }
 eq(U.freshness(["open-meteo"], meta({ payload: pubLive, origin: "snapshot" }), now + 9 * H).label, "SNAPSHOT · 9h old", "a snapshot shows its age");
 eq(U.freshness(["open-meteo"], { payload: null, origin: "none" }, now).label, "UNAVAILABLE", "no payload at all reads UNAVAILABLE");
@@ -243,6 +246,9 @@ ok(sum.lev === null && sum.hist === null, "focus-team figures (lev, hist) are ne
 const lo = U.leagueOnly(E.simulate(E.GAMES.map(() => 0), 0, 200, null, false, null, 3));
 ok(lo.lev === null && lo.hist === null && lo.po.length === E.TM.length && U.leagueOnly(null) === null, "leagueOnly drops them and keeps the league-wide counts");
 ok(U.nextPollDelay(false, 0, "closed") === 120e3 && U.nextPollDelay(true, 0, "closed") === 20e3 && U.nextPollDelay(true, 5, "closed") === 80e3 && U.nextPollDelay(false, 1, "open") === 300e3, "poll timing: 20 s live, 2 min idle, backoff capped at 4x, breaker cool-down");
+ok(U.nextPollDelay(false, 0, "closed", true) === 15e3 && U.nextPollDelay(false, 1, "closed", true) === 30e3 && U.nextPollDelay(true, 0, "closed", true) === 15e3 && U.nextPollDelay(false, 1, "open", true) === 300e3,
+  "no live answer yet, or sources still loading: again within 15 s (doubling after a failure); the breaker still rules");
+ok(U.anyLoading({ sources: { a: { status: "ok" }, b: { status: "pending" } } }) && !U.anyLoading({ sources: { a: { status: "ok" }, b: { status: "disabled" } } }) && !U.anyLoading(null), "a payload with sources still loading");
 
 // ---- feed filter and ticker (expected counts computed from the fixture, not from the code under test) ----
 const inRange = (e, span) => Date.parse(e.ts) >= now - span && Date.parse(e.ts) <= now + 5 * 60e3;

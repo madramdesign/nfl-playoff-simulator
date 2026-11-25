@@ -73,11 +73,13 @@ function sendJson(res, status, obj) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
   res.end(JSON.stringify(obj));
 }
+// How long /api/universe waits for slow sources before answering without them (DEC-025). API_WAIT_MS=0 waits for all.
+function apiWaitMs() { const v = Number(process.env.API_WAIT_MS); return process.env.API_WAIT_MS != null && Number.isFinite(v) && v >= 0 ? v : 6000; }
 async function fabricRoute(url, res) {
   const f = getFabric(), p = url.pathname;
   try {
     if (p === "/api/universe") {
-      const u = await f.universe(), since = Date.parse(url.searchParams.get("since") || "");
+      const u = await f.universe({ waitMs: apiWaitMs() }), since = Date.parse(url.searchParams.get("since") || "");
       return sendJson(res, 200, Number.isFinite(since) ? Object.assign({}, u, { events: u.events.filter((e) => Date.parse(e.seenAt) > since) }) : u);
     }
     if (p === "/api/health") return sendJson(res, 200, f.health());
@@ -180,7 +182,9 @@ if (require.main === module) server.listen(PORT, HOST, () => {
   // Keep live scores and game events current with no page open: only where the live scoreboard is read (local
   // scope); FABRIC_WATCH=0 turns it off. Hosted public servers have no live scoreboard, so they don't poll.
   if (scopes().includes("local") && process.env.FABRIC_WATCH !== "0") getFabric().startWatch();
+  // otherwise start reading every source at once, so the first visitor after a start finds most of it loaded (DEC-025)
+  else getFabric().universe().catch((err) => console.error("fabric warm-up:", err && err.message));
 });
 // setFabric, setLiveFetch, resetLive: tests only
-module.exports = { normalize, server, liveGames, publicFile, cspFor, setFabric: (f) => { fabric = f; },
+module.exports = { normalize, server, liveGames, publicFile, cspFor, apiWaitMs, setFabric: (f) => { fabric = f; },
   setLiveFetch: (f) => { liveFetch = f; }, resetLive: () => { cache = { at: 0, games: [], failedAt: 0, inflight: null }; } };

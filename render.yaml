@@ -7,6 +7,13 @@ services:
     plan: free
     branch: main
     autoDeploy: true            # the daily refresh commit to main redeploys the page
+    # The server reads none of these at run time (only data/news.json and public/): the data fetch, FantasyPros and
+    # fetch-request commits, several a day, no longer restart it, so visitors meet a cold start less often (DEC-025).
+    buildFilter:
+      ignoredPaths:
+        - data/fabric/**
+        - data/fantasypros/**
+        - data/snapshots/**
     buildCommand: node --version   # no dependencies to install
     startCommand: node server.js
     healthCheckPath: /api/health

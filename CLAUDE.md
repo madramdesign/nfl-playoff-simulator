@@ -79,6 +79,7 @@ These predate NFL Universe and remain binding.
 - The engine lives in `<script id="engine">` and must stay free of DOM access so `test/run.js` can load it. Run `npm test` after any engine or server change.
 - Game rows in the data are `[id, week, awayIdx, homeIdx, neutral, dateLabel, homeWinProbOrNull, totalLineOrNull]`. Picks are 0 simulate, 1 away, 2 home.
 - The page must keep working with no `/api/live` (it is also published as a static page), so live-feed code fails silently.
+- `/api/universe` answers within `API_WAIT_MS` (6 s): sources still loading are reported "pending" and filled in on later requests; the schedule and the live scoreboard are always waited for (DEC-025). Render ignores data-only commits (`buildFilter` in `render.yaml`): if the server ever reads another file under `data/`, take its folder out of that list.
 - The live feed has not been verified against the real ESPN endpoint from the sandbox this was built in. First thing to check on a machine with open internet: `npm start`, then open `/api/live` during a game window. (Nov. 21, 2026: the scoreboard endpoint answered from this machine with the expected shape; still unverified during a live game window.)
 - Known gaps: three rarely reached tiebreaker steps are skipped (net points in common or conference games, net touchdowns); ties cannot be picked; in-game model ignores possession and timeouts.
 - Win chances have three modes (`setMode`): 0 sportsbooks, 1 results-based ratings, 2 an even blend (default). `GD` is rebuilt from `GDM` and `GDR` when the mode changes.

@@ -11,7 +11,8 @@ function statusSentence(meta, now) {
   if (meta.fails > 0) return "live feed not answering; last data received " + fmtAge(Math.max(0, (now - meta.fetchedAt) / 1000)) + " ago";
   if (f.state === "stale") return "server answering, but every source is stale; newest data " + f.label.replace(/^STALE · /, "") + " old";
   if (f.state === "unavailable") return "server answering, but every source is down";
-  return "live feed connected" + (f.degraded ? "; " + f.degraded + " source" + (f.degraded > 1 ? "s" : "") + " stale or down" : "");
+  return "live feed connected" + (f.degraded ? "; " + f.degraded + " source" + (f.degraded > 1 ? "s" : "") + " stale or down" : "") +
+    (f.loading ? "; " + f.loading + " source" + (f.loading > 1 ? "s" : "") + " still loading" : "");
 }
 function dataStatusText() { return statusSentence(storeMeta(), Date.now()); }
 NFLU.statusSentence = statusSentence;

@@ -1226,6 +1226,40 @@ test("ESPN's feed: an empty 202 is named, and a source switched off where it can
     assert.ok(both.sources["odds-api"].status === "disabled" && both.sources["odds-api"].note === "Off here (FABRIC_OFF)", "a source with a note of its own still says why it is switched off");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+test("a quick answer leaves slow sources out as pending, always waits for the schedule, and never serves a full caller (DEC-025)", async () => {
+  const base = fakeFetch(); let release; const gate = new Promise((ok) => { release = ok; });
+  const fetchImpl = async (url, o) => {
+    const u = String(url);
+    if (u.includes("sports.yahoo.com")) await gate;                                              // held until released
+    if (u.includes("nfldata/master/data/games.csv")) await new Promise((ok) => setTimeout(ok, 120));   // slower than the wait
+    return base(url, o);
+  };
+  const f = createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl });
+  const t0 = Date.now(), q = await f.universe({ waitMs: 40 });
+  assert.ok(Date.now() - t0 < 2000, "answered without waiting for the held feed");
+  assert.ok(q.sources["rss-yahoo"].status === "pending" && q.sources["rss-yahoo"].lastOk === null && !q.events.some((e) => e.source === "rss-yahoo"), "the slow feed: left out, reported still loading");
+  assert.ok(q.sources["nflverse-games"].status === "ok" && q.games.length > 0, "the schedule is always waited for, even when slower than the wait");
+  assert.deepStrictEqual(C.validateUniverse(q, T), [], "a quick answer passes the contract");
+  const fullP = f.universe();                                                                     // a full caller (the watcher, the snapshot)
+  let fullDone = false; fullP.then(() => { fullDone = true; });
+  await new Promise((ok) => setTimeout(ok, 60));
+  assert.ok(!fullDone, "a full caller is not handed the partial answer");
+  release();
+  const full = await fullP;
+  assert.ok(full.sources["rss-yahoo"].status === "ok" && full.events.some((e) => e.source === "rss-yahoo"), "it waits and gets everything");
+  const q2 = await f.universe({ waitMs: 40 });
+  assert.ok(q2.sources["rss-yahoo"].status === "ok", "the next quick answer has the feed");
+  const srv = require(path.join(root, "server.js")), was = process.env.API_WAIT_MS;
+  try {
+    delete process.env.API_WAIT_MS; assert.strictEqual(srv.apiWaitMs(), 6000, "the page's requests wait 6 s by default");
+    process.env.API_WAIT_MS = "0"; assert.strictEqual(srv.apiWaitMs(), 0, "0 waits for every source");
+    process.env.API_WAIT_MS = "nonsense"; assert.strictEqual(srv.apiWaitMs(), 6000, "anything else: the default");
+  } finally { if (was == null) delete process.env.API_WAIT_MS; else process.env.API_WAIT_MS = was; }
+  assert.ok(/\/api\/universe"\) \{\n\s+const u = await f\.universe\(\{ waitMs: apiWaitMs\(\) \}\)/.test(require("fs").readFileSync(path.join(root, "server.js"), "utf8")), "/api/universe answers quickly");
+  const ry = require("fs").readFileSync(path.join(root, "render.yaml"), "utf8");
+  assert.ok(/buildFilter:\n\s+ignoredPaths:\n\s+- data\/fabric\/\*\*\n\s+- data\/fantasypros\/\*\*\n\s+- data\/snapshots\/\*\*/.test(ry) && !/- data\/news/.test(ry) && !/- public/.test(ry),
+    "Render skips data-only commits, but not the curated news or the page, which the server reads");
+});
 test("the page policy hashes scripts the way the browser does", () => {
   const { cspFor } = require(path.join(root, "server.js"));
   const lf = "<html><script>var a = 1;\nvar b = 2;</script><script src=\"x.js\"></script></html>";

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (the hosted site after a restart)
+- After a restart, or when Render's free plan wakes it, the hosted site needed about half a minute to read every source, so the page fell back to the saved snapshot and waited 4 minutes before asking again. The server now answers within 6 seconds with what it has, marks the rest "loading" and finishes them in the background, and the page asks again within 15 seconds. Render no longer restarts the site for commits that only change the data files it does not read (DEC-025).
+
 ## 2026-11-25 (status bar)
 - The top bar no longer counts a source that is switched off on purpose as "degraded": on the hosted site The Odds API is off (no key there), which made it read "1 degraded" all the time. A source that is stale, down or still loading still counts. A switched-off source's reason now always shows in the status panel.
 
