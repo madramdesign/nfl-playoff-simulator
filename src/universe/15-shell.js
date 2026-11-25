@@ -200,5 +200,5 @@ function renderFooter(host) {
   clearNode(host);
   host.appendChild(el("p", {}, ["Schedule, results and betting lines: nflverse. ", D.qbCredit ? "Quarterback values: nfelo (nfeloapp.com). " : "", "Weather: ",
     el("a", { href: "https://open-meteo.com/", target: "_blank", rel: "noopener", text: "Open-Meteo" }), ", or the ", el("a", { href: "https://www.weather.gov/", target: "_blank", rel: "noopener", text: "National Weather Service" }), " when it has no forecast. Headlines link to their publishers and are shown as published. ",
-    "Injury burden, weather flags and news importance are descriptions, not part of the forecast. An independent fan project, not affiliated with the NFL, any team or any publisher."]));
+    D.odds ? "Sportsbook consensus lines: The Odds API. " : "", "Injury burden, weather flags and news importance are descriptions, not part of the forecast. An independent fan project, not affiliated with the NFL, any team or any publisher."]));
 }

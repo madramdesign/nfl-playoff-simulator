@@ -102,6 +102,7 @@ Start with `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` for what exis
 | `scripts/history.js` | Runs the engine on past weeks for the odds-by-week chart. |
 | `scripts/backtest.py`, `scripts/backtest_adjustments.py` | Replays 2021-2025 to choose rating weights (need numpy). |
 | `scripts/evaluate.py` | Backtest, calibration, analogs and narrative tests; writes `data/model_report.json`. |
+| `scripts/fetch_odds.py` | Sportsbook consensus from The Odds API (GitHub Action `odds.yml`, secret `ODDS_API_KEY`); writes `data/odds/`. |
 | `scripts/calibration.py` | Scores this season's saved forecasts (`data/snapshots/`) against results: `npm run calibration`. See `docs/CALIBRATION.md`. |
 | `docs/` | Audit, research, models, backtesting, red team, roadmap, changelog. |
 | `test/run.js` | Checks for the engine and the feed parser (`npm test`); also runs `test/fabric.test.js`. |

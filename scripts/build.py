@@ -124,6 +124,38 @@ def fantasypros_qb(text, season):
         if pts >= 5 and _plain(name) != _plain(last[team]): out[str(order.index(team))] = {"proj": name, "last": last[team], "points": round(pts, 1)}
     return {"week": week, "fetched": raw["fetched"][:10], "teams": out}
 
+def odds_board(data, today=None):
+    """Sportsbook consensus per remaining game from data/odds/ (written by scripts/fetch_odds.py from The Odds API):
+    the first line we recorded and the newest, for the home win chance (margin removed), home spread and total.
+    Shown beside the forecast only. It is not a model input: the win chances still come from the nflverse line and the
+    ratings, and would change only after a backtest. Skipped when the file is more than two days old, so an old line
+    is never shown as current."""
+    lp, hp = os.path.join(ROOT, "data", "odds", "latest.json"), os.path.join(ROOT, "data", "odds", "history.json")
+    if not os.path.exists(lp): return None
+    try:
+        latest = json.load(open(lp)); fetched = datetime.datetime.fromisoformat(latest["fetched"].replace("Z", "+00:00"))
+        hist = json.load(open(hp)).get("games", {}) if os.path.exists(hp) else {}
+    except Exception as err:
+        print("sportsbook lines file could not be read:", err); return None
+    now = today or datetime.datetime.now(datetime.timezone.utc)
+    if (now - fetched).total_seconds() > 2 * 86400: print("sportsbook lines are more than two days old; skipped"); return None
+    abbr = [t["a"] for t in data["teams"]]; out = {}
+    ok = lambda v, lo, hi: isinstance(v, (int, float)) and not isinstance(v, bool) and lo <= v <= hi
+    for g in data["games"]:
+        key = abbr[g[2]] + "@" + abbr[g[3]]; cur = latest.get("games", {}).get(key)
+        if not isinstance(cur, dict): continue
+        pts = (hist.get(key) or {}).get("points") or []
+        first = pts[0] if pts and isinstance(pts[0], dict) else None
+        row = {"books": cur.get("books") if ok(cur.get("books"), 1, 99) else None, "openAt": first.get("at") if first and len(pts) > 1 else None}
+        for f, lo, hi in (("homeProb", 0, 1), ("spread", -40, 40), ("total", 15, 90)):
+            c = cur.get(f) if ok(cur.get(f), lo, hi) else None
+            o = first.get(f) if first and len(pts) > 1 and ok(first.get(f), lo, hi) else None
+            row[f] = None if c is None else {"open": o, "current": c}
+        if row["homeProb"] or row["spread"] or row["total"]: out[g[0]] = row
+    if not out: return None
+    print(f"sportsbook consensus: {len(out)} games, fetched {latest['fetched']}")
+    return {"fetched": latest["fetched"], "source": "The Odds API", "games": out}
+
 def qb_shift(text, season, qb_text, asof=None, news=None):
     """Rating shift for each team's results rating when its current quarterback differs in quality from the ones who
     produced its results: (current starter's pre-game adjustment) - (average adjustment over the season so far), in rating points.
@@ -314,6 +346,7 @@ def reuse():
     m = re.search(r"^var D=(\{.*\});$", built, re.M)
     if not m: raise SystemExit("public/index.html has no data line to reuse; run a full build")
     data = json.loads(m.group(1)); data["fabric"] = fabric_bootstrap(); data["eventArchive"] = event_archive()   # [S-C time machine]
+    data["odds"] = odds_board(data)   # sportsbook consensus is a data file, not part of the model, so --reuse refreshes it too
     page = open(os.path.join(ROOT, "src", "template.html")).read()
     open(os.path.join(ROOT, "public", "index.html"), "w").write(assemble(page, data))
     print("rebuilt public/index.html from the template, keeping data built", data.get("built"))
@@ -348,6 +381,7 @@ def main():
         except Exception as err: print("injury report unavailable, quarterback flags skipped:", err); inj = None
     data["qb"], data["qbWeek"] = qb_flags(text, a.season, inj)
     data["fp"] = fantasypros_qb(text, a.season)
+    data["odds"] = odds_board(data)
     report_path = os.path.join(ROOT, "data", "model_report.json")
     if os.path.exists(report_path): data["report"] = json.load(open(report_path))
     page = open(os.path.join(ROOT, "src", "template.html")).read()

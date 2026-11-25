@@ -55,6 +55,14 @@
 - Not exercised: an alert raised by a real poll (alerts were driven through the store), a real two-source injury conflict, screen readers, Safari and Firefox.
 - Open: add a disagreeing injury to `test/fixtures/make-fixtures.js`; a replay marker in the brief and team drawer; compare tiebreakers with nflseedR; the hosted Render site is unverified.
 
+## Nov. 25, 2026: The Odds API wired; where the keys are (branch `claude/kind-bohr-75erpe`, committed locally)
+- The owner's FantasyPros and Odds API keys are GitHub repository secrets only (`FANTASYPROS_API_KEY`, `ODDS_API_KEY`); recorded in `CLAUDE.md`.
+- New: `scripts/fetch_odds.py`, `.github/workflows/odds.yml`, `D.odds` in the build, a "Sportsbook consensus" block in the game detail (DEC-022). `npm test` has seven `ok` lines (odds test added).
+- Checked: `npm test`; a dry run with synthetic lines through the fetch script (`--from-file`), the build and the browser. The synthetic files were deleted and the page rebuilt without them.
+- Not checked: any real response from The Odds API (no key outside GitHub), so field names are unverified. The secret must be named `ODDS_API_KEY`.
+- FantasyPros: `data/fantasypros/` was still empty on `main` on Nov. 23, so its action had not delivered data. Its run log could not be read on Nov. 25 (GitHub was answering 503 from the cloud session; nothing could be fetched or pushed). Only a quarterback-change line in the simulator uses it; injury news and players are fetched and unused.
+- Unknown on Nov. 25 for the same reason: whether pull request #4 has been merged.
+
 ## Repository reality
 - Stack: plain JavaScript page built into one HTML file, dependency-free Node server, standard-library Python build, numpy only for offline evaluation.
 - What runs: `npm start` serves the page and the APIs on http://localhost:3000 (this machine only). The page opens on the command center; `?view=sim` is the original simulator.

@@ -1,0 +1,11 @@
+[
+ {"id":"e1","sport_key":"americanfootball_nfl","commence_time":"2026-11-29T18:00:00Z","home_team":"Indianapolis Colts","away_team":"New York Giants","bookmakers":[
+  {"key":"a","title":"Book A","markets":[{"key":"h2h","outcomes":[{"name":"Indianapolis Colts","price":-150},{"name":"New York Giants","price":130}]},{"key":"spreads","outcomes":[{"name":"Indianapolis Colts","price":-110,"point":-3.0},{"name":"New York Giants","price":-110,"point":3.0}]},{"key":"totals","outcomes":[{"name":"Over","price":-110,"point":44.5},{"name":"Under","price":-110,"point":44.5}]}]},
+  {"key":"b","title":"Book B","markets":[{"key":"h2h","outcomes":[{"name":"Indianapolis Colts","price":-160},{"name":"New York Giants","price":140}]},{"key":"spreads","outcomes":[{"name":"Indianapolis Colts","price":-105,"point":-3.5},{"name":"New York Giants","price":-115,"point":3.5}]}]},
+  {"key":"c","title":"Book C","markets":[{"key":"h2h","outcomes":[{"name":"Indianapolis Colts","price":0},{"name":"New York Giants","price":140}]},{"key":"totals","outcomes":[{"name":"Over","price":-110,"point":45.5}]}]}]},
+ {"id":"e2","sport_key":"americanfootball_nfl","commence_time":"2026-11-29T21:25:00Z","home_team":"Los Angeles Rams","away_team":"Green Bay Packers","bookmakers":[
+  {"key":"a","title":"Book A","markets":[{"key":"h2h","outcomes":[{"name":"Los Angeles Rams","price":100},{"name":"Green Bay Packers","price":-120}]}]}]},
+ {"id":"e3","commence_time":"2026-11-29T18:00:00Z","home_team":"London Monarchs","away_team":"New York Giants","bookmakers":[]},
+ {"id":"e4","commence_time":"2026-11-30T18:00:00Z","home_team":"Dallas Cowboys","away_team":"Philadelphia Eagles","bookmakers":[]},
+ "not an event"
+]
