@@ -1222,6 +1222,8 @@ test("ESPN's feed: an empty 202 is named, and a source switched off where it can
     process.env.FABRIC_OFF = " rss-espn , nothing-such ";
     try { assert.strictEqual((await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl }).universe()).sources["rss-espn"].status, "disabled", "FABRIC_OFF in the environment does the same"); }
     finally { delete process.env.FABRIC_OFF; }
+    const both = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl, off: ["odds-api"] }).universe();
+    assert.ok(both.sources["odds-api"].status === "disabled" && both.sources["odds-api"].note === "Off here (FABRIC_OFF)", "a source with a note of its own still says why it is switched off");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test("the page policy hashes scripts the way the browser does", () => {

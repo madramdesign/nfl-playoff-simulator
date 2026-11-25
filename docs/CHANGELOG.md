@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (status bar)
+- The top bar no longer counts a source that is switched off on purpose as "degraded": on the hosted site The Odds API is off (no key there), which made it read "1 degraded" all the time. A source that is stale, down or still loading still counts. A switched-off source's reason now always shows in the status panel.
+
 ## 2026-11-25 (ESPN's headlines on GitHub)
 - ESPN's headline feed stopped answering GitHub's servers on Nov. 24: its content network gives them an empty answer, while the hosted site and the owner's computer still get the feed. Rather than show week-old ESPN headlines on the published page or try to get around ESPN's refusal, the feed is now switched off in the GitHub jobs and the status panel says why. The hosted site and the local server keep ESPN's headlines (DEC-024).
 

@@ -126,6 +126,14 @@ ok(U.freshness(["open-meteo"], meta(), now).label === "LIVE · 25m", "a healthy 
 eq(U.freshness(["rss-espn"], meta(), now).state, "stale", "a stale source reads STALE");
 eq(U.freshness(["espn-transactions"], meta(), now).label, "UNAVAILABLE", "a down source reads UNAVAILABLE");
 eq(U.freshness(["open-meteo"], meta({ fails: 2 }), now).state, "stale", "after a failed poll, live data is marked stale");
+{
+  const withOff = JSON.parse(JSON.stringify(live));
+  withOff.sources["odds-api"] = Object.assign({}, withOff.sources["open-meteo"], { id: "odds-api", label: "The Odds API", status: "disabled", lastOk: null, ageSec: null, note: "Off: set ODDS_API_KEY on the server to switch it on" });
+  const off = U.freshness(["open-meteo", "odds-api"], meta({ payload: withOff }), now);
+  ok(off.label === "LIVE · 25m" && !off.degraded, "a source switched off on purpose is not counted as degraded");
+  const st = U.freshness(["open-meteo", "rss-espn", "odds-api"], meta({ payload: withOff }), now);
+  ok(st.label === "LIVE · 25m · 1 degraded" && st.degraded === 1, "a stale source still is, beside one switched off");
+}
 eq(U.freshness(["open-meteo"], meta({ payload: pubLive, origin: "snapshot" }), now + 9 * H).label, "SNAPSHOT · 9h old", "a snapshot shows its age");
 eq(U.freshness(["open-meteo"], { payload: null, origin: "none" }, now).label, "UNAVAILABLE", "no payload at all reads UNAVAILABLE");
 eq(U.freshness([], meta(), now).state, "model", "model-only panels say so");

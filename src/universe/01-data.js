@@ -358,7 +358,9 @@ function freshness(ids, meta, now) {
   var gen = Date.parse(P.generatedAt), base = meta.origin === "live" && meta.fetchedAt ? Math.max(0, (now - meta.fetchedAt) / 1000) : Math.max(0, (now - gen) / 1000);
   var ageOf = function (s) { if (num(s.ageSec) != null) return s.ageSec + base; var t = Date.parse(s.lastOk || ""); return isFinite(t) && isFinite(gen) ? Math.max(0, (gen - t) / 1000) + base : null; };
   var ages = usable.map(ageOf).filter(function (a) { return a != null; }), youngest = ages.length ? Math.min.apply(null, ages) : null;
-  var bad = ss.length - ss.filter(function (s) { return s.status === "ok"; }).length;
+  // a source switched off on purpose (no key on this server, or refused here: DEC-024) is not a fault, so not "degraded"
+  var on = ss.filter(function (s) { return s.status !== "disabled"; });
+  var bad = on.length - on.filter(function (s) { return s.status === "ok"; }).length;
   var tip = ss.map(function (s) { var a = ageOf(s); return s.label + ": " + s.status + (a != null ? ", " + fmtAge(a) + " old" : ""); }).join("; ");
   if (meta.origin === "snapshot") return { state: "snapshot", label: "SNAPSHOT · " + (youngest == null ? "age unknown" : fmtAge(youngest) + " old"), title: "Saved snapshot, not live. " + tip };
   var allStale = !ss.some(function (s) { return s.status === "ok"; });
