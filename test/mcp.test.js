@@ -292,6 +292,9 @@ test("with every source offline, answers say so instead of looking empty", async
     try { await fn(); } catch (err) { failed++; console.error("FAIL " + name + "\n  " + ((err && err.stack) || err).split("\n").slice(0, 5).join("\n  ")); }
   }
   for (const c of children) if (c.exitCode === null) c.kill();
+  // the deadline guards these tests only: test/run.js runs the fabric suite in the same process, and its own length must
+  // not fail them after they have finished
+  clearTimeout(deadline);
   if (failed) { console.error(failed + " of " + tests.length + " MCP tests failed"); process.exit(1); }
   console.log("ok: " + tests.length + " MCP tests pass (" + ((Date.now() - t0) / 1000).toFixed(1) + " s)");
 })();

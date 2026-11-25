@@ -3,17 +3,26 @@ name: Fetch FantasyPros data
 # Runs on GitHub's servers, which can reach the FantasyPros API. The key lives in the repository secret
 # FANTASYPROS_API_KEY (Settings > Secrets and variables > Actions) and is never written to a file. This repository is
 # public, so only data/fantasypros/qb_top.json is committed (each team's top-projected quarterback, credited);
-# FantasyPros's raw answer is never written into it. One call a day of the 100 the free key allows.
+# FantasyPros's raw answer is never written into it. One or two calls a day of the 500 the owner's plan allows.
 on:
+  push:
+    branches: [main]
+    paths: [data/fabric/fetch-request.json]   # the daily refresh's request starts it too (DEC-023)
   schedule:
-    - cron: "10 8 * * *"   # daily, about 3:10 AM Eastern, before the page refresh
+    - cron: "10 8 * * *"   # daily, about 3:10 AM Eastern, before the page refresh (often late: see DEC-023)
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: fantasypros        # a scheduled run and a requested one never call the API at the same time
+  cancel-in-progress: false
+
 jobs:
   fetch:
+    # only from main: a manual run on another branch must never push that branch's code to main
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +48,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/fantasypros/qb_top.json
-          git diff --cached --quiet || git commit -m "FantasyPros quarterback projections (top per team)"
-          git pull --rebase origin main
-          git push origin HEAD:main
+          if git diff --cached --quiet; then echo "Nothing changed."; exit 0; fi
+          git commit -m "FantasyPros quarterback projections (top per team)"
+          # the data fetch is often pushing at the same moment: fetch, rebase and try again
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if git rebase origin/main && git push origin HEAD:main; then exit 0; fi
+            git rebase --abort 2>/dev/null || true
+            sleep 15
+          done
+          echo "::warning::The FantasyPros file could not be pushed to main."
+          exit 1

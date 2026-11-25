@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (the refresh asks for its data)
+- GitHub's scheduler skipped the data fetch for almost a day, which the morning refresh depends on. The refresh can now ask for a fetch itself: it pushes a small request file to `main`, which starts the data fetch and the FantasyPros job at once, and it waits up to 10 minutes for the new snapshot. If nothing arrives, it carries on as before. The FantasyPros job also gained the data fetch's safeguards: it runs only from `main` and retries a push that races another commit (DEC-023).
+
 ## 2026-11-25 (NFL TV on the hosted site)
 - Checked on Render: five of the twelve videos played, the same four were refused as on the owner's computer and skipped, and three were press conferences posted as live streams starting hours later, where NFL TV stood still on "Live in 4 hours". Such streams now go to the end of the reel, behind press sessions that have happened, and one still not started after 12 seconds on screen is skipped for the visit.
 

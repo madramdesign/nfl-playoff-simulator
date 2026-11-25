@@ -11,6 +11,28 @@
 | M8 media center | `worktree-nfl-universe` (agent branch `worktree-agent-adaeb813e8038ab4d` at `d0ee0fe` merged) | Orchestrator, frontend, researcher | Diff read; browser check of real playback; independent review: 3 blocking and 11 non-blocking findings, all fixed (`e2e607e`) | `npm test`: engine, 37 fabric, 4 MCP, 174 interface checks; podcast-survives-refresh and live links checked in the browser | Squash-merged into `main` as `0523d28` (owner approved, Nov. 21) | Staged tree identical to the tested branch; `npm test` passed in the main checkout |
 | Integration branch into `main` | `worktree-nfl-universe` at `d72f306` | Owner approved (Nov. 21) | Staged tree identical to the tested branch | `npm test` (4 suites) passed in the main checkout before committing | Squash-merged as `8bd0cff` | Squashed so the ESPN-derived fixture from early in the session is not in `main`'s history (DEC-006) |
 
+### Releases to `main`, Nov. 23–25, 2026
+Each is one squash commit of the integration branch on top of the latest `main`, made on the owner's "Merge and push": the built page is taken from `main` and rebuilt with `build.py --reuse`, `npm test` passes on the result before the push, and `main` is then merged back so both branches hold the same files.
+
+| `main` commit | What | Checks before the push |
+|---|---|---|
+| `51d632d` | Movable panels, feed fix for fresh starts, live check notes | `npm test` |
+| `b005ba2` | Map helmets, live-data heartbeat, honest game-event times | `npm test` |
+| `45de1af` | Depth charts, player crosswalk, Sleeper trends | `npm test` |
+| `c82413f` | Snapshot carry-forward (F01 parts 1–2) | `npm test` |
+| `4ac195f` | Reliability batch (F31, F01 parts 3–4, F30) | `npm test`, independent review |
+| `8273924` | More odds sources and what moved the odds (F23, NWS, F24, F04) | `npm test` |
+| `4e8a71b` | Model events in the feed (F22) | `npm test` |
+| `90b8d07` | Panel layout: second review's fixes | `npm test` |
+| `aacfd1c` | Preview reads the owner's environment; first real Odds API call recorded | `npm test` |
+| `41b5c0d` | Daily data fetch on GitHub Actions; the refresh keeps a fresh snapshot (DEC-021) | `npm test` |
+| `826b110` | Game cards: both teams' chances to win, favorite marked | `npm test` |
+| `e8a88fa` | Week rollover with recent finals; data fetch every 3 hours | `npm test` |
+| `e22830b` | FantasyPros: only each team's top-projected quarterback | `npm test` |
+| `564ea6a` | FantasyPros: names compared without suffixes; free agents dropped | `npm test` |
+| `e29dcd6` | NFL TV (DEC-022) | `npm test`; browser on localhost |
+| `783c7b7` | NFL TV: live streams not yet started go last and are skipped | `npm test` (one rerun after a 25-second timer tripped under load); browser on Render after the push |
+
 ## Review checklist
 - [ ] Scope and acceptance criteria satisfied
 - [ ] Diff reviewed; no unrelated changes

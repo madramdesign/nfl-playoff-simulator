@@ -38,6 +38,13 @@ Each write-capable stream has its own git worktree and branch, owns a fixed set 
 | WS7 | Channel id research | researcher (read-only) | none | nothing | | Done |
 | WS8 | Media interface | frontend | own worktree and branch | `src/universe/**`, `test/universe.test.js` | contract `media` block, fixtures | Done, merged, reviewed |
 
+## Later streams
+
+| ID | Stream | Agent | Worktree / branch | Owns (writes) | Status |
+|---|---|---|---|---|---|
+| WS9 | Movable, resizable panels | frontend | `worktree-panel-layout` | `src/universe/17-layout.js`, small changes to `06-panel.js`, `15-shell.js`, `99-boot.js`, CSS, `test/layout.test.js` | Done, reviewed twice, on `main` |
+| WS10 | Backlog work Nov. 23–25 | orchestrator | integration branch | as each item needs | Done, on `main`; one task at a time, no parallel writers |
+
 ## Ordering
 
 ```

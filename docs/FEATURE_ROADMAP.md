@@ -8,6 +8,12 @@
 >
 > **Revisions.** Re-rank when circumstances change, and record the change in the history at the bottom.
 
+## Status on Nov. 25, 2026
+- **Done:** F01, F22, F30, F31 (items 1–7), F24 (consensus), F53 NFL TV.
+- **Partly done:** F04 (team split; division and Super Bowl split open), F23 (history; sparkline and anomaly flags open), F29 (NWS alerts; weather-on-totals backtest open), F15 and F16 (crosswalk and starter labels only).
+- **Blocked or on hold:** F14 (club permission), F02 (owner: "Not now"), F11–F13 (DEC-009), F18 (owner decision).
+- **Next, in order:** F35, F17, F40 then F09, F20 after a real game check, then Phase 2 (F05, F07, F08, F06, F34). New since the first version: F54 live news on the front page (Research).
+
 ## Priority tiers
 
 ### P0: do next (highest value, data already in hand)
@@ -116,10 +122,12 @@ The steps below are grouped into the five phases from the research. A step in a 
 |---|---|
 | DEC-009: language-model provider and monthly ceiling | F11, F12, F13 |
 | Storing Web Push subscriptions | F10 stage 2, F39 |
-| The Odds API free key | F24 |
+| The Odds API free key (settled Nov. 25: set) | F24 |
 | Sleeper league access (ids kept in environment variables) | F18 |
-| Render deploy and where the refresh runs | F01 backup workflow, F09 hosted feeds, F10 |
+| Render deploy and where the refresh runs (settled: Render, DEC-018; claude.ai routine plus GitHub Actions, DEC-021) | F01 backup workflow, F09 hosted feeds, F10 |
+| YouTube API Services: privacy-policy agreement and Made for Kids checks (DEC-022) | F53, the media panel |
 | Written permission from Kalshi or Polymarket (or drop) | deferred F25/F50 |
 
 ## History
 - **2026-11-23:** first version, from the feature research of the same day.
+- **2026-11-25:** status section added; F24 done for the consensus; F53 (NFL TV) done and F54 (live news on the front page) added at the owner's request; F02 on hold.

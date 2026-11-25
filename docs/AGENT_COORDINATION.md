@@ -6,6 +6,8 @@ The orchestrator is the single owner of task assignment, dependency tracking, re
 Claude Code creates subagent worktrees from `main`. Every implementation agent first runs `git merge worktree-nfl-universe` in its own worktree (DEC-011).
 
 ## Active agents and worktrees
+Nov. 25, 2026: no agents are running. Since Nov. 23 the orchestrator has worked on the integration branch one task at a time and released each to `main` as a squash commit on the owner's word ([INTEGRATION_QUEUE.md](INTEGRATION_QUEUE.md)). Three finished worktrees are still on disk (`agent-ad1ce008d0e55eb4f`, `agent-adaeb813e8038ab4d`, `panel-layout`); they are merged and can be removed with the owner's OK.
+
 | Agent | Task | Branch | Worktree path | Owned paths | Dependencies | Status |
 |---|---|---|---|---|---|---|
 | Orchestrator (also data-platform) | NU-001 to NU-006 | `worktree-nfl-universe` | `.claude/worktrees/nfl-universe` | `docs/`, `CLAUDE.md`, `.claude/`, `lib/`, `shared/`, `server.js`, `scripts/build.py`, `scripts/fabric-snapshot.js`, `data/fabric/`, `test/` except files listed for others | None | Active |
@@ -14,6 +16,7 @@ Claude Code creates subagent worktrees from `main`. Every implementation agent f
 | Frontend | NU-007 | `worktree-agent-adaeb813e8038ab4d` | `.claude/worktrees/agent-adaeb813e8038ab4d` | `src/universe/**`, shell markup and simulator deferral in `src/template.html`, `scripts/gen_geo.py`, `test/universe.test.js`, `package.json` test script, `docs/AGENT_STATUS/WS2-frontend.md` | NU-004, plan approval (given) | Done, merged with review fixes |
 | MCP | NU-008 | `worktree-agent-ad1ce008d0e55eb4f` | `.claude/worktrees/agent-ad1ce008d0e55eb4f` | `mcp/**`, `test/mcp.test.js`, `docs/MCP_ARCHITECTURE.md`, `docs/AGENT_STATUS/WS4-mcp.md` | NU-006 (done) | Done, merged |
 | QA / red team | NU-009 | none (read-only) | none | none | NU-006 to NU-008 merged | Done |
+| Frontend (panel layout) | NU-015 | `worktree-panel-layout` | `.claude/worktrees/panel-layout` | `src/universe/17-layout.js`, panel and shell changes, `test/layout.test.js` | NU-007 | Done; first review merged Nov. 22, second review's fixes (`a6cd2b7`) taken by hand Nov. 23 |
 
 ## Task queue
 | ID | Task | Priority | Owner | Dependencies | Acceptance criteria | Status |
@@ -33,6 +36,9 @@ Claude Code creates subagent worktrees from `main`. Every implementation agent f
 | NU-013 | M8 review and browser check of real playback | P1 | QA, orchestrator | NU-010 to NU-012 | Blocking findings fixed | Done |
 | NU-009 | Independent review of merged work | P1 | QA / red team | NU-006–008 | Blocking issues listed separately | Done: fabric and interface reviewed; all findings fixed |
 | NU-014 | Feature research and roadmap (five read-only research streams, Nov. 23) | P1 | Orchestrator + researchers | none | `FEATURE_RESEARCH.md`, `FEATURE_BACKLOG.md`, `FEATURE_ROADMAP.md` | Done (docs only); implementation follows `FEATURE_ROADMAP.md` Phase 1 |
+| NU-015 | Movable, resizable panels | P1 | Frontend | NU-007 | Layout checks; browser at desktop and phone widths | Done, reviewed twice, on `main` |
+| NU-016 | Backlog work Nov. 23–25 (F01, F04, F22, F23, F24, F29 alerts, F30, F31, data fetch on GitHub, week rollover, FantasyPros, NFL TV) | P0–P1 | Orchestrator | per item | per item, in `FEATURE_BACKLOG.md` | Done, on `main`; see `INTEGRATION_QUEUE.md` |
+| NU-017 | What is left on Nov. 25 | | Orchestrator | | | Listed at the top of `CURRENT_STATE.md` |
 
 ## Questions from the paused frontend work (answered Nov. 21 when NU-007 restarted)
 | From | Question | Proposed answer |

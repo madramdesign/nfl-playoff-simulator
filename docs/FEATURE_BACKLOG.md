@@ -19,7 +19,7 @@
 
 ## FEATURE-F01 — Snapshot carry-forward and refresh health
 
-Status: Done (Nov. 23): parts 1–2 in `lib/fabric/carry.js`, `scripts/fabric-snapshot.js`, `data/fabric/runs.json`; parts 3–4 in `.github/workflows/refresh-backup.yml` and `scripts/refresh-status.js` (the owner is told through one GitHub issue labelled `data-refresh`; a push channel waits for F10). Not yet run on GitHub.
+Status: Done (Nov. 23): parts 1–2 in `lib/fabric/carry.js`, `scripts/fabric-snapshot.js`, `data/fabric/runs.json`; parts 3–4 in `.github/workflows/refresh-backup.yml` and `scripts/refresh-status.js` (the owner is told through one GitHub issue labelled `data-refresh`; a push channel waits for F10). The backup refresh first ran on GitHub on Nov. 25 (02:37 UTC, about 8 hours after its time); the carry-forward has kept ESPN's headlines since that feed started failing from GitHub on Nov. 24.
 Priority: P0 · Score 79.2 · Size S
 Category: Reliability / Automation
 Tag: EXISTING—IMPROVE (`scripts/fabric-snapshot.js`)
@@ -62,7 +62,7 @@ Implementation Plan:
 
 ## FEATURE-F02 — "What does my team need?" path and rooting guide
 
-Status: Research
+Status: Research; on hold (owner: "Not now", Nov. 25, 2026)
 Priority: P0 · Score 86.7 · Size M
 Category: Analytics / UX
 Tag: EXISTING—IMPROVE (engine `watch`, leverage row colouring in the simulator, the brief's "most important game")
@@ -633,7 +633,7 @@ Risk: thin history before Nov. 20.
 
 ## FEATURE-F24 — Multi-book odds (The Odds API free tier)
 
-Status: In progress (Nov. 23, 2026): adapter built and tested on fixtures, off until the owner sets `ODDS_API_KEY` (DEC-019). Every 8 h on the server plus the daily snapshot; the published page carries the median line only; each book's prices only on the local server. Not yet run against the real API. Futures not built.
+Status: Done for the consensus (Nov. 25, 2026; DEC-019): the owner's key is on the Mac and in the GitHub secret `ODDS_API_KEY`. First real runs: Nov. 23 from the Mac (14 games, 8 books each); Nov. 25 on GitHub (16 of 16 games, 485 credits left). At most once every 11 hours per place; the published page carries the median line only; each book's prices only on the local server. Futures not built.
 Priority: P2 · Score 60.1 · Size M
 Category: Markets
 Tag: NEW
@@ -680,7 +680,7 @@ Dependencies: none. Unblocks F03.
 
 ## FEATURE-F29 — NWS venue alerts and weather-on-totals backtest
 
-Status: Research
+Status: Partly done (Nov. 23): NWS alerts for outdoor stadiums (`nws-alerts`, `games[].alerts`, shown in the game panel and feed); the weather-on-totals backtest is open
 Priority: P2 · Score 56.6 · Size S
 Category: Data
 Tag: NEW
@@ -691,7 +691,7 @@ Proposed Solution:
 
 ## FEATURE-F30 — Scheduled source-drift check
 
-Status: Done (Nov. 23): `.github/workflows/source-check.yml`, `scripts/source-check.js`; one issue labelled `source-drift`, closed when every source passes again. Not yet run on GitHub.
+Status: Done (Nov. 23): `.github/workflows/source-check.yml`, `scripts/source-check.js`; one issue labelled `source-drift`, closed when every source passes again. First run on GitHub Nov. 24 (21:28 UTC): it opened issue #5 for ESPN's RSS feed, which answers GitHub's servers with something other than RSS.
 Priority: P1 · Score 69.8 · Size S
 Category: Reliability / Developer tools
 Tag: NEW
@@ -828,6 +828,23 @@ Proposed Solution:
 - Propose candidate `qb_change` items when a depth-chart QB1 changes, the starting QB is listed Out, or clustered tier-1/2 headlines say "will start".
 - Each candidate carries its source URLs.
 - Written to `data/news.proposed.json` for review. Never auto-published: the constitution forbids invented items.
+
+---
+
+## FEATURE-F53 — NFL TV: official videos playing at page load
+
+Status: Done (Nov. 25, 2026; DEC-022). Owner: "i want something playing at page load", pointing at the NFL Channel on NFL.com, which offers no embed.
+- Built: a panel at the top of the right column that plays the teams' newest press sessions, then the league's newest videos, muted, by itself on wide screens while on screen; YouTube's official player API skips videos the NFL blocks on this site and remembers them in the browser; scheduled live streams go last and one not started after 12 seconds is skipped; links to the NFL Channel and the NFL's YouTube live page.
+- Checked: localhost and Render (Nov. 25): five of twelve played on Render, and a live Jaguars press conference played there by itself.
+- Open: the owner decisions under DEC-022 (privacy-policy agreement, Made for Kids checks).
+
+---
+
+## FEATURE-F54 — Live news on the front page (World Monitor style)
+
+Status: Research. Owner asked on Nov. 25, 2026: "can we add any live NFL news to the front page like world dashboard?"
+- NFL TV (F53) answered the video part. A fuller live news panel, with a search for more lawful news sources alongside, was proposed and not yet chosen.
+- Constraints: club feeds are blocked on permission (F14); every item keeps its source link and time; headlines are summarised in our own words or shown as the source's title with a link, never copied in full.
 
 ---
 

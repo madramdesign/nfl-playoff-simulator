@@ -1,13 +1,13 @@
 # Bootstrap Checklist
 
-Status as of Nov. 21, 2026.
+Status as of Nov. 25, 2026.
 
 ## Project operating system
 - [x] Root `CLAUDE.md` reviewed and adapted to actual repository (constitution merged above the existing repository notes; Sleeper assumption corrected)
 - [x] `.claude/agents/` definitions reviewed against installed Claude Code capabilities (`isolation: worktree` and the other fields used are documented; worktrees start from `main`, see DEC-011)
 - [x] `.claude/rules/` rules reviewed and scoped correctly (all six apply project-wide, so no `paths` scoping; they load every session)
 - [x] Required docs created and committed (on the integration branch)
-- [ ] Claude Code recognizes project instructions (verify with `/context` in a new session opened in this worktree)
+- [x] Claude Code recognizes project instructions (Nov. 25: a session opened in this worktree reads `CLAUDE.md` and the six rules, and offers the 12 project agents)
 
 ## Project audit and research
 - [x] Git status and current branch recorded

@@ -1,7 +1,7 @@
 # NFL Universe — Master Plan
 
 ## Product vision
-An NFL intelligence command center inspired by the information architecture and situational-awareness experience of World Monitor. It should extend the existing NFL playoff simulator in this repository (which has no Sleeper integration yet; see `NFL_UNIVERSE_AUDIT.md`) and combine trusted data, live game context, news, rosters, injuries, analytics, forecasting, simulations, media analysis, and an AI research assistant.
+An NFL intelligence command center inspired by the information architecture and situational-awareness experience of World Monitor. It should extend the existing NFL playoff simulator in this repository (Sleeper: read-only trending data only, no league access; see `NFL_UNIVERSE_AUDIT.md`) and combine trusted data, live game context, news, rosters, injuries, analytics, forecasting, simulations, media analysis, and an AI research assistant.
 
 ## Product principles
 1. Accuracy and provenance before breadth.
@@ -79,18 +79,25 @@ Phases may overlap only when dependencies and interfaces are documented.
 - Current state and decisions are documented.
 
 
-## Phase status (Nov. 21, 2026)
+## Phase status (Nov. 25, 2026)
 
 | Phase | Status | Where |
 |---|---|---|
 | 0. Repository audit and preservation plan | Done | `NFL_UNIVERSE_AUDIT.md` |
 | 1. World Monitor architecture and licensing | Done | `WORLDMONITOR_ARCHITECTURE_ANALYSIS.md`, `OPEN_SOURCE_LICENSE_DECISION.md` |
-| 2. Data-source and terms research | Done: endpoints verified, terms read, open-source projects, odds and official media surveyed. ESPN's JSON is not licensed for automated use (DEC-006, owner decision) | `NFL_DATA_SOURCE_REGISTRY.md`, `GITHUB_RESEARCH.md` |
-| 3. Canonical data model, contracts, architecture decisions | Done for teams, games, events, injuries, transactions; players not yet canonical | `DATA_MODEL.md`, `ARCHITECTURE.md`, `DECISIONS.md`, `lib/contract.js`, `shared/teams.json` |
-| 4. Ingestion, normalization, entity resolution, provenance | Milestone M1 done (data fabric), reviewed | `lib/fabric/` |
-| 11. Command-center UI | Milestone M3 first slice done | `src/universe/` |
-| 12. AI assistant | Rule-based brief only (DEC-009); MCP server (M2) done | `mcp/` |
-| Others | Not started; see the dependency plan | |
+| 2. Data-source and terms research | Done, kept current: The Odds API, NWS, FantasyPros, Sleeper trends, club RSS terms, YouTube oEmbed and player API added since. ESPN's JSON is personal local use only (DEC-006) | `NFL_DATA_SOURCE_REGISTRY.md`, `GITHUB_RESEARCH.md` |
+| 3. Canonical data model, contracts, architecture decisions | Done for teams, games, events, injuries, transactions, media, market lines; players only as a candidate crosswalk | `DATA_MODEL.md`, `DECISIONS.md` (DEC-001 to DEC-022), `lib/contract.js`, `shared/teams.json` |
+| 4. Ingestion, normalization, entity resolution, provenance | Done and running: data fabric, carry-forward of failed sources, source-drift check, data fetch on GitHub Actions | `lib/fabric/`, `.github/workflows/` |
+| 5. Team/player/roster/injury/transaction universe | Partly: depth charts (starter labels), roster crosswalk, Sleeper trends; canonical players not built (F15) | `lib/fabric/` |
+| 6. News intelligence and event correlation | Partly: headline clustering, injury-report comparison, model and playoff-move events (F22); no claim extraction or corroboration | `lib/fabric/`, `src/universe/01-data.js` |
+| 7. Live game center | Partly, local only (DEC-006): live situation, win probability, heartbeat, line history, week rollover; a full game not yet followed | `lib/fabric/`, `src/universe/12-game.js` |
+| 8. Analytics | The existing market and results ratings; no new metrics | `scripts/build.py` |
+| 9. Forecasting, backtesting, model disagreement | Partly: sportsbook consensus beside the model, model-vs-market events, why-it-moved split (F04, DEC-020); forecast ledger (F05) not built | `src/template.html`, `scripts/snapshot.js` |
+| 10. Simulations and counterfactuals | The original simulator, plus the command center's worker | `src/template.html`, `src/universe/03-sim.js` |
+| 11. Command-center UI | First slices done: map, layers, focus bar, movable panels, feed, ticker, game cards with both teams' chances | `src/universe/` |
+| 12. AI assistant | Rule-based brief and MCP server; a language model waits on DEC-009 | `mcp/` |
+| 13. Authorized media center | Done: M8 media center and NFL TV (DEC-017, DEC-022) | `src/universe/16-media.js`, `16-tv.js` |
+| 14. Performance, security, deployment | Partly: page security policy, request cap, Render hosting, scheduled checks; time machine and performance budget not done | `server.js`, `render.yaml` |
 
 ## Dependency plan
 
@@ -121,12 +128,12 @@ M0 Foundations (done except terms research)
 | M9 Hardening | Performance budget, security review, time machine replay from `seenAt`, deployment of the server (where it runs is an owner decision) | qa, red-team, orchestrator | M1-M6 | | Review findings closed or accepted by the owner |
 
 ### Owner decisions that gate later milestones
-1. Approve this plan and the clean-room license decision (gates M1-M3 restarting).
-2. ESPN's JSON endpoints (DEC-006): personal local use with nothing published, permitted sources only, or a licensed feed. Decides how live M1, M5 and M6 can be.
-3. Language-model provider and monthly cost ceiling, or none (gates M7).
-4. A keyed odds source for multi-book lines and futures (free tier or paid), or none (affects M5 market panels).
-5. Where the server runs, if anywhere beyond your machine (gates live data for anyone but you).
-6. Whether the integration branch may merge into `main` once milestone 1 passes review.
+1. Approve this plan and the clean-room license decision (gates M1-M3 restarting). **Approved (Nov. 21).**
+2. ESPN's JSON endpoints (DEC-006): personal local use with nothing published, permitted sources only, or a licensed feed. Decides how live M1, M5 and M6 can be. **Decided: personal local use, nothing published.**
+3. Language-model provider and monthly cost ceiling, or none (gates M7). **Open (DEC-009).**
+4. A keyed odds source for multi-book lines and futures (free tier or paid), or none (affects M5 market panels). **The Odds API free tier (DEC-019), on from Nov. 25; futures not built.**
+5. Where the server runs, if anywhere beyond your machine (gates live data for anyone but you). **Render, public sources only (DEC-018).**
+6. Whether the integration branch may merge into `main` once milestone 1 passes review. **Approved; each later merge on the owner's word ("Merge and push"), as one squash commit.**
 
 ## Milestone 1 acceptance (M1 + M3)
 - The command center opens by default, shows all 32 teams, this week's games with lines and weather flags, a unified feed of injuries, transactions, headlines and line moves, and per-source freshness. How current the injuries, transactions and line moves can be depends on DEC-006 (with permitted sources only they come from nflverse's daily files).

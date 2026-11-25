@@ -3,9 +3,14 @@ name: Daily data fetch
 # The data-fabric snapshot (DEC-021). The scheduled refresh on claude.ai runs in a workspace that reaches only GitHub
 # and package registries, so most public sources (weather, headlines, videos, podcasts, The Odds API) failed there.
 # This job fetches them on GitHub's servers and commits the snapshot; the refresh's `npm run refresh` keeps a snapshot
-# under 8 hours old instead of fetching again. It runs every 3 hours because GitHub starts scheduled jobs late, by up
-# to 12 hours on Nov. 24, 2026, so a once-a-day run could miss the refresh. Public sources only (DEC-006).
+# under 8 hours old instead of fetching again. GitHub starts scheduled jobs hours late or skips them (none ran from
+# Nov. 24, 18:48 to Nov. 25, 17:20 UTC), so the refresh also asks for a fetch itself: `scripts/request-fetch.js` pushes
+# data/fabric/fetch-request.json to main, and a push starts this job at once (DEC-023). The schedule stays as a backup.
+# Public sources only (DEC-006).
 on:
+  push:
+    branches: [main]
+    paths: [data/fabric/fetch-request.json]   # a request from the daily refresh (DEC-023)
   schedule:
     - cron: "17 */3 * * *"   # every 3 hours (off the hour, when GitHub's scheduler is busiest)
   workflow_dispatch:

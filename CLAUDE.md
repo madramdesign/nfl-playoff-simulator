@@ -3,7 +3,7 @@
 ## Mission
 Build NFL Universe as an intelligence command center by extending this repository's working NFL playoff simulator rather than replacing it. The product combines reliable NFL data, live game intelligence, news, rosters, injuries, analytics, forecasting, simulations, media analysis, and an AI assistant in a World Monitor-inspired interface.
 
-This repository has no Sleeper integration today (only a FantasyPros fetch; see `docs/NFL_UNIVERSE_AUDIT.md`). Sleeper work starts from the source registry, not from existing code.
+This repository reads only Sleeper's public trending adds and drops (`sleeper-trending`); it has no league access (see `docs/NFL_UNIVERSE_AUDIT.md`). Further Sleeper work starts from the source registry, not from existing code.
 
 ## Mandatory startup procedure
 At the start of every substantial task:
@@ -88,7 +88,7 @@ These predate NFL Universe and remain binding.
 - Read `docs/PLAYOFF_PREDICTOR_AUDIT.md` and `docs/ROADMAP.md` before adding features. House rule from the brief: no factor goes into the model without a backtest showing an out-of-sample gain; record rejections in `scripts/evaluate.py`'s `rejected` list.
 - The reasoning panel (`whyPanel`) must only state things computed from `D` or a `simulate` result.
 - `npm run refresh` rebuilds from fresh data, runs the tests and saves a dated snapshot in `data/snapshots/`. A scheduled task runs it daily, republishes the page and commits the result; do not hand-edit snapshots.
-- API keys never go in the repository. FantasyPros data is fetched by `.github/workflows/fantasypros.yml` using the secret `FANTASYPROS_API_KEY` (limits: 1 call a second, 100 a day, non-commercial, attribution required). The fetch script was written from the docs and has not yet run against the real API: check the first run's saved files before relying on field names.
+- API keys never go in the repository. FantasyPros data is fetched by `.github/workflows/fantasypros.yml` using the secret `FANTASYPROS_API_KEY` (limits: 1 call a second, 500 a day on the owner's plan, personal and non-commercial, attribution required). It first ran against the real API on Nov. 25, 2026; only each team's top-projected quarterback (`data/fantasypros/qb_top.json`) is committed, never the raw answer.
 - `data/news.json` holds league news (own-words summary, source link, team). A `qb_change` item makes `to` the team's current starter in `qb_shift`. Never invent an item: each needs a real source URL.
 - Build inputs can be passed as files (`--csv --team-stats --injuries --qb`) or left to download.
 - News effects are computed, never typed in: `newsEffect` multiplies the line move since before the news by each team's conditional playoff gap for that game (`simulate(..., watch)`). No pre-news line means no estimate is shown.

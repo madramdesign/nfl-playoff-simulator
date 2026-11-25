@@ -1119,6 +1119,58 @@ test("static files: only inside public/, never a sibling folder", () => {
   assert.strictEqual(srv.publicFile("/x/../../public-old/secret.txt"), null, "a sibling whose name starts with public/ is outside");
   assert.strictEqual(srv.publicFile("/../server.js"), null);
 });
+test("the daily refresh starts the data fetch itself and waits for it (DEC-023)", async () => {
+  const R = require(path.join(root, "scripts/request-fetch.js")), os = require("os"), fs = require("fs"), { execFileSync } = require("child_process");
+  const at = Date.parse("2026-11-26T09:35:00Z"), snap = (iso) => JSON.stringify({ generatedAt: iso });
+  assert.deepStrictEqual([R.madeAfter(snap("2026-11-26T09:37:00Z"), at), R.madeAfter(snap("2026-11-26T09:34:30Z"), at), R.madeAfter(snap("2026-11-26T09:30:00Z"), at), R.madeAfter("not json", at), R.madeAfter(snap("x"), at)],
+    [true, true, false, false, false], "a snapshot made after the request (a minute's clock skew allowed); anything unclear is not fresh");
+  for (const f of ["data-fetch", "fantasypros"]) {
+    const wf = fs.readFileSync(path.join(root, ".github/workflows/" + f + ".yml"), "utf8");
+    assert.ok(/on:\n  push:\n    branches: \[main\]\n    paths: \[data\/fabric\/fetch-request\.json\]/.test(wf) && /github\.ref == 'refs\/heads\/main'/.test(wf), f + ": started by a pushed request on main, and runs only from main");
+  }
+  assert.ok(/for attempt in 1 2 3; do/.test(fs.readFileSync(path.join(root, ".github/workflows/fantasypros.yml"), "utf8")), "FantasyPros retries a push that races the data fetch");
+  // end to end against a local stand-in for GitHub: a bare repository, the refresh's clone, and a clone playing the data fetch
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-req-"));
+  const g = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  const ident = (cwd) => { g(cwd, "config", "user.name", "t"); g(cwd, "config", "user.email", "t@example.com"); g(cwd, "config", "commit.gpgsign", "false"); };
+  try {
+    const bare = path.join(dir, "origin.git"), work = path.join(dir, "work"), hub = path.join(dir, "hub");
+    g(dir, "init", "--quiet", "--bare", "-b", "main", bare);
+    g(dir, "clone", "--quiet", bare, work); ident(work);
+    fs.mkdirSync(path.join(work, "data/fabric"), { recursive: true });
+    fs.writeFileSync(path.join(work, "data/fabric/latest.json"), snap("2026-11-25T17:20:00Z"));
+    fs.writeFileSync(path.join(work, "news.json"), "{}\n");
+    g(work, "add", "-A"); g(work, "commit", "--quiet", "-m", "start"); g(work, "push", "--quiet", "origin", "HEAD:main");
+    g(dir, "clone", "--quiet", bare, hub); ident(hub);
+    fs.writeFileSync(path.join(work, "news.json"), "{\"items\": [1]}\n");   // the refresh's news edit, not yet committed
+    let now = at, fetchedAfterRequest = false;
+    const github = (async () => {   // the data fetch: starts once the request is on main, commits a new snapshot
+      for (let k = 0; k < 200; k++) {
+        await new Promise((ok) => setTimeout(ok, 25));
+        g(hub, "fetch", "--quiet", "origin", "main");
+        if (g(hub, "log", "-1", "--format=%s", "origin/main") !== "Request a data fetch") continue;
+        g(hub, "reset", "--quiet", "--hard", "origin/main");
+        fs.writeFileSync(path.join(hub, "data/fabric/latest.json"), snap("2026-11-26T09:36:10Z"));
+        g(hub, "commit", "--quiet", "-am", "Data fetch (GitHub Actions)"); g(hub, "push", "--quiet", "origin", "HEAD:main");
+        fetchedAfterRequest = true; return;
+      }
+    })();
+    const out = await R.main(["--timeout-sec", "30", "--every-sec", "0.05"], { cwd: work, now: () => (now += 50), log: () => {} });
+    await github;
+    assert.deepStrictEqual(out, { requested: true, fresh: true }, "requested, and the fresh snapshot arrived");
+    assert.ok(fetchedAfterRequest && JSON.parse(fs.readFileSync(path.join(work, "data/fabric/latest.json"), "utf8")).generatedAt === "2026-11-26T09:36:10Z", "the clone now has GitHub's new snapshot");
+    assert.strictEqual(fs.readFileSync(path.join(work, "news.json"), "utf8"), "{\"items\": [1]}\n", "the refresh's own edit is untouched");
+    assert.deepStrictEqual(g(bare, "show", "--name-only", "--format=%s", "main~1").split("\n"), ["Request a data fetch", "", "data/fabric/fetch-request.json"], "the request commit holds the request file only");
+    // an hour later nothing arrives: it gives up after the timeout, without failing
+    now += 3600e3;
+    const late = await R.main(["--timeout-sec", "0.2", "--every-sec", "0.05"], { cwd: work, now: () => (now += 50), log: () => {} });
+    assert.deepStrictEqual(late, { requested: true, fresh: false }, "no snapshot in time: the refresh goes on");
+    // GitHub cannot be reached: no request, no failure
+    g(work, "remote", "set-url", "origin", path.join(dir, "missing.git"));
+    const off = await R.main(["--timeout-sec", "0.2", "--every-sec", "0.05"], { cwd: work, now: () => (now += 50), log: () => {} });
+    assert.deepStrictEqual(off, { requested: false, fresh: false }, "the request cannot be pushed: said so, and the refresh goes on");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("the page policy hashes scripts the way the browser does", () => {
   const { cspFor } = require(path.join(root, "server.js"));
   const lf = "<html><script>var a = 1;\nvar b = 2;</script><script src=\"x.js\"></script></html>";
