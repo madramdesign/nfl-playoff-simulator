@@ -19,6 +19,11 @@ concurrency:
   group: data-refresh
   cancel-in-progress: false
 
+# ESPN's NFL RSS feed answers GitHub's servers with an empty HTTP 202 (its content network holds them back), so it is
+# switched off here and says why; the hosted and local servers still read it (DEC-024).
+env:
+  FABRIC_OFF: rss-espn
+
 jobs:
   backup:
     # only from main: a manual run on another branch must never push that branch's code to main

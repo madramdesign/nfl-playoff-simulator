@@ -1193,6 +1193,37 @@ test("the daily refresh starts the data fetch itself and waits for it (DEC-023)"
     assert.deepStrictEqual(down, { requested: false, fresh: false, skipped: "error" }, "GitHub cannot be reached: said so, and the refresh goes on");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+test("ESPN's feed: an empty 202 is named, and a source switched off where it cannot work stays off (DEC-024)", async () => {
+  const os = require("os"), fs = require("fs");
+  const r202 = (body) => async () => ({ ok: true, status: 202, json: async () => JSON.parse(body), text: async () => body });
+  await assert.rejects(fetchWithRetry("https://example.com/rss", { as: "text", retries: 0, fetchImpl: r202("") }), /answered 202 with no content \(the provider's network held the request back\)/, "an empty 202 says what happened");
+  assert.strictEqual(await fetchWithRetry("https://example.com/rss", { as: "text", retries: 0, fetchImpl: r202("<rss></rss>") }), "<rss></rss>", "a 202 with content is read as usual");
+  assert.deepStrictEqual(await fetchWithRetry("https://example.com/x", { retries: 0, fetchImpl: r202("{\"a\":1}") }), { a: 1 }, "and as JSON");
+  for (const f of ["data-fetch", "refresh-backup", "source-check"])
+    assert.ok(/\nenv:\n  FABRIC_OFF: rss-espn\n/.test(fs.readFileSync(path.join(root, ".github/workflows/" + f + ".yml"), "utf8")), f + ": ESPN's feed is off on GitHub's servers");
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-off-"));
+  try {
+    const calls = [], base = fakeFetch(), fetchImpl = async (url, o) => { calls.push(String(url)); return base(url, o); };
+    const make = (off, t = NOW()) => createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: () => t, fetchImpl, off });
+    // a headline from ESPN's feed (a curated item may cite an ESPN article: that is not the feed)
+    const fromEspn = (e) => e.source !== "curated-news" && (e.source === "rss-espn" || (e.sources || []).some((x) => x.publisher === "ESPN"));
+    const on = await make([]).universe({ fresh: true });   // ESPN read once: its cache file now exists
+    assert.ok(on.sources["rss-espn"].status === "ok" && on.events.some(fromEspn), "fixture: ESPN headlines when it is on");
+    calls.length = 0;
+    const u = await make(["rss-espn"], NOW() + 3600000).universe({ fresh: true });
+    const st = u.sources["rss-espn"];
+    assert.ok(st.status === "disabled" && /GitHub's servers/.test(st.note) && !calls.some((c) => c.includes("espn.com/espn/rss")), "off: reported disabled with the reason, and never asked");
+    assert.ok(!u.events.some(fromEspn) && u.events.some((e) => e.source === "rss-yahoo"), "and its cached headlines are not shown; Yahoo's still are");
+    assert.ok(u.sources["rss-yahoo"].status === "ok", "the other feeds are unaffected");
+    const { carryForward } = require(path.join(root, "lib/fabric/carry.js"));
+    const kept = carryForward(on, u, NOW() + 3600000);
+    assert.ok(!kept.carried.includes("rss-espn") && kept.u.sources["rss-espn"].status === "disabled" && !kept.u.events.some(fromEspn), "not carried forward from the last snapshot either");
+    assert.deepStrictEqual(C.validatePublicSnapshot(kept.u, T), []);
+    process.env.FABRIC_OFF = " rss-espn , nothing-such ";
+    try { assert.strictEqual((await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl }).universe()).sources["rss-espn"].status, "disabled", "FABRIC_OFF in the environment does the same"); }
+    finally { delete process.env.FABRIC_OFF; }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
 test("the page policy hashes scripts the way the browser does", () => {
   const { cspFor } = require(path.join(root, "server.js"));
   const lf = "<html><script>var a = 1;\nvar b = 2;</script><script src=\"x.js\"></script></html>";

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-25 (ESPN's headlines on GitHub)
+- ESPN's headline feed stopped answering GitHub's servers on Nov. 24: its content network gives them an empty answer, while the hosted site and the owner's computer still get the feed. Rather than show week-old ESPN headlines on the published page or try to get around ESPN's refusal, the feed is now switched off in the GitHub jobs and the status panel says why. The hosted site and the local server keep ESPN's headlines (DEC-024).
+
 ## 2026-11-25 (the refresh asks for its data)
 - GitHub's scheduler skipped the data fetch for almost a day, which the morning refresh depends on. `npm run refresh` now asks for a fetch itself when the snapshot on `main` is over 8 hours old: it pushes a small request file to `main`, which starts the data fetch and the FantasyPros job at once, and it waits up to 10 minutes for the new snapshot. If nothing arrives, it carries on as before. Tested live: the snapshot was on `main` 17 seconds after the request. It never asks from GitHub Actions or from a checkout with commits that are not on GitHub. The FantasyPros job also gained the data fetch's safeguards: it runs only from `main` and retries a push that races another commit (DEC-023).
 

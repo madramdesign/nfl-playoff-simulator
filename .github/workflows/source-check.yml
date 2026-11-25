@@ -12,6 +12,11 @@ permissions:
   contents: read
   issues: write
 
+# ESPN's NFL RSS feed answers GitHub's servers with an empty HTTP 202 (its content network holds them back), so it is
+# switched off here and says why; the hosted and local servers still read it (DEC-024).
+env:
+  FABRIC_OFF: rss-espn
+
 jobs:
   check:
     runs-on: ubuntu-latest

@@ -845,6 +845,7 @@ Status: Done (Nov. 25, 2026; DEC-022). Owner: "i want something playing at page 
 Status: Research. Owner asked on Nov. 25, 2026: "can we add any live NFL news to the front page like world dashboard?"
 - NFL TV (F53) answered the video part. A fuller live news panel, with a search for more lawful news sources alongside, was proposed and not yet chosen.
 - Constraints: club feeds are blocked on permission (F14); every item keeps its source link and time; headlines are summarised in our own words or shown as the source's title with a link, never copied in full.
+- Also needed for the published page: ESPN's feed refuses GitHub's servers (DEC-024), so its headlines come only from Yahoo's feed and the curated news; a further lawful source that GitHub can reach would fill that gap.
 
 ---
 
