@@ -1,0 +1,5 @@
+{
+  "requestedAt": "2026-11-25T17:46:30.221Z",
+  "by": "daily refresh",
+  "why": "DEC-023: start the data fetch without GitHub's scheduler"
+}
