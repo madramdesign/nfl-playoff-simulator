@@ -15,6 +15,12 @@ assert.deepStrictEqual(E.cleanLiveGame(Object.assign({}, lg, { period: 9, minute
 [{ away: "XXX" }, { awayScore: -1 }, { homeScore: 3.5 }, { awayScore: "7" }, { state: "halftime" }, { home: null }].forEach((bad, k) =>
   assert.strictEqual(E.cleanLiveGame(Object.assign({}, lg, bad)), null, "bad live game " + k + " is ignored"));
 assert.strictEqual(E.cleanLiveGame(null), null);
+// a score with no clock (The Odds API on the hosted server, DEC-027): flagged, never given a quarter or time, and the flag
+// survives a second pass (the page cleans the list twice)
+const nc = E.cleanLiveGame({ away: "JAX", home: "NYG", awayScore: 7, homeScore: 3, state: "in", period: null, minutes: null, clock: null, clockKnown: false });
+assert.deepStrictEqual(nc, { away: "JAX", home: "NYG", awayScore: 7, homeScore: 3, state: "in", period: 0, minutes: 0, clock: "", noClock: true }, "no-clock game flagged");
+assert.deepStrictEqual(E.cleanLiveGame(nc), nc, "the flag survives cleaning twice");
+assert.ok(!("noClock" in E.cleanLiveGame(lg)), "an ESPN game is not flagged");
 // links the simulator opens: https only, no credentials, no markup
 assert.strictEqual(E.safeHttpsUrl("https://www.espn.com/nfl/story/_/id/1"), "https://www.espn.com/nfl/story/_/id/1");
 assert.strictEqual(E.safeHttpsUrl("https://medium.com/@writer/post"), "https://medium.com/@writer/post", "an @ in the path is fine");

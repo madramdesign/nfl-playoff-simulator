@@ -1,6 +1,9 @@
 // This week's games: a strip under the map on wide screens, a list in the Games tab on narrow ones.
 var gamesPanel = null;
 function gameStateLabel(x) {
+  // a score source with no clock (The Odds API, DEC-027): "Live" while its data is current, "In progress" with the
+  // data's age once it is not; never a made-up quarter
+  if (x.state === "in" && x.clockKnown === false) { var sk = staleNote(x); return sk ? "In progress · " + sk : "Live"; }
   if (x.state === "in") { var sn = staleNote(x); return (x.period >= 5 ? "OT" : "Q" + (x.period || "?")) + (x.clock ? " " + x.clock : "") + (sn ? " · " + sn : ""); }
   if (x.state === "post") return "Final" + (x.period >= 5 ? "/OT" : "");
   return x.kickoff ? fmtKick(x.kickoff) : x.dateLabel || "Scheduled";
@@ -14,9 +17,17 @@ function winSplit(hp, away, home) {
   return { away: 1 - hp, home: hp, fav: fav, text: even ? "Even: 50% each" : teamAbbr(fav) + " favored, " + fmtPct(fp) };
 }
 NFLU.winSplit = winSplit;
+// The "no clock" tag's explanation: where the score came from, when it was last seen, and what is not known.
+function noClockTitle(x) {
+  var ck = Date.parse(x.checkedAt || ""), up = Date.parse(x.scoreAt || "");
+  return "Score from " + (x.source === "odds-scores" ? "The Odds API" : sourceLabel(x.source)) + (isFinite(ck) ? ", last checked " + new Date(ck).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) : "") +
+    (isFinite(up) ? " (provider's update " + new Date(up).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" }) + ")" : "") +
+    ". It gives no quarter or game clock, so this page shows no in-game chance for the game: the win chance is the pregame one.";
+}
+NFLU.gameStateLabel = gameStateLabel; NFLU.noClockTitle = noClockTitle;
 function kickoffPassed(x) { var t = Date.parse(x.kickoff || ""); return x.state === "pre" && isFinite(t) && Date.now() - t > 15 * 60e3; }
 function buildGamesPanel(host) {
-  var gids = ["espn-scoreboard", "nflverse-games", "open-meteo"];
+  var gids = ["espn-scoreboard", "odds-scores", "nflverse-games", "open-meteo"];
   gamesPanel = Panel({ id: "games", title: "This week", sources: gids, badge: buildOrFeedBadge(gids), cls: "u-gamespanel" });
   gamesPanel.loading("Loading games…");
   host.appendChild(gamesPanel.root);
@@ -44,19 +55,21 @@ function renderGames() {
       };
       var awayWin = x.state === "post" && x.awayScore > x.homeScore, homeWin = x.state === "post" && x.homeScore > x.awayScore;
       var live = x.state === "in" && isLiveGame(x);
-      list.appendChild(el("button", { type: "button", role: "listitem", class: "u-gcard is-" + (x.state === "in" && !live ? "stalein" : x.state) + (st.game === x.key ? " is-sel" : ""), "data-game": x.key, "aria-label": teamName(x.away) + " at " + teamName(x.home) + ", " + gameStateLabel(x) }, [
+      list.appendChild(el("button", { type: "button", role: "listitem", class: "u-gcard is-" + (x.state === "in" && !live ? "stalein" : x.state) + (st.game === x.key ? " is-sel" : ""), "data-game": x.key, "aria-label": teamName(x.away) + " at " + teamName(x.home) + ", " + gameStateLabel(x) + (x.state === "in" && x.clockKnown === false ? ". " + noClockTitle(x) : "") }, [
         el("div", { class: "u-gstate" }, [live ? el("span", { class: "u-livedot", "aria-hidden": "true" }) : null, gameStateLabel(x), x.neutral ? el("span", { class: "u-gtag", text: "neutral" }) : null,
           kickoffPassed(x) ? el("span", { class: "u-gtag u-gwx", title: "Kickoff time has passed but this data still lists the game as not started: it is out of date.", text: "not updated" }) : null,
+          x.state === "in" && x.clockKnown === false ? el("span", { class: "u-gtag", title: noClockTitle(x), text: "no clock" }) : null,
           w && w.flags && w.flags.length ? el("span", { class: "u-gtag u-gwx", title: weatherText(w) + ". Weather: " + sourceLabel(w.source) + ". Not part of the forecast.", text: w.flags.join(" ") }) : null]),
         row(x.away, x.awayScore, awayWin), row(x.home, x.homeScore, homeWin),
         el("div", { class: "u-gline", title: lt.src, text: lt.text }),
         lt.short ? el("div", { class: "u-gsrc", title: lt.src, text: lt.short }) : null,
-        ws ? el("div", { class: "u-gprob", title: "Win chance: " + gameProbSource(x) }, [el("span", { text: ws.text }),
+        ws ? el("div", { class: "u-gprob", title: "Win chance: " + gameProbSource(x) }, [el("span", { text: (x.state === "in" && x.clockKnown === false ? "Pregame: " : "") + ws.text }),
           el("div", { class: "u-gsplit", "aria-hidden": "true" }, [el("i", { class: ws.fav === x.away ? "is-fav" : "", style: { width: (ws.away * 100).toFixed(1) + "%" } }), el("i", { class: ws.fav === x.home ? "is-fav" : "", style: { width: (ws.home * 100).toFixed(1) + "%" } })])]) : null
       ]));
     });
     body.appendChild(list);
     var foot = el("p", { class: "u-gfoot" }, ["Win chance: " + ["Sportsbooks", "Results", "Blend"][MODE] + " mode, or the feed's live chance in play. " + (st.payload ? "" : "No live scores: schedule and lines as built " + (D.built || "") + ". ")]);
+    if (games.some(function (x) { return x.source === "odds-scores"; })) foot.appendChild(el("span", { text: "Live scores: The Odds API, without a game clock, so a game in play keeps its pregame chance. " }));
     if (anyWx) foot.appendChild(weatherCredit(anyWx));
     if (M.fixture) foot.appendChild(el("span", { class: "u-warnline", text: " Fixture data (synthetic)." }));
     body.appendChild(foot);

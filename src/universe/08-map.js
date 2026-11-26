@@ -17,7 +17,7 @@ function gameHomeProb(x, live) {
   if (x.state === "post") return null;
   if (x.state === "in" && (live == null ? isLiveGame(x) : live)) {
     if (x.winProb && num(x.winProb.home) != null) return x.winProb.home;
-    if (x.gi >= 0 && x.awayScore != null) return pageLiveProb(x);
+    if (x.gi >= 0 && x.awayScore != null && x.clockKnown !== false) return pageLiveProb(x);
   }
   if (x.gi >= 0) return modeProb(x.gi);
   var hp = x.odds && x.odds.homeProb; return hp && hp.current != null ? hp.current : null;
@@ -25,8 +25,8 @@ function gameHomeProb(x, live) {
 function gameProbSource(x, live) {
   live = live == null ? x.state === "in" && isLiveGame(x) : live;
   if (live && x.winProb && num(x.winProb.home) != null) return "live, " + sourceLabel(x.winProb.source) + "; the simulation uses this number";
-  if (live && x.gi >= 0) return "live, this page's in-game model; the simulation uses this number";
-  var pre = x.state === "in" ? "before kickoff; the in-game data is not live, so it is not used" : "";
+  if (live && x.gi >= 0 && x.clockKnown !== false) return "live, this page's in-game model; the simulation uses this number";
+  var pre = x.state !== "in" ? "" : live ? "before kickoff; the live score comes without a game clock, so no in-game chance is made" : "before kickoff; the in-game data is not live, so it is not used";
   if (x.gi >= 0) return MODE_NAMES[MODE] + (LINE[x.gi] != null && MODE !== 1 ? " (posted line)" : " (ratings)") + (pre ? ", " + pre : "");
   return x.odds ? "market, " + sourceLabel(x.odds.source) : "";
 }
@@ -406,4 +406,4 @@ function refNow() {
   if (P) { var g = Date.parse(P.generatedAt); if (isFinite(g) && g > t) return g; }
   return t;
 }
-NFLU.powerColor = powerColor; NFLU.lineText = lineText; NFLU.gameLineMove = gameLineMove; NFLU.gameHomeProb = gameHomeProb;
+NFLU.powerColor = powerColor; NFLU.lineText = lineText; NFLU.gameLineMove = gameLineMove; NFLU.gameHomeProb = gameHomeProb; NFLU.gameProbSource = gameProbSource;

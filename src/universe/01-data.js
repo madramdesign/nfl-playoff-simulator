@@ -42,6 +42,9 @@ function mergeGame(gi, f) {
     week: G ? G[1] : f.week, away: G ? G[2] : TIDX[f.away], home: G ? G[3] : TIDX[f.home],
     state: f && STATE_RANK[f.state] != null ? f.state : "pre", kickoff: f ? f.kickoff : null, dateLabel: G ? G[5] : null,
     awayScore: f ? num(f.awayScore) : null, homeScore: f ? num(f.homeScore) : null, period: f ? num(f.period) : null, clock: f ? f.clock : null,
+    // clockKnown false: a score source with no quarter or clock (The Odds API, DEC-027); checkedAt: when that source last
+    // listed this game, so a game it stopped listing ages on its own; scoreAt: the provider's own update time
+    clockKnown: !(f && f.clockKnown === false), checkedAt: f && isFinite(Date.parse(f.checkedAt || "")) ? f.checkedAt : null, scoreAt: f && isFinite(Date.parse(f.scoreAt || "")) ? f.scoreAt : null,
     situation: f ? f.situation || null : null, venue: f ? f.venue || null : null, broadcast: f ? f.broadcast || null : null,
     odds: f ? f.odds || null : null, weather: f ? f.weather || null : null, alerts: f ? cleanAlerts(f.alerts) : [], market: f ? cleanMarket(f.market) : null, books: f ? cleanBooks(f.books) : [], winProb: f ? f.winProb || null : null, source: f ? f.source || null : null,
     neutral: G ? !!G[4] : !!(f && f.venue && f.venue.neutral), line: G ? G[6] : null, total: G ? G[7] : null, fromFeed: !!f
@@ -377,11 +380,13 @@ function pillState(meta, now) { return freshness(["*"], meta, now); }
 var LIVE_GAME_MAX_AGE_SEC = 180;
 function gameSource(x, M) { return x && M && x.source && hasOwn(M.sources, x.source) ? M.sources[x.source] : null; }
 // Age in seconds of the data behind game x (its source's age plus the time since this payload), or null if unknown.
+// A game stamped with when its source last listed it (checkedAt) is at least that old, however fresh the source is.
 function gameDataAge(x, M, meta, now) {
   var s = gameSource(x, M); if (!s) return null;
   var base = meta && meta.origin === "live" && meta.fetchedAt ? Math.max(0, (now - meta.fetchedAt) / 1000) : M.generatedAt != null ? Math.max(0, (now - M.generatedAt) / 1000) : 0;
-  if (num(s.ageSec) != null) return s.ageSec + base;
-  var t = Date.parse(s.lastOk || ""); return isFinite(t) && M.generatedAt != null ? Math.max(0, (M.generatedAt - t) / 1000) + base : null;
+  var ck = Date.parse(x.checkedAt || ""), own = isFinite(ck) && M.generatedAt != null ? Math.max(0, (M.generatedAt - ck) / 1000) + base : null;
+  if (num(s.ageSec) != null) return Math.max(s.ageSec + base, own == null ? 0 : own);
+  var t = Date.parse(s.lastOk || ""); return isFinite(t) && M.generatedAt != null ? Math.max(Math.max(0, (M.generatedAt - t) / 1000) + base, own == null ? 0 : own) : own;
 }
 function gameIsLive(x, M, meta, now) {
   if (!x || x.state !== "in" || !M || !meta || meta.origin !== "live" || meta.fails > 0) return false;

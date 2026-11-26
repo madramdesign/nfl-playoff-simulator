@@ -24,3 +24,13 @@ services:
         value: public
       - key: TRUST_PROXY
         value: "1"
+      # Licensed live scores (DEC-027): The Odds API's /scores, on once ODDS_API_KEY is set (20K plan or more for
+      # game-day polling). Render ignores sync: false on an existing Blueprint (render.com/docs/blueprint-spec, checked
+      # Nov. 26, 2026), so the owner adds the key by hand in the service's Environment settings; it never goes in this file.
+      - key: ODDS_API_KEY
+        sync: false
+      - key: LIVE_SCORES
+        value: odds-api
+      # The pre-game odds source stays off here: Render's restarts would forget its 11 hours between paid looks.
+      - key: FABRIC_OFF
+        value: odds-api

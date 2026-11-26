@@ -31,6 +31,8 @@ function renderGameDetail(key, body) {
     el("div", { class: "u-scorestate" }, [live ? el("span", { class: "u-livedot", "aria-hidden": "true" }) : null, gameStateLabel(x)]),
     el("div", {}, [el("b", { text: Hh.a }), x.state !== "pre" && x.homeScore != null ? el("span", { text: String(x.homeScore) }) : null])]);
   body.appendChild(tb);
+  // a score with no clock (The Odds API, DEC-027): where it came from and when, in words (the card's tag is a tooltip)
+  if (x.state === "in" && x.clockKnown === false) body.appendChild(el("p", { class: "u-note", text: noClockTitle(x) }));
   if (x.situation && x.situation.text) body.appendChild(el("p", { class: "u-note", text: "Situation: " + x.situation.text + (x.situation.possession ? " · " + x.situation.possession + " ball" : "") + (x.situation.redZone ? " · red zone" : "") }));
   // both teams' chances, the favorite first
   if (hp != null) {

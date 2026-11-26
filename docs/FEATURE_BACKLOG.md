@@ -885,6 +885,31 @@ Proposed Solution:
 Dependencies: Gate B (health-data rules as a DEC entry).
 Risk: sensitive data misread as medical judgment; leakage in the backtest.
 
+## FEATURE-F57 — Licensed live scores on the hosted site (The Odds API `/scores`)
+
+Status: Built Nov. 26 and released to `main` the same day; live only after the owner buys The Odds API's 20K plan and sets the key on Render
+Priority: P1 · Size M
+Category: Live
+Tag: EXISTING—IMPROVE (live scores work on the owner's machine only, DEC-006, DEC-018)
+Plan: `PLAN_LIVE_SCORES_PUBLIC.md` · Decision: DEC-027
+
+Problem: during a game the hosted site shows 0–0 "not updated" until nflverse records the final hours later (seen Nov. 25, GB at LAR). The owner asked for live scores there.
+
+Proposed Solution:
+- **New source `odds-scores`:**
+  - The Odds API `/scores`, 1 credit a call, about 30-second updates;
+  - on only on Render;
+  - called only inside game windows;
+  - paced by the account's remaining credits;
+  - one `daysFrom=1` call per final.
+- **Game cards:** score marked "no clock", with when it was last checked and attribution. No quarter or clock, because the source has none.
+- **Chances:** no in-game chance without a clock; finals count at once.
+- **Simulator tab:** `/api/live` on the public server answers from this source.
+- **Never published:** the scores stay out of the public snapshot.
+
+Dependencies: Gate A ($30 a month plan; the free 500 credits cover about 4 hours a month); Gate B (key and `LIVE_SCORES` on Render); a contract change (`period` nullable, `clockKnown`, `scoreAt`).
+Risk: reading of the terms (no re-served feed); lag up to about 80 s; shared credits with the odds source; Render's cold start.
+
 ---
 
 ## Rejected or superseded entries

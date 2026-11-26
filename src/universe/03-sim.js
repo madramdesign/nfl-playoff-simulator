@@ -92,12 +92,13 @@ function pageLiveProb(g) {
 }
 // What the feed says has already happened. A decisive final becomes a pick for the winner; a tied final is left to the
 // simulation (the engine cannot pick ties). A game counts as live only by gameIsLive (live data, source ok and recent):
-// it then uses the feed's in-game chance where the feed gives one, else this page's in-game model.
+// it then uses the feed's in-game chance where the feed gives one, else this page's in-game model. A live game from a
+// source with no game clock (clockKnown false, DEC-027) gets neither: it keeps its pregame chance and is counted as noClock.
 // meta: {origin, fetchedAt, fails}; now: ms.
 function feedInputs(M, meta, now) {
   meta = meta || {}; now = now == null ? Date.now() : now;
   var picks = GAMES.map(function () { return 0; }), liveP = GAMES.map(function () { return null; });
-  var out = { finals: 0, ties: 0, lives: 0, feedLive: 0, staleLive: 0 };
+  var out = { finals: 0, ties: 0, lives: 0, feedLive: 0, staleLive: 0, noClock: 0 };
   resultGames(M).forEach(function (g) {
     if (g.gi < 0) return;
     if (g.state === "post" && num(g.awayScore) != null && num(g.homeScore) != null) {
@@ -106,6 +107,7 @@ function feedInputs(M, meta, now) {
     } else if (g.state === "in") {
       if (!gameIsLive(g, M, meta, now) || num(g.awayScore) == null || num(g.homeScore) == null) { out.staleLive++; return; }
       var fp = g.winProb && num(g.winProb.home) != null ? g.winProb.home : null;
+      if (fp == null && g.clockKnown === false) { out.noClock++; return; }
       liveP[g.gi] = clamp(fp != null ? fp : pageLiveProb(g), 0.001, 0.999); out.lives++; if (fp != null) out.feedLive++;
     }
   });
@@ -127,7 +129,7 @@ function simInputs() {
   return inp;
 }
 function simRecord(r, where, t0, inp, mode, deep) {
-  return { r: r, n: r.n, where: where, ms: Date.now() - t0, finals: inp.finals, ties: inp.ties, lives: inp.lives, feedLive: inp.feedLive, staleLive: inp.staleLive,
+  return { r: r, n: r.n, where: where, ms: Date.now() - t0, finals: inp.finals, ties: inp.ties, lives: inp.lives, feedLive: inp.feedLive, staleLive: inp.staleLive, noClock: inp.noClock,
     watch: inp.watch, at: Date.now(), mode: mode, deep: deep, key: inp.key };
 }
 // The comparison with the saved forecast (F04 "Why it moved", F22 playoff-move events): one run in the blend, from the
@@ -150,7 +152,13 @@ function requestWhySim() {
 var simTimer = 0, simKey = "", simSeq = 0;
 function requestBaseSim(force) {
   var inp = simInputs();
-  if (!force && inp.key === simKey) return;
+  if (!force && inp.key === simKey) {
+    // the same inputs give the same numbers, but how the feed's games are described can still change (a game whose data
+    // went out of date, a live score without a clock): the description is brought up to date without a rerun
+    var cur = store.get("sim");
+    if (cur && cur.key === inp.key && (cur.staleLive !== inp.staleLive || cur.noClock !== inp.noClock)) store.set({ sim: Object.assign({}, cur, { staleLive: inp.staleLive, noClock: inp.noClock }) });
+    return;
+  }
   simKey = inp.key;
   clearTimeout(simTimer);
   simTimer = setTimeout(function () {

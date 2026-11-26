@@ -81,7 +81,7 @@ function isFresh(latest, hours, now) {
 // The command: keeps a fresh enough snapshot when asked to, else fetches and writes a new one. The fabric is made
 // only when it is needed. Returns {kept, at} or writeSnapshot's report (null when nothing was written).
 async function main({ argv = process.argv.slice(2), dir = path.join(root, "data", "fabric"), now = () => Date.now(),
-  makeFabric = () => createFabric({ scopes: ["public"] }), log = console.log, warn = console.warn } = {}) {
+  makeFabric = () => createFabric({ scopes: ["public"], liveScores: "" }), log = console.log, warn = console.warn } = {}) {
   const h = keepHours(argv);
   if (h != null) {
     const prev = previous(path.join(dir, "latest.json"));

@@ -22,7 +22,7 @@ const margin95 = (n) => r3(1.96 * 0.5 / Math.sqrt(n));   // worst case, at a 50%
 // Sources each kind of answer depends on (ids from lib/fabric/index.js). Sources actually referenced by the returned
 // items are added on top, so a new source still shows up.
 const GAME_SOURCES = ["nflverse-games", "espn-scoreboard", "open-meteo"];
-const LIVE_SOURCES = ["espn-scoreboard", "nflverse-games"];
+const LIVE_SOURCES = ["espn-scoreboard", "odds-scores", "nflverse-games"];
 const INJURY_SOURCES = ["nflverse-injuries", "espn-injuries"];
 const NEWS_SOURCES = ["rss-yahoo", "rss-espn", "espn-news", "curated-news"];
 const ODDS_SOURCES = ["nflverse-games", "espn-scoreboard"];
@@ -111,6 +111,8 @@ function engineFor(g, L) {
 function gameView(g, u, L) {
   const v = { id: g.id, gid: g.gid || null, week: g.week, kickoff: g.kickoff, away: g.away, home: g.home, state: g.state,
     score: g.state === "pre" ? null : { away: g.awayScore, home: g.homeScore }, period: g.state === "in" ? g.period : null, clock: g.state === "in" ? g.clock : null,
+    // a score source with no clock (The Odds API, DEC-027): said so, with when that source last listed the game
+    clockKnown: g.clockKnown !== false, checkedAt: g.checkedAt || null,
     source: g.source, sourceScope: scopeOf(u, g.source), venue: g.venue, broadcast: g.broadcast || null,
     line: g.odds ? lineView(g.odds, u) : null, weather: g.weather ? weatherView(g.weather, u) : null };
   if (!g.odds) v.lineNote = "No line from the in-scope sources.";
@@ -222,11 +224,14 @@ const TOOLS = [
     async run(a, ctx) {
       const u = await ctx.universe(), L = engine.load();
       const live = u.games.filter((g) => g.state === "in");
-      const sb = statusOf(u, "espn-scoreboard");
+      // ESPN's scoreboard (local) or, on a hosted server, The Odds API's live scores (scores only, no clock)
+      const espnSb = statusOf(u, "espn-scoreboard"), oddsSb = statusOf(u, "odds-scores");
+      const sb = espnSb && espnSb.status !== "disabled" ? espnSb : oddsSb && oddsSb.status !== "disabled" ? oddsSb : null;
       const notes = [];
       if (!sb) notes.push("No live-score source is in scope (scopes: " + ctx.scopes.join(", ") + "). The public schedule source updates about once a day, so games in progress may not appear here.");
       else if (sb.status !== "ok") notes.push("The live scoreboard is " + sb.status + (sb.lastOk ? " (last good answer " + sb.lastOk + ")" : " and has not answered") + "; what follows may be out of date or missing.");
       else if (!live.length) notes.push("No game is in progress according to the scoreboard.");
+      if (live.some((g) => g.clockKnown === false)) notes.push("Some scores come from The Odds API, which gives no quarter or clock (clockKnown: false); checkedAt is when it last listed the game.");
       const counts = { pre: 0, in: 0, post: 0 };
       for (const g of u.games) counts[g.state] = (counts[g.state] || 0) + 1;
       return ctx.answer([...pick(u, LIVE_SOURCES), ...refsOf(u, live)], {

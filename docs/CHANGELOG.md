@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-26 (live scores on the hosted site, F57)
+- The hosted site can now follow games as they are played, from The Odds API's scores (licensed for display on a website; DEC-027). It stays off until the owner buys the 20K plan and adds `ODDS_API_KEY` in Render's settings; until then the site looks as before.
+- The source calls only while a game is on: every 30 seconds with plenty of credits, slower as they fall, paused under a 500-credit reserve. One extra call collects each final.
+- These scores come without a game clock, so a game in play keeps its pregame win chance, labelled "Pregame", with a "no clock" tag and when the score was last checked. A score the source stops updating reads "In progress" with its age, not "Live". The simulator tab takes only finals from it.
+- The scores never enter the published snapshot: the snapshot runs keep the source off and the data contract refuses them.
+- 12 new fabric tests (94) and new page checks (343); an independent review found one blocking bug and nine smaller points, fixed with tests except a same-origin check on `/api/live` and a direct test of the simulator tab's feed code. Checked in the browser against a stand-in feed; not yet seen during a real game.
+
 ## 2026-11-25 (player availability history, F56)
 - The team drawer shows every listed player's season week by week, from the league's official injury reports and roster lists (nflverse): out, doubtful, questionable, practice-report-only, reserve, PUP and non-football injury lists, byes. It adds a count: "listed out or on a reserve list in N of the team's M games".
 - A new "On reserve lists" part names the players the weekly report leaves out, with the week each stint began.

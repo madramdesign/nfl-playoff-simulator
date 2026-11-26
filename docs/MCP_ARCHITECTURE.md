@@ -78,7 +78,7 @@ Team arguments take the page's abbreviations (`BUF`, `NYG`, `LAR`, `WAS`, `JAX`,
 | Tool | Arguments | Returns |
 |---|---|---|
 | `get_games` | `team?`, `state?` (pre, in, post) | This week's games: state, score (null before kickoff), period, clock, venue, line (`spreadHome`, `total`, `homeWinProbNoVig`, moneylines, each open/current/move, with source and provider), kickoff-hour weather with source, live situation and the source's win estimate, and `engine` (engine game id, the model's home chance, and a note when the feed shows a final the engine still simulates) |
-| `get_live_games` | none | Games in progress, the live source's status, counts by state; says when no live source is in scope or it is stale or down |
+| `get_live_games` | none | Games in progress, the live source's status (ESPN's scoreboard locally, The Odds API's scores on a hosted server), counts by state; says when no live source is in scope or it is stale or down, and when a score comes without a clock (`clockKnown: false`, with `checkedAt`) |
 | `get_injuries` | `team?` | Per team: descriptive burden, counts, players with status, injury, source, and the other source's report where two disagree |
 | `get_news` | `team?`, `hours?` 1-720, `limit?` 1-100 (default 20) | Headlines and curated quarterback changes, newest first, with publisher, link, corroboration and rule-based importance and confidence |
 | `get_events` | `type?` (contract event types), `team?`, `hours?`, `minImportance?` 0-100, `limit?` | The unified event feed |

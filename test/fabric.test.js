@@ -889,6 +889,246 @@ test("The Odds API keeps a credit floor until the next month", async () => {
     assert.strictEqual(calls.length, 2, "a new month: one call to find out");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+// ---------- The Odds API live scores (F57, DEC-027) ----------
+const OS = require(path.join(root, "lib/fabric/adapters/oddsscores.js"));
+const SC = (id, away, home, kickoff, scores, completed = false, last = null) => ({ id, sport_key: "americanfootball_nfl", sport_title: "NFL", commence_time: kickoff, completed,
+  home_team: home, away_team: away, scores: scores ? [{ name: home, score: scores[1] }, { name: away, score: scores[0] }] : null, last_update: last });
+const MIA_BUF = (scores, completed, last) => SC("s-mia-buf", "Miami Dolphins", "Buffalo Bills", "2026-11-22T18:00:00Z", scores, completed, last);
+const JAX_NYG = SC("s-jax-nyg", "Jacksonville Jaguars", "New York Giants", "2026-11-22T21:25:00Z", null);
+// fakeFetch plus The Odds API's /scores: answers board() (or board(url) for daysFrom calls); records each call
+function scoresFetch(calls, board, { remaining = () => 19000, status = 200 } = {}) {
+  const base = fakeFetch();
+  return async (url, o) => {
+    if (!String(url).includes("api.the-odds-api.com")) return base(url, o);
+    calls.push({ url: String(url), key: o && o.headers ? o.headers["x-api-key"] : null });
+    const headers = new Map([["x-requests-remaining", String(remaining())], ["x-requests-last", /daysFrom/.test(url) ? "2" : "1"]]);
+    const json = board(String(url));
+    return { ok: status === 200, status, headers, json: async () => json, text: async () => JSON.stringify(json) };
+  };
+}
+// set up as on the hosted server: key, switch, and the pre-game odds source off (FABRIC_OFF=odds-api)
+const scoresFabric = (calls, board, t, more = {}) => createFabric(Object.assign({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t(), oddsApiKey: ODDS_KEY, liveScores: "odds-api",
+  off: ["odds-api"], fetchImpl: scoresFetch(calls, board, more) }, more.opts || {}));
+const at = (s) => Date.parse(s);
+
+test("live scores: the answer is read strictly; unknown teams and unscored finals are counted, never guessed", () => {
+  const r = OS.normalizeScores([MIA_BUF(["3", "14"], false, "2026-11-22T18:29:40Z"), JAX_NYG, MIA_BUF(["9", "9"]),
+    SC("s-x", "Miami Dolphins", "Springfield Atoms", "2026-11-22T18:00:00Z", ["1", "2"]), SC("s-f", "Indianapolis Colts", "Houston Texans", "2026-11-20T01:15:00Z", ["3", null], true),
+    SC("s-n", "Dallas Cowboys", "New York Giants", "2026-11-22T18:00:00Z", [7, "-3"]), SC("s-b", "Tampa Bay Buccaneers", "Carolina Panthers", "2026-11-22T18:00:00Z", ["1000", "x"]), null, { id: 5 }]);
+  assert.deepStrictEqual(r.games.map((g) => [g.pid, g.away, g.home, g.state, g.awayScore, g.homeScore]),
+    [["s-mia-buf", "MIA", "BUF", "in", 3, 14], ["s-jax-nyg", "JAX", "NYG", "pre", null, null], ["s-n", "DAL", "NYG", "pre", null, null], ["s-b", "TB", "CAR", "pre", null, null]],
+    "live with both scores, upcoming without; a duplicate id is taken once; a negative or non-numeric score is no score");
+  assert.strictEqual(r.games[0].scoreAt, "2026-11-22T18:29:40.000Z");
+  assert.strictEqual(r.unmatched, 1, "an unknown team is counted"); assert.strictEqual(r.unscored, 1, "a completed game without both scores is left out and counted");
+  assert.deepStrictEqual(OS.normalizeScores({ message: "x" }), { games: [], unmatched: 0, unscored: 0 }, "an error object is no games");
+  assert.ok(OS.scoresUrl() === OS.BASE + "?dateFormat=iso" && /daysFrom=1$/.test(OS.scoresUrl({ daysFrom: 1 })) && !/apiKey/i.test(OS.scoresUrl({ daysFrom: 1 })), "no key in the URL");
+});
+test("live scores: a finished game that drops out is collected with one daysFrom call; a lost one stops costing", () => {
+  const T0 = at("2026-11-22T21:00:00Z"), norm = (list) => OS.normalizeScores(list);
+  let h = OS.fold(null, norm([MIA_BUF(["10", "24"])]), { nowMs: T0 });
+  assert.ok(h.games[0].state === "in" && h.games[0].checkedAt === "2026-11-22T21:00:00.000Z" && !h.pendingFinal.length);
+  h = OS.fold(h, norm([JAX_NYG]), { nowMs: T0 + 30000 });
+  assert.deepStrictEqual(h.pendingFinal, ["s-mia-buf"], "live and missing: waiting for its final");
+  assert.ok(h.games.find((g) => g.pid === "s-mia-buf").checkedAt === "2026-11-22T21:00:00.000Z", "its checkedAt stays at the last answer that had it");
+  const sched = [{ home: "BUF", away: "MIA", kickoff: "2026-11-22T18:00:00Z", state: "pre" }];
+  assert.deepStrictEqual(OS.plan({ schedule: sched, held: h, nowMs: T0 + 60000 }), { call: true, daysFrom: 1, watching: 1, why: null }, "the next call asks for finished games");
+  const done = OS.fold(h, norm([MIA_BUF(["13", "24"], true), JAX_NYG]), { nowMs: T0 + 60000, daysFrom: 1 });
+  assert.ok(done.games.find((g) => g.pid === "s-mia-buf").state === "post" && done.games.find((g) => g.pid === "s-mia-buf").awayScore === 13 && !done.pendingFinal.length);
+  assert.strictEqual(OS.plan({ schedule: sched, held: done, nowMs: T0 + 90000 }).call, false, "final: no more calls for it");
+  assert.strictEqual(OS.fold(done, norm([MIA_BUF(["13", "24"], false)]), { nowMs: T0 + 120000 }).games[0].state, "post", "a final stays final");
+  const lost = OS.fold(h, norm([JAX_NYG]), { nowMs: T0 + 60000, daysFrom: 1 });
+  const g = lost.games.find((x) => x.pid === "s-mia-buf");
+  assert.ok(g.lost && g.state === "in" && !lost.pendingFinal.length, "asked with daysFrom and still missing: marked lost, not asked again");
+  assert.strictEqual(OS.plan({ schedule: sched, held: lost, nowMs: T0 + 3 * 3600000 }).call, false, "a lost game does not keep calls going past its window");
+  const blank = OS.fold(OS.fold(null, norm([MIA_BUF(["3", "7"])]), { nowMs: T0 }), norm([MIA_BUF(null)]), { nowMs: T0 + 30000 });
+  assert.ok(blank.games[0].state === "in" && blank.games[0].awayScore === 3, "a live game listed for a moment without scores keeps its last scores");
+  assert.strictEqual(OS.fold(done, norm([]), { nowMs: at("2026-11-27T00:00:00Z") }).games.length, 0, "games over 4 days old are dropped");
+});
+test("live scores: calls only inside game windows, paced by the credits left, paused below the reserve", () => {
+  const K = at("2026-11-22T18:00:00Z"), sched = [{ home: "BUF", away: "MIA", kickoff: "2026-11-22T18:00:00Z", state: "pre" }, { home: "HOU", away: "IND", kickoff: "2026-11-20T01:15:00Z", state: "post" }];
+  const p = (dt, held = null, schedule = sched) => OS.plan({ schedule, held, nowMs: K + dt });
+  assert.deepStrictEqual(p(-3 * 60000), { call: false, daysFrom: 0, watching: 0, why: "idle" }, "3 minutes before kickoff: nothing");
+  assert.ok(p(-60000).call && p(4.4 * 3600000).call && !p(4.6 * 3600000).call, "from 2 minutes before to 4.5 hours after");
+  const live = { games: [{ pid: "x", home: "BUF", away: "MIA", kickoff: "2026-11-22T18:00:00Z", state: "in" }], pendingFinal: [] };
+  assert.ok(p(6 * 3600000, live).call && !p(8.1 * 3600000, live).call, "a game still live is followed up to 8 hours after kickoff");
+  assert.strictEqual(p(60000, null, null).why, "no-schedule", "no schedule, nothing live: no call");
+  assert.ok(p(60000, live, null).call, "no schedule, but a game seen live: still followed");
+  assert.ok(!p(60000, live, [Object.assign({}, sched[0], { state: "post" })]).call, "the schedule already has the final: not followed");
+  const low = Object.assign({}, live, { credits: { remaining: 420 }, calledAt: "2026-11-22T18:00:30.000Z" });
+  assert.strictEqual(p(3600000, low).why, "paused", "under the reserve: paused");
+  assert.ok(p(6.2 * 3600000, low).call, "one look 6 hours later, to see whether the credits renewed");
+  assert.deepStrictEqual([null, { remaining: null }, { remaining: 19000 }, { remaining: 5000 }, { remaining: 4999 }, { remaining: 1000 }, { remaining: 999 }, { remaining: 500 }, { remaining: 499 }].map(OS.intervalFor),
+    [60000, 60000, 30000, 30000, 60000, 60000, 90000, 90000, OS.PROBE_MS], "30 s, then 60 s under 5,000, 90 s under 1,000, paused under 500; credits unknown: 60 s");
+});
+test("live scores reach the hosted payload: score without a clock, events credited, a game followed to its final", async () => {
+  const calls = [], scoreCalls = () => calls.filter((c) => /\/scores\//.test(c.url));
+  let t = at("2026-11-22T17:50:00Z"), board = () => [JAX_NYG], left = 19000;
+  const f = scoresFabric(calls, (url) => board(url), () => t, { remaining: () => left });
+  // a request that may start a call, then one 6 s later that sees its result: like ESPN's scoreboard, the source answers
+  // with its last data while it refreshes in the background
+  const look = async () => { await f.universe(); await new Promise((ok) => setTimeout(ok, 10)); t += 6000; return f.universe(); };
+  let u = await look();
+  assert.strictEqual(calls.length, 0, "before the window: no call");
+  assert.ok(u.sources["odds-scores"].status === "ok" && /No game on; nothing requested/.test(u.sources["odds-scores"].note));
+  assert.ok(u.sources["odds-scores"].ageSec === null && u.sources["odds-scores"].lastOk === null, "idle: no age, since nothing was fetched (a panel does not read fresher than its data)");
+  t = at("2026-11-22T18:01:00Z"); board = () => [MIA_BUF(["0", "0"], false, "2026-11-22T18:00:50Z"), JAX_NYG];
+  u = await look();
+  assert.ok(calls.length === 1 && !/daysFrom/.test(calls[0].url) && calls[0].key === ODDS_KEY && !calls[0].url.includes(ODDS_KEY), "one call, key in the header only");
+  let buf = u.games.find((g) => g.home === "BUF");
+  assert.deepStrictEqual([buf.state, buf.awayScore, buf.homeScore, buf.period, buf.clock, buf.clockKnown, buf.source, buf.checkedAt, buf.scoreAt, buf.winProb, buf.situation],
+    ["in", 0, 0, null, null, false, "odds-scores", "2026-11-22T18:01:00.000Z", "2026-11-22T18:00:50.000Z", null, null]);
+  const kick = u.events.find((e) => e.subtype === "kickoff" && e.gameId === buf.id);
+  assert.ok(kick && kick.publisher === "The Odds API" && kick.source === "odds-scores", "kickoff credited to The Odds API");
+  assert.deepStrictEqual(C.validateUniverse(u, T), [], "the hosted answer passes the contract");
+  assert.ok(C.validatePublicSnapshot(u, T).some((e) => /licensed live scores are never published in a file/.test(e)), "but may never become a published file");
+  assert.ok(/^Scores only, no game clock; one look every 30 s while a game is on; 19000 credits left$/.test(u.sources["odds-scores"].note), u.sources["odds-scores"].note);
+  t += 20000; board = () => [MIA_BUF(["3", "0"]), JAX_NYG];
+  await f.universe(); assert.strictEqual(calls.length, 1, "26 s after the call: none (one every 30 s)");
+  t += 10000; left = 4000;
+  u = await look(); assert.strictEqual(calls.length, 2);
+  buf = u.games.find((g) => g.home === "BUF");
+  assert.ok(buf.awayScore === 3 && buf.homeScore === 0, "the new score");
+  const sc = u.events.find((e) => e.subtype === "score" && e.gameId === buf.id);
+  assert.ok(sc && sc.title === "MIA scores: MIA 3, BUF 0" && sc.publisher === "The Odds API", "a score event without a made-up quarter or clock: " + (sc && sc.title));
+  assert.ok(/one look every 60 s while a game is on; 4000 credits left/.test(u.sources["odds-scores"].note), "4,000 credits left: one look a minute");
+  t += 40000; await look();
+  assert.strictEqual(calls.length, 2, "46 s after the call: none");
+  // the game ends and drops out of the answer; the next call asks for finished games and collects the final
+  t = at("2026-11-22T21:10:00Z"); left = 3990; board = (url) => (/daysFrom=1/.test(url) ? [MIA_BUF(["13", "24"], true, "2026-11-22T21:09:00Z"), JAX_NYG] : [JAX_NYG]);
+  u = await look();
+  buf = u.games.find((g) => g.home === "BUF");
+  assert.ok(scoreCalls().length === 3 && buf.state === "in" && buf.awayScore === 3 && buf.checkedAt === "2026-11-22T18:01:36.000Z", "missing from the answer: last score kept, with when it was last seen");
+  t += 61000; u = await look();
+  assert.ok(scoreCalls().length === 4 && /daysFrom=1/.test(scoreCalls()[3].url), "one daysFrom call");
+  buf = u.games.find((g) => g.home === "BUF");
+  assert.ok(buf.state === "post" && buf.awayScore === 13 && buf.homeScore === 24 && buf.source === "odds-scores", "the final");
+  const fin = u.events.find((e) => e.subtype === "final" && e.gameId === buf.id);
+  assert.ok(fin && fin.publisher === "The Odds API");
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  assert.ok(!JSON.stringify(u).includes(ODDS_KEY), "the key is nowhere in the payload");
+  const last = scoreCalls().length;
+  t = at("2026-11-23T06:00:00Z"); u = await look();
+  const idleSt = u.sources["odds-scores"];
+  assert.ok(scoreCalls().length === last && /No game on/.test(idleSt.note) && idleSt.lastOk === "2026-11-22T21:11:07.000Z" && idleSt.ageSec > 8 * 3600,
+    "after the last window: no call, and its age is that of the last real call: " + JSON.stringify([idleSt.lastOk, idleSt.ageSec, idleSt.note]));
+});
+test("live scores: ESPN wins where it runs; a recorded final is never overwritten; off unless switched on", async () => {
+  const calls = [], t = () => at("2026-11-22T18:30:00Z");
+  const board = () => [MIA_BUF(["0", "3"]), SC("s-ind-hou", "Indianapolis Colts", "Houston Texans", "2026-11-20T01:15:00Z", ["21", "20"])];
+  const lu = await scoresFabric(calls, board, t, { opts: { scopes: ["public", "local"] } }).universe();
+  const lb = lu.games.find((g) => g.home === "BUF");
+  assert.ok(calls.length === 1 && lb.source === "espn-scoreboard" && lb.awayScore === 10 && lb.homeScore === 17 && lb.period === 3, "ESPN's score and clock, not The Odds API's");
+  const pu = await scoresFabric([], board, t).universe();
+  const hou = (pu.recentFinals || []).concat(pu.games).find((g) => g.home === "HOU");
+  assert.ok(!hou || (hou.awayScore === 3 && hou.homeScore === 26 && hou.source !== "odds-scores"), "the schedule's final stays");
+  // off: a key alone, the switch alone, or the snapshot's liveScores: "" (whatever the environment says)
+  for (const [key, ls, why] of [[ODDS_KEY, "", /set LIVE_SCORES=odds-api/], ["", "odds-api", /needs ODDS_API_KEY and LIVE_SCORES/], [ODDS_KEY, "espn", /set LIVE_SCORES=odds-api/]]) {
+    const c = [], u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: t, oddsApiKey: key, liveScores: ls, fetchImpl: scoresFetch(c, board) }).universe();
+    assert.ok(!c.some((x) => /\/scores\//.test(x.url)) && u.sources["odds-scores"].status === "disabled" && why.test(u.sources["odds-scores"].note) && !u.games.some((g) => g.source === "odds-scores"));
+  }
+  process.env.LIVE_SCORES = "odds-api";
+  try {
+    const c = [], u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: t, oddsApiKey: ODDS_KEY, liveScores: "", fetchImpl: scoresFetch(c, board) }).universe();
+    assert.ok(u.sources["odds-scores"].status === "disabled" && !c.some((x) => /\/scores\//.test(x.url)), "liveScores: \"\" (the snapshot scripts) beats the environment");
+  } finally { delete process.env.LIVE_SCORES; }
+});
+test("live scores: a final the provider keeps listing as unfinished stops costing after three asks", () => {
+  const T0 = at("2026-11-22T21:00:00Z"), norm = (list) => OS.normalizeScores(list);
+  let h = OS.fold(null, norm([MIA_BUF(["10", "24"])]), { nowMs: T0 }), extra = 0;
+  for (let i = 1; i <= 6; i++) {
+    h = OS.fold(h, norm([JAX_NYG]), { nowMs: T0 + i * 60000 });                       // the plain answer drops it
+    if (!h.pendingFinal.length) break;
+    extra++; h = OS.fold(h, norm([MIA_BUF(["10", "24"]), JAX_NYG]), { nowMs: T0 + i * 60000 + 30000, daysFrom: 1 });   // daysFrom still lists it, unfinished
+  }
+  const g = h.games.find((x) => x.pid === "s-mia-buf");
+  assert.ok(extra === OS.FINAL_ASKS && g.lost && g.state === "in" && !h.pendingFinal.length, "three daysFrom asks, then lost (" + extra + ")");
+  const back = OS.fold(h, norm([MIA_BUF(["13", "24"])]), { nowMs: T0 + 9 * 60000 });
+  assert.ok(!back.games[0].lost && !back.games[0].finalAsks && back.games[0].awayScore === 13, "listed live again: followed again from scratch");
+});
+test("live scores: a game listed with home and away the other way round is matched, its scores swapped", async () => {
+  const t = () => at("2026-11-23T02:00:00Z");
+  const u = await scoresFabric([], () => [SC("s-rev", "San Francisco 49ers", "Minnesota Vikings", "2026-11-23T01:20:00Z", ["14", "7"])], t).universe({ fresh: true });
+  const g = u.games.find((x) => x.away === "MIN" && x.home === "SF");
+  assert.ok(g && g.source === "odds-scores" && g.state === "in" && g.awayScore === 7 && g.homeScore === 14, "MIN 7 at SF 14, as the schedule lists it");
+  assert.ok(OS.sameGame({ home: "SF", away: "MIN", kickoff: "2026-11-23T01:20:00Z" }, { home: "MIN", away: "SF", kickoff: "2026-11-23T01:20:00Z" }) && OS.reversed({ home: "SF", away: "MIN" }, { home: "MIN", away: "SF" }) && !OS.reversed({ home: "SF", away: "MIN" }, { home: "SF", away: "MIN" }));
+  const fin = OS.fold(null, OS.normalizeScores([SC("s-rev", "San Francisco 49ers", "Minnesota Vikings", "2026-11-23T01:20:00Z", ["14", "7"], true)]), { nowMs: t() });
+  assert.strictEqual(OS.plan({ schedule: [{ home: "SF", away: "MIN", kickoff: "2026-11-23T01:20:00Z", state: "pre" }], held: fin, nowMs: t() }).call, false, "its final stops the calls");
+});
+test("live scores: events saved while they were on are not replayed into a snapshot made with them off", async () => {
+  const os = require("os"), fs = require("fs"), dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-scores-ev-"));
+  try {
+    let t = at("2026-11-22T17:59:00Z"), board = () => [MIA_BUF(null)];
+    const on = scoresFabric([], () => board(), () => t, { opts: { cacheDir: dir } });
+    await on.universe({ fresh: true });
+    t = at("2026-11-22T18:03:00Z"); board = () => [MIA_BUF(["0", "7"])];
+    const u1 = await on.universe({ fresh: true });
+    assert.ok(u1.events.some((e) => e.source === "odds-scores" && e.subtype === "kickoff"), "a kickoff event from the live scores");
+    const off = await createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: () => t, oddsApiKey: ODDS_KEY, liveScores: "", fetchImpl: fakeFetch() }).universe({ fresh: true });
+    assert.ok(!off.events.some((e) => e.source === "odds-scores"), "not replayed with the source off");
+    assert.deepStrictEqual(C.validatePublicSnapshot(off, T), [], "so the snapshot can still be written");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("the public snapshot refuses licensed live scores wherever they appear", () => {
+  const base = JSON.parse(JSON.stringify(require(path.join(root, "test/fixtures/universe.public.json"))));
+  base.sources["odds-scores"] = { id: "odds-scores", label: "x", tier: 2, scope: "public", status: "ok", breaker: "closed", lastOk: base.generatedAt, lastError: null, ageSec: 1, latencyMs: 1, fails: 0, records: 1, maxStaleSec: 600 };
+  assert.deepStrictEqual(C.validatePublicSnapshot(base, T), [], "the source listed alone is fine");
+  const fin = JSON.parse(JSON.stringify(base)); fin.recentFinals = [{ id: "x", gid: null, week: 11, kickoff: "2026-11-22T18:00:00Z", away: "MIA", home: "BUF", awayScore: 13, homeScore: 24, source: "odds-scores" }];
+  assert.ok(C.validatePublicSnapshot(fin, T).some((e) => /recentFinals\[0\]: licensed live scores/.test(e)), "a recent final from it");
+  const g = JSON.parse(JSON.stringify(base)), pg = g.games.find((x) => x.state === "pre"); Object.assign(pg, { checkedAt: base.generatedAt });
+  assert.ok(C.validatePublicSnapshot(g, T).some((e) => /licensed live scores are never published/.test(e)), "a game stamped by it");
+  const bad = JSON.parse(JSON.stringify(base)), bg = bad.games[0]; bg.period = null;
+  assert.ok(C.validateUniverse(bad, T).some((e) => /period/.test(e)), "a null period without clockKnown false is refused");
+});
+test("live scores: a switched-off source reads no cached copy, and the key is in no cache file", async () => {
+  const os = require("os"), fs = require("fs"), dir = fs.mkdtempSync(path.join(os.tmpdir(), "nflu-scores-"));
+  try {
+    const t = () => at("2026-11-22T18:30:00Z"), board = () => [MIA_BUF(["0", "3"])];
+    await createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: t, oddsApiKey: ODDS_KEY, liveScores: "odds-api", fetchImpl: scoresFetch([], board) }).universe();
+    const file = path.join(dir, "public", "odds-scores.json");
+    assert.ok(fs.existsSync(file) && !fs.readFileSync(file, "utf8").includes(ODDS_KEY), "cached, without the key");
+    const u = await createFabric({ scopes: ["public"], cacheDir: dir, season: 2026, now: t, oddsApiKey: ODDS_KEY, liveScores: "", fetchImpl: scoresFetch([], board) }).universe();
+    assert.ok(!u.games.some((g) => g.source === "odds-scores"), "switched off: the cached scores are not used");
+    assert.deepStrictEqual(C.validatePublicSnapshot(u, T).filter((e) => /licensed/.test(e)), [], "so a snapshot made there carries none");
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+test("live scores: paused below the reserve, shown stale with the reason; errors never carry the key", async () => {
+  const calls = []; let t = at("2026-11-22T18:30:00Z");
+  const f = scoresFabric(calls, () => [MIA_BUF(["0", "3"])], () => t, { remaining: () => 420 });
+  let u = await f.universe();
+  assert.ok(calls.length === 1 && /420 credits left \(paused: under the 500 kept for the odds\)/.test(u.sources["odds-scores"].note) && /one look every 6 h/.test(u.sources["odds-scores"].note));
+  t += 15 * 60000; await f.universe(); t += 1000; u = await f.universe();
+  assert.strictEqual(calls.length, 1, "15 minutes later: still no call");
+  assert.strictEqual(u.sources["odds-scores"].status, "stale", "and the source is shown stale, not current");
+  const fails = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: () => t, oddsApiKey: ODDS_KEY, liveScores: "odds-api",
+    fetchImpl: scoresFetch([], () => [], { status: 401 }) }).universe();
+  assert.ok(fails.sources["odds-scores"].status === "down" && /401/.test(fails.sources["odds-scores"].lastError) && !JSON.stringify(fails).includes(ODDS_KEY));
+});
+test("/api/live on the hosted server: The Odds API's scores without a clock, or 404 when they are off", async () => {
+  const srv = require(path.join(root, "server.js")), http = require("http");
+  const t = () => at("2026-11-22T18:30:00Z");
+  srv.setFabric(scoresFabric([], () => [MIA_BUF(["0", "3"])], t));
+  process.env.FABRIC_SCOPES = "public";
+  await new Promise((ok) => srv.server.listen(0, "127.0.0.1", ok));
+  const get = (p) => new Promise((ok, bad) => http.get({ host: "127.0.0.1", port: srv.server.address().port, path: p }, (res) => { let b = ""; res.on("data", (c) => (b += c)); res.on("end", () => ok({ status: res.statusCode, body: b })); }).on("error", bad));
+  try {
+    let r = await get("/api/live");
+    assert.strictEqual(r.status, 200);
+    const d = JSON.parse(r.body), g = d.games.find((x) => x.home === "BUF");
+    assert.ok(d.source === "odds-scores" && d.stale === false && g && g.state === "in" && g.awayScore === 0 && g.homeScore === 3 && g.clockKnown === false && g.period === null && g.minutes === null && g.clock === null);
+    assert.ok(d.games.every((x) => x.clockKnown === false && x.period === null), "no game is given a clock");
+    assert.ok(d.games.some((x) => x.home === "HOU" && x.state === "post" && x.awayScore === 3 && x.homeScore === 26), "finals from the schedule come along, so none is lost when the source changes");
+    // the same game 10 minutes later, no longer listed by the source: not offered as in progress
+    let t2 = at("2026-11-22T18:30:00Z"); const gone = scoresFabric([], () => (t2 < at("2026-11-22T18:35:00Z") ? [MIA_BUF(["0", "3"])] : [JAX_NYG]), () => t2);
+    srv.setFabric(gone); await get("/api/live"); t2 = at("2026-11-22T18:40:00Z"); await get("/api/live"); await new Promise((ok) => setTimeout(ok, 20)); t2 += 6000;
+    const d2 = JSON.parse((await get("/api/live")).body);
+    assert.ok(!d2.games.some((x) => x.home === "BUF" && x.state === "in"), "a game the source stopped listing is not sent as in progress");
+    srv.setFabric(createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: t, fetchImpl: fakeFetch() }));
+    r = await get("/api/live"); assert.strictEqual(r.status, 404, "off: 404 as before");
+  } finally { delete process.env.FABRIC_SCOPES; await new Promise((ok) => srv.server.close(ok)); srv.setFabric(null); }
+  const ry = require("fs").readFileSync(path.join(root, "render.yaml"), "utf8");
+  assert.ok(/- key: ODDS_API_KEY\n\s+sync: false\n/.test(ry) && /- key: LIVE_SCORES\n\s+value: odds-api\n/.test(ry) && /- key: FABRIC_OFF\n\s+value: odds-api\n/.test(ry),
+    "Render: live scores switched on, the pre-game odds off, the key never written in the file");
+});
 test("a source's minimum interval holds even when fresh data is asked for", async () => {
   let calls = 0, t = 1e12;
   const src = createSource({ id: "paid", label: "x", ttlMs: 60000, minIntervalMs: 11 * 3600000, load: async () => { calls++; return { games: [calls] }; } });
@@ -1064,7 +1304,8 @@ test("everything down still yields a valid, empty, honest payload", async () => 
   const u = await f.universe();
   assert.deepStrictEqual(C.validateUniverse(u, T), []);
   assert.strictEqual(u.sources["odds-api"].status, "disabled", "no key: off, not down");
-  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws-alerts", "odds-api", "youtube-reel"].includes(s.id));   // weather and NFL TV depend on other sources
+  assert.strictEqual(u.sources["odds-scores"].status, "disabled", "no key and no switch: live scores off, not down");
+  const net = Object.values(u.sources).filter((s) => !["curated-news", "open-meteo", "nws-alerts", "odds-api", "odds-scores", "youtube-reel"].includes(s.id));   // weather and NFL TV depend on other sources
   assert.ok(/unavailable/i.test(u.sources["youtube-reel"].note || "") && u.media && (u.media.reel || []).length === 0, "NFL TV says why it has nothing");
   assert.ok(net.length >= 8 && net.every((s) => s.status === "down"), "every network source reports down");
   assert.strictEqual(u.sources["open-meteo"].records, 0); assert.ok(/unavailable/i.test(u.sources["open-meteo"].note || ""), "weather says why it has nothing");
@@ -1223,7 +1464,9 @@ test("ESPN's feed: an empty 202 is named, and a source switched off where it can
     try { assert.strictEqual((await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl }).universe()).sources["rss-espn"].status, "disabled", "FABRIC_OFF in the environment does the same"); }
     finally { delete process.env.FABRIC_OFF; }
     const both = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl, off: ["odds-api"] }).universe();
-    assert.ok(both.sources["odds-api"].status === "disabled" && both.sources["odds-api"].note === "Off here (FABRIC_OFF)", "a source with a note of its own still says why it is switched off");
+    assert.ok(both.sources["odds-api"].status === "disabled" && /^Off here \(FABRIC_OFF\): set on the hosted server, whose restarts would forget/.test(both.sources["odds-api"].note), "a source with a note of its own still says why it is switched off");
+    const other = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl, off: ["sleeper-trending"] }).universe();
+    assert.strictEqual(other.sources["sleeper-trending"].note, "Off here (FABRIC_OFF)", "a source without a reason on file gets the plain one");
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 test("a quick answer leaves slow sources out as pending, always waits for the schedule, and never serves a full caller (DEC-025)", async () => {

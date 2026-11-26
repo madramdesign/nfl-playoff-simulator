@@ -183,6 +183,27 @@ const Mn = U.buildModel(noWp), p0 = U.feedInputs(Mn, liveMeta, now).liveP[bufGam
 const tw = []; tw[idx("BUF")] = 7; E.setTweak(tw);
 const p1 = U.feedInputs(Mn, liveMeta, now).liveP[bufGame.gi]; E.setTweak([]);
 ok(p0 > 0.5 && p0 < 1 && Math.abs(p0 - p1) < 1e-12, "with no feed chance, this page's in-game model is used, never with the simulator's what-if");
+// a live score with no game clock (The Odds API on the hosted server, DEC-027): shown, never given a made-up time
+{
+  const nc = JSON.parse(JSON.stringify(live)), g1 = nc.games.find((g) => g.id === "fx-1"), gen = Date.parse(nc.generatedAt);
+  nc.sources["odds-scores"] = Object.assign({}, nc.sources["espn-scoreboard"], { id: "odds-scores", label: "The Odds API live scores (no game clock)", scope: "public" });
+  Object.assign(g1, { source: "odds-scores", winProb: null, situation: null, period: null, clock: null, clockKnown: false, checkedAt: new Date(gen - 20e3).toISOString(), scoreAt: new Date(gen - 40e3).toISOString() });
+  const Mc = U.buildModel(nc), cg = Mc.games.find((g) => g.id === "fx-1"), inp = U.feedInputs(Mc, liveMeta, now);
+  ok(cg.clockKnown === false && cg.period === null && cg.checkedAt === g1.checkedAt && cg.scoreAt === g1.scoreAt, "the game keeps clockKnown, a null period, checkedAt and scoreAt");
+  ok(bufGame.clockKnown === true && bufGame.checkedAt === null, "an ESPN game's clock is known");
+  ok(U.gameIsLive(cg, Mc, liveMeta, now), "it is live: recent, from an ok source");
+  ok(inp.noClock === 1 && inp.lives === 0 && inp.liveP === null && inp.picks[chiGame.gi] === 2, "no in-game chance is made, so the simulation keeps the pregame chance; finals still count");
+  ok(Math.abs(U.gameHomeProb(cg, true) - U.modeProb(cg.gi)) < 1e-12, "the card shows the pregame chance");
+  ok(/before kickoff; the live score comes without a game clock, so no in-game chance is made$/.test(U.gameProbSource(cg, true)), "and says why: " + U.gameProbSource(cg, true));
+  ok(/^(Live|In progress)/.test(U.gameStateLabel(cg)) && !/Q[\d?]/.test(U.gameStateLabel(cg)), "the card never shows a made-up quarter");
+  ok(/^In progress · not live/.test(U.gameStateLabel(cg)), "with no live data on this page (no store here), it reads In progress with why, not Live");
+  ok(/^Score from The Odds API, last checked .*no quarter or game clock/.test(U.noClockTitle(cg)), "its tag says where the score came from, when, and what is missing");
+  ok(/1 live game simulated from the pregame chance: the live score comes without a game clock/.test(U.simSummary({ mode: 2, noClock: 1 }, 2)), "the simulation note says so");
+  const old = JSON.parse(JSON.stringify(nc)); old.games.find((g) => g.id === "fx-1").checkedAt = new Date(gen - 10 * 60e3).toISOString();
+  const Mo = U.buildModel(old), og = Mo.games.find((g) => g.id === "fx-1");
+  ok(!U.gameIsLive(og, Mo, liveMeta, now) && U.feedInputs(Mo, liveMeta, now).staleLive === 1, "a game its source stopped listing 10 minutes ago is out of date, however fresh the source");
+  ok(U.gameDataAge(og, Mo, liveMeta, now) >= 600, "and its age says so");
+}
 eq(U.recordOf(idx("CHI"), M), { w: E.BW[idx("CHI")] + 1, l: E.BL[idx("CHI")], t: E.BT[idx("CHI")], feed: 1 }, "records count this week's feed finals for the winner");
 eq(U.recordOf(idx("NO"), M), { w: E.BW[idx("NO")], l: E.BL[idx("NO")] + 1, t: E.BT[idx("NO")], feed: 1 }, "and for the loser");
 

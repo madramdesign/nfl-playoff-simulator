@@ -190,7 +190,7 @@ function overlookedFactor() {
   for (var t = 0; t < NT; t++) { var o = CLOSE[t], n = o[0] + o[1] + o[2]; if (n >= 4 && (o[0] / n >= 0.75 || o[1] / n >= 0.75)) return { team: t, kind: "close", rec: o }; }
   return null;
 }
-var KEY_SOURCE_KINDS = [["scores", ["espn-scoreboard", "nflverse-games"]], ["injuries", ["espn-injuries", "nflverse-injuries"]], ["news", ["rss-*", "espn-news", "curated-news"]], ["weather", ["open-meteo"]], ["transactions", ["espn-transactions"]]];
+var KEY_SOURCE_KINDS = [["scores", ["espn-scoreboard", "odds-scores", "nflverse-games"]], ["injuries", ["espn-injuries", "nflverse-injuries"]], ["news", ["rss-*", "espn-news", "curated-news"]], ["weather", ["open-meteo"]], ["transactions", ["espn-transactions"]]];
 // Which kinds of information are missing right now. A kind with no source in the payload counts as a gap too.
 function intelligenceGaps(payload) {
   var gaps = [];

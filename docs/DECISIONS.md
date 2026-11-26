@@ -197,3 +197,41 @@ Record significant decisions with date, status, context, options, decision, rati
   4. Keep only the derived history the features use. Nothing beyond the public nflverse files is stored.
   5. Descriptive only (DEC-007): nothing enters the forecast without a point-in-time backtest showing an out-of-sample gain.
 - Sources: nflverse `injuries` and `weekly_rosters` (CC-BY-4.0), already wired as `nflverse-injuries` and `nflverse-rosters`. Plan: `PLAN_CONTRACTS_AND_AVAILABILITY.md` §2.
+
+### DEC-027 — Licensed live scores on the hosted site from The Odds API's `/scores`
+- **Date:** 2026-11-26.
+- **Status:** Accepted (owner: "Yes, plan it", then "Yes, build it", Nov. 26). Built the same day on branch `f57-live-scores` and released to `main` on the owner's "Merge and push". It goes live only after Gate A (the owner buys the 20K plan) and Gate B (the key set on Render). Plan: `PLAN_LIVE_SCORES_PUBLIC.md`. Backlog: F57.
+- **Context:** DEC-018 left the hosted site without live scores (option 3, "a licensed live feed", to revisit). During GB at LAR on Nov. 25 the hosted site showed 0–0 "not updated" while the owner's local server, which reads ESPN, followed the game. NU-018 found The Odds API's `/scores` endpoint to be the cheapest licensed source of live scores. Its terms (Aug. 31, 2026) allow display in a website and storage, and bar redistributing the data as an API, feed or downloadable files.
+- **Options considered:**
+  1. Label the hosted site "live scores on the owner's copy only" ($0).
+  2. The Odds API `/scores` on the 20K plan ($30 a month).
+  3. A feed with a game clock: Sportradar or SportsDataIO, quote only, with the lowest published live price $599 a month.
+  4. BALLDONTLIE GOAT ($39.99), whose upstream is undisclosed.
+  5. ESPN on Render, which DEC-006 forbids.
+- **Decision:** option 2, implemented as follows.
+  - **The `odds-scores` source:**
+    - public scope;
+    - on only with `ODDS_API_KEY` and `LIVE_SCORES=odds-api`, which are set on Render only;
+    - called only inside game windows from the nflverse schedule;
+    - one call every 30 s, slowing to 60 or 90 s and pausing as the account's remaining credits fall (a 500-credit reserve for the odds source; 60 s when an answer lacks the credits header);
+    - one `daysFrom=1` call to collect each final.
+  - **Games:** ESPN stays primary wherever it runs. Games from this source carry `period: null`, `clock: null`, `clockKnown: false` and the provider's update time.
+  - **No in-game chance.** The page computes no in-game chance for a game without a clock: it keeps its pregame chance. A game clock estimated from wall-clock time would be a model input and needs a backtest first.
+  - **Never in the snapshot.** The public snapshot refuses these games, so the scores never reach a downloadable file.
+  - **Odds source off on Render.** The pre-game odds source stays off there with `FABRIC_OFF=odds-api`, because the free plan's restarts forget its 11-hour spacing.
+- **Evidence (checked Nov. 26, 2026 on the-odds-api.com):**
+  - Cost: 1 credit a call, 2 with `daysFrom`.
+  - Without `daysFrom`, completed games are not returned.
+  - Updates arrive about every 30 s.
+  - No quarter or clock.
+  - Plans: $30 for 20,000 credits, $59 for 100,000; the free tier gives 500.
+- **Budget:** from the 2026 schedule, polling every 30 s through merged game windows needs at most about 13,900 calls in a month (November). With finals and the existing odds looks, that is about 14,500 of 20,000 credits.
+- **Consequences:**
+  - The hosted site shows live scores marked "no clock", with when the score was last checked (in the tag, the card's accessible label and the game panel) and "Live scores: The Odds API" in the footer, up to about 80 s behind television. A game the feed stopped listing reads "In progress" with its age.
+  - It shows no quarter, clock or in-game chances.
+  - The owner's local copy is unchanged.
+  - Cost: about $30 a month in season. Whether the plan can be cancelled month to month is unverified.
+  - The lag, kickoff and final detection, credits per hour and the score format are checked in the first live window, then this entry is closed.
+- **Contract change (orchestrator):**
+  - `period` may be null when `clockKnown` is false;
+  - new optional fields `clockKnown` and `scoreAt`.

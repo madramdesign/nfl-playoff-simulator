@@ -157,6 +157,7 @@ function simSummary(s, curMode) {
   if (s.finals) bits.push(s.finals + " final" + (s.finals > 1 ? "s" : "") + " counted as results");
   if (s.ties) bits.push(s.ties + " tied final" + (s.ties > 1 ? "s" : "") + " simulated instead (the engine cannot pick ties)");
   if (s.lives) bits.push(s.lives + " live game" + (s.lives > 1 ? "s" : "") + " at " + (s.feedLive === s.lives ? "the feed's in-game chance" : s.feedLive ? "the feed's or this page's in-game chance" : "this page's in-game chance"));
+  if (s.noClock) bits.push(s.noClock + " live game" + (s.noClock > 1 ? "s" : "") + " simulated from the pregame chance: the live score comes without a game clock");
   if (s.staleLive) bits.push(s.staleLive + " in-progress game" + (s.staleLive > 1 ? "s" : "") + " with out-of-date data simulated from the pregame chance");
   return out + (bits.length ? " From the feed: " + bits.join("; ") + "." : "");
 }

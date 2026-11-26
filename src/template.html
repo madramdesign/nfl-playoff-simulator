@@ -526,7 +526,9 @@ function simulate(picks,focus,nOverride,liveP,now,watch,seed){
   return{n:N,open:open,po:po,dv:dv,sw:sw,seedC:seedC,hist:hist,lev:lev,first:first,rDiv:rDiv,rConf:rConf,rSB:rSB,wSB:wSB,draftSum:draftSum,draftN:draftN,pick1:pick1,top5:top5,watch:WT};
 }
 // One game from /api/live, checked before the simulator uses it: known teams, whole non-negative scores, a known state,
-// period 0-6, minutes 0-15 and a short clock. Anything else gives null and the game is ignored.
+// period 0-6, minutes 0-15 and a short clock. Anything else gives null and the game is ignored. A game from a score
+// source with no clock (clockKnown false: The Odds API on the hosted server, DEC-027) is flagged noClock, so an
+// in-progress score is never given a made-up quarter and time.
 function cleanLiveGame(e){
   if(!e||typeof e!=="object")return null;
   var ok=function(a){return typeof a==="string"&&TM.some(function(t){return t.a===a})};
@@ -534,8 +536,10 @@ function cleanLiveGame(e){
   if(!ok(e.away)||!ok(e.home)||!sc(e.awayScore)||!sc(e.homeScore)||["pre","in","post"].indexOf(e.state)<0)return null;
   var period=typeof e.period==="number"&&isFinite(e.period)?Math.max(0,Math.min(6,Math.round(e.period))):0;
   var minutes=typeof e.minutes==="number"&&isFinite(e.minutes)?Math.max(0,Math.min(15,e.minutes)):0;
-  return{away:e.away,home:e.home,awayScore:e.awayScore,homeScore:e.homeScore,state:e.state,period:period,minutes:minutes,
-    clock:typeof e.clock==="string"&&/^\d{1,2}:\d{2}$/.test(e.clock)?e.clock:""}}
+  var g={away:e.away,home:e.home,awayScore:e.awayScore,homeScore:e.homeScore,state:e.state,period:period,minutes:minutes,
+    clock:typeof e.clock==="string"&&/^\d{1,2}:\d{2}$/.test(e.clock)?e.clock:""};
+  if(e.clockKnown===false||e.noClock===true){g.noClock=true;g.period=0;g.minutes=0;g.clock=""}
+  return g}
 // A link the page may open: https only, no credentials, no spaces. Anything else gives null.
 function safeHttpsUrl(u){
   if(typeof u!=="string"||u.length>2000||/[\s"<>]/.test(u))return null;
@@ -833,6 +837,7 @@ var nflSimStart=(function(){var started=false;return function(){if(started)retur
   function applyFeed(list){var changed=false;
     list.map(cleanLiveGame).filter(Boolean).forEach(function(e){var i=-1;GAMES.forEach(function(g,k){if(i<0&&TM[g[2]].a===e.away&&TM[g[3]].a===e.home)i=k});if(i<0)return;
       var id=GAMES[i][0],cur=live[id];
+      if(e.state==="in"&&e.noClock)return;   // a score without a clock: the game keeps its pregame chance until final
       if(e.state==="in"){var nv={a:e.awayScore,h:e.homeScore,q:Math.min(5,Math.max(1,e.period)),m:Math.round(e.minutes*100)/100,c:e.clock,auto:1};
         if(JSON.stringify(cur)!==JSON.stringify(nv)){live[id]=nv;picks[i]=0;changed=true}}
       else if(e.state==="post"&&e.awayScore!==e.homeScore&&!(cur&&cur.f&&cur.auto)){live[id]={a:e.awayScore,h:e.homeScore,q:4,m:0,f:1,auto:1};picks[i]=e.homeScore>e.awayScore?2:1;changed=true}});
@@ -845,7 +850,8 @@ var nflSimStart=(function(){var started=false;return function(){if(started)retur
       clearTimeout(kill);fails=0;
       var games=(d&&Array.isArray(d.games)?d.games:[]).map(cleanLiveGame).filter(Boolean);
       applyFeed(games);var n=games.filter(function(e){return e.state==="in"}).length;
-      $("feed").hidden=false;$("feed").textContent="Live scores on. "+(n?n+" game"+(n>1?"s":"")+" in progress. ":"No games in progress. ")+"Checked "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+"."+(d.stale?" The score feed did not answer; showing the last scores received.":"");
+      var nc=games.some(function(e){return e.noClock});
+      $("feed").hidden=false;$("feed").textContent="Live scores on"+(nc?" (The Odds API: scores only, no game clock, so games in progress keep their pregame chances until final)":"")+". "+(n?n+" game"+(n>1?"s":"")+" in progress. ":"No games in progress. ")+"Checked "+new Date().toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})+"."+(d.stale?" The score feed did not answer; showing the last scores received.":"");
       everOk=true;schedule();
     }).catch(function(){clearTimeout(kill);fails++;if(!everOk&&fails>=3)return;schedule()})}
   function schedule(){clearTimeout(timerId);timerId=setTimeout(poll,20000*Math.min(4,Math.pow(2,fails)))}

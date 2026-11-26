@@ -36,7 +36,7 @@ function report(p, first, second) {
 
 async function main() {
   const arg = process.argv.find((a) => a.startsWith("--retry-after=")), waitMin = arg ? Number(arg.split("=")[1]) : 20;
-  const fresh = () => createFabric({ scopes: ["public"], cacheDir: null });
+  const fresh = () => createFabric({ scopes: ["public"], cacheDir: null, liveScores: "" });
   const first = await checkOnce(fresh());
   let p = { down: first.down, contract: first.contract }, second = null;
   if (hasProblems(p) && waitMin > 0) {

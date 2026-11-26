@@ -69,6 +69,26 @@ function getFabric() {
   if (!fabric) fabric = require("./lib/fabric").createFabric({ scopes: scopes() });
   return fabric;
 }
+// /api/live on a public server, in /api/live's shape: games in progress from The Odds API's live scores, with no
+// quarter, minutes or clock (the source has none; clockKnown: false tells the page not to make one up), and every final
+// this server knows (this week's and the last week's, from any of its public sources), so a final is not lost when the
+// schedule records it or the week moves on. A game in progress that the source last listed over 3 minutes ago is left
+// out: its score is not current. Null when that source is off here. stale: the source's data is not current.
+const LIVE_MAX_AGE_MS = 180000;
+async function licensedLive() {
+  const f = getFabric(), src = f.sources && f.sources["odds-scores"];
+  if (!src || !src._state.enabled) return null;
+  const u = await f.universe({ waitMs: apiWaitMs() }), st = u.sources && u.sources["odds-scores"], gen = Date.parse(u.generatedAt);
+  const row = (g, state) => ({ away: g.away, home: g.home, awayScore: g.awayScore, homeScore: g.homeScore, state, period: null, minutes: null, clock: null, clockKnown: false,
+    checkedAt: g.checkedAt || null });
+  const games = [];
+  for (const g of u.games || []) {
+    if (g.state === "post" && Number.isFinite(g.awayScore) && Number.isFinite(g.homeScore)) games.push(row(g, "post"));
+    else if (g.state === "in" && g.source === "odds-scores" && gen - Date.parse(g.checkedAt) <= LIVE_MAX_AGE_MS) games.push(row(g, "in"));
+  }
+  for (const g of u.recentFinals || []) if (!games.some((x) => x.away === g.away && x.home === g.home && x.state === "post")) games.push(row(g, "post"));
+  return { games, stale: !st || st.status !== "ok", source: "odds-scores" };
+}
 function sendJson(res, status, obj) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
   res.end(JSON.stringify(obj));
@@ -126,8 +146,12 @@ const server = http.createServer(async (req, res) => {
     try { url = new URL(req.url, "http://localhost"); } catch (_) { res.writeHead(400); return res.end("Bad request"); }
     if (url.pathname.startsWith("/api/") && !hostAllowed(req)) return sendJson(res, 403, { error: "host not allowed" });
     if (url.pathname.startsWith("/api/") && rateLimited(req)) { res.writeHead(429, { "content-type": "application/json; charset=utf-8", "retry-after": "60" }); return res.end('{"error":"too many requests"}'); }
-    // /api/live reads ESPN's scoreboard, which is for local use only (DEC-006): off unless the local scope is on.
-    if (url.pathname === "/api/live" && !scopes().includes("local")) return sendJson(res, 404, { error: "live scores are not available on this server" });
+    // /api/live reads ESPN's scoreboard, which is for local use only (DEC-006). Without the local scope it answers only
+    // when The Odds API's licensed live scores are switched on (DEC-027), and then from those, without a clock.
+    if (url.pathname === "/api/live" && !scopes().includes("local")) {
+      const live = await licensedLive();
+      return live ? sendJson(res, 200, live) : sendJson(res, 404, { error: "live scores are not available on this server" });
+    }
     if (url.pathname === "/api/live") {
       const body = JSON.stringify(await liveGames());
       res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });

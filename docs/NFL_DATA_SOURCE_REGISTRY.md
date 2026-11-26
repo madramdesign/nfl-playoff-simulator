@@ -91,7 +91,7 @@ The strongest new candidates for this project. Records, prices and terms: `docs/
 
 | Candidate | What it adds | Usable? | Next step |
 |---|---|---|---|
-| The Odds API `/scores` | Licensed live scores for the public page (about 30 s) | **Conditions** (same terms as the odds); needs the $30 plan for game-day polling | Owner's budget decision |
+| The Odds API `/scores` | Licensed live scores for the public page (about 30 s). Checked Nov. 26 on the-odds-api.com: 1 credit a call, 2 with `daysFrom`; without `daysFrom` completed games are not returned; scores, `completed` and `last_update` only (no quarter or clock) | **Conditions** (same terms as the odds); needs the $30 plan (20,000 credits) for game-day polling, about 13,900 calls in the busiest month at 30 s | Built (source `odds-scores`, branch `f57-live-scores`, not merged): F57, DEC-027, `PLAN_LIVE_SCORES_PUBLIC.md`. Off until the owner's Gates A and B; not yet run against the real endpoint |
 | FOX Sports NFL RSS | A second national headline feed GitHub may reach (ESPN's refuses it, DEC-024) | **Conditions**: non-commercial, title, link and time only, credit FOX Sports, no AI use of feed text | One read-only test run from a GitHub runner |
 | Bluesky public API (curated insider accounts) | Insider posts without a key | **Conditions** (official embed or link; authors' copyright in post text) | Owner decision on showing post text |
 | GDELT DOC API | Story discovery and coverage counts | **Yes** with a citation to the GDELT Project and a link to gdeltproject.org (any use, including commercial); covers GDELT's records, not the articles they point to | Test reach from GitHub; throttle |
