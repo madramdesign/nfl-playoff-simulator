@@ -1,28 +1,28 @@
 {
  "credit": "Quarterback projections are based on data obtained from FantasyPros",
- "fetched": "2026-11-25T18:37:43+00:00",
+ "fetched": "2026-11-26T18:22:58+00:00",
  "season": 2026,
  "source": "FantasyPros API",
  "teams": {
   "ARI": {
    "name": "Carson Beck",
-   "points": 13.8
+   "points": 13.9
   },
   "ATL": {
    "name": "Michael Penix Jr.",
-   "points": 12.4
+   "points": 12.5
   },
   "BAL": {
    "name": "Jacoby Brissett",
-   "points": 13.4
+   "points": 13.5
   },
   "BUF": {
    "name": "Josh Allen",
-   "points": 20.0
+   "points": 19.8
   },
   "CAR": {
    "name": "Bryce Young",
-   "points": 15.5
+   "points": 15.4
   },
   "CHI": {
    "name": "Caleb Williams",
@@ -30,23 +30,23 @@
   },
   "CIN": {
    "name": "Joe Burrow",
-   "points": 23.9
+   "points": 23.6
   },
   "CLE": {
    "name": "Deshaun Watson",
-   "points": 18.7
+   "points": 18.4
   },
   "DAL": {
    "name": "Dak Prescott",
-   "points": 20.2
+   "points": 20.4
   },
   "DEN": {
    "name": "Bo Nix",
-   "points": 14.2
+   "points": 14.1
   },
   "DET": {
    "name": "Jared Goff",
-   "points": 18.9
+   "points": 19.0
   },
   "GB": {
    "name": "Jordan Love",
@@ -54,35 +54,35 @@
   },
   "HOU": {
    "name": "C.J. Stroud",
-   "points": 20.6
+   "points": 20.7
   },
   "IND": {
    "name": "Anthony Richardson Sr.",
-   "points": 15.0
+   "points": 15.2
   },
   "JAX": {
    "name": "Trevor Lawrence",
-   "points": 22.5
+   "points": 22.6
   },
   "KC": {
    "name": "Patrick Mahomes II",
-   "points": 17.6
+   "points": 17.2
   },
   "LA": {
    "name": "Matthew Stafford",
-   "points": 15.3
+   "points": 15.6
   },
   "LAC": {
    "name": "Justin Herbert",
-   "points": 14.2
+   "points": 13.8
   },
   "LV": {
    "name": "Fernando Mendoza",
-   "points": 14.9
+   "points": 14.7
   },
   "MIA": {
    "name": "Kyle McCord",
-   "points": 14.1
+   "points": 13.6
   },
   "MIN": {
    "name": "Kirk Cousins",
@@ -94,19 +94,19 @@
   },
   "NO": {
    "name": "Tyler Shough",
-   "points": 17.1
+   "points": 17.0
   },
   "NYG": {
    "name": "J.J. McCarthy",
-   "points": 17.0
+   "points": 16.9
   },
   "NYJ": {
    "name": "Geno Smith",
-   "points": 16.8
+   "points": 16.9
   },
   "PHI": {
    "name": "Joe Milton III",
-   "points": 16.2
+   "points": 16.5
   },
   "PIT": {
    "name": "Mason Rudolph",
@@ -118,7 +118,7 @@
   },
   "SF": {
    "name": "Brock Purdy",
-   "points": 17.7
+   "points": 17.6
   },
   "TB": {
    "name": "Baker Mayfield",
@@ -126,11 +126,11 @@
   },
   "TEN": {
    "name": "Cam Ward",
-   "points": 13.6
+   "points": 13.9
   },
   "WAS": {
    "name": "Jayden Daniels",
-   "points": 21.6
+   "points": 21.1
   }
  },
  "week": 12
