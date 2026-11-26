@@ -180,3 +180,20 @@ Record significant decisions with date, status, context, options, decision, rati
 - Options considered: Render's Starter plan ($7 a month, always on, five times the CPU); Fly.io (about $5.19 a month with a 10 GB volume), a DigitalOcean server ($6) or Railway (about $5-10), each a move; staying on the free plan with the changes below. The owner chose to stay on the free plan.
 - Decision: (1) `/api/universe` answers within 6 s (`API_WAIT_MS`; 0 waits for everything): a source still loading then is left out and reported "pending", and keeps loading for the next answer; the schedule and the live scoreboard are always waited for. Callers without a deadline (the live watcher, the daily snapshot) never share a partial answer. (2) A public server starts reading every source as soon as it starts. (3) The page asks again within 15 s while it has no live answer yet or the last one had sources loading (doubling after a failure; the circuit breaker is unchanged), and the status bar counts such sources as "loading", not "degraded". (4) `render.yaml` sets a build filter that ignores `data/fabric/**`, `data/fantasypros/**` and `data/snapshots/**`, which the server does not read; the daily refresh, which changes the page and `data/news.json`, still redeploys.
 - Checked: tests (a held source left out as pending while a slower schedule is still waited for; a full caller not given the partial answer; the page's timing and labels; the API's limit; the build filter), seven deliberately broken versions each caught; a cold local server in the public scope went live in the page within seconds. Not yet seen on Render: a cold start there, and Render skipping a data-only commit (its dashboard shows skipped deploys).
+
+### DEC-026 — Player health data: official designations only
+- Date: 2026-11-25. Status: Accepted (owner: "Approve, start F56").
+- Context: backlog F56 adds each player's availability history. Health information about named people is sensitive, and the constitution asks for no unnecessary personal data and no fabricated or speculative claims.
+- Decision: NFL Universe shows only the league's public, mandated designations:
+  - game status on the official injury report (Out, Doubtful, Questionable);
+  - practice participation (did not participate, limited, full);
+  - the body part as listed on that report;
+  - roster reserve lists (nflverse roster status RES, PUP, RSN).
+
+  The source and report week go with every status. Rules:
+  1. No diagnoses, severity guesses, rumours or inference beyond the listed body part. Health claims in news stay headlines with links.
+  2. No person-level labels such as "injury-prone", and no health risk score for a named player. Factual counts such as "listed Out or on a reserve list in N of the team's M games, per official reports" are allowed.
+  3. Team-level aggregates are allowed.
+  4. Keep only the derived history the features use. Nothing beyond the public nflverse files is stored.
+  5. Descriptive only (DEC-007): nothing enters the forecast without a point-in-time backtest showing an out-of-sample gain.
+- Sources: nflverse `injuries` and `weekly_rosters` (CC-BY-4.0), already wired as `nflverse-injuries` and `nflverse-rosters`. Plan: `PLAN_CONTRACTS_AND_AVAILABILITY.md` §2.

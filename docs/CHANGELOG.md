@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-25 (player availability history, F56)
+- The team drawer shows every listed player's season week by week, from the league's official injury reports and roster lists (nflverse): out, doubtful, questionable, practice-report-only, reserve, PUP and non-football injury lists, byes. It adds a count: "listed out or on a reserve list in N of the team's M games".
+- A new "On reserve lists" part names the players the weekly report leaves out, with the week each stint began.
+- Official designations only (DEC-026): no diagnoses, no labels about a player, and reasons that are not injuries say only "not injury related". Not part of the forecast.
+- Players are joined by nflverse id, or by ESPN id, or by full name when exactly one player on the team has it, and that last case says so. A player with no join gets no history.
+- 6 new fabric tests (81) and 4 page checks; each new rule was shown to fail against deliberately broken code. Checked against the real sources: all 201 listed players got a history (34 joined by name), nobody is listed twice, and the payload passes the contract. Checked in the browser at desktop and phone width.
+
 ## 2026-11-25 (the hosted site after a restart)
 - After a restart, or when Render's free plan wakes it, the hosted site needed about half a minute to read every source, so the page fell back to the saved snapshot and waited 4 minutes before asking again. The server now answers within 6 seconds with what it has, marks the rest "loading" and finishes them in the background, and the page asks again within 15 seconds. Render no longer restarts the site for commits that only change the data files it does not read (DEC-025).
 

@@ -42,6 +42,22 @@ Checked against the repository, GitHub's run history and the live sources on Nov
 - Main findings for this project: nflverse is a republisher (depth charts are ESPN's data since Aug. 3, 2025; Next Gen Stats scraped from the NFL's site; contracts scraped from OverTheCap; Sleeper and other ids from GPL DynastyProcess data); Sleeper's terms changed on Nov. 17, 2026; `nfeloqb` has no licence; the official NFL podcast feeds forbid text and data mining; FOX Sports' RSS is a lawful second national headline feed; The Odds API's `/scores` gives licensed live scores at $30 a month. The registry was updated to match.
 - Not verified: GitHub runners' access to FOX, Bluesky and GDELT; FTN's API price; Polymarket US terms; vendor latency (documentation only). Each is marked UNVERIFIED in the catalog.
 
+## Nov. 25, 2026: player availability history (on `main` since Nov. 26)
+- **Rules:** health-data rules approved by the owner as DEC-026: official designations only, no diagnoses, no labels about a player, not a model input.
+- **Data:** `lib/fabric/availability.js` plus small additions to the nflverse games, injuries and rosters adapters. Each listed player gets a week-by-week history (`history`), and each team a reserve list (`reserve`); `lib/contract.js` checks both. No new downloads: the files were already fetched.
+- **Page:** the team drawer shows a strip of letters per player, the "listed out or on a reserve list in N of M games" count, the latest listing on the report, and an "On reserve lists" section.
+- **Checked:**
+  - `npm test` passes (81 fabric tests, 328 interface checks, 147 layout checks, MCP, engine).
+  - Real sources through a server on port 3056: 201 of 201 listed players with a history, 34 of them joined by name; contract clean.
+  - The browser at 1440 px and 375 px, with no horizontal scroll.
+  - The published page shows the history only once the next data fetch writes a snapshot with this code.
+- **Not built yet:**
+  - snap share after a return;
+  - past seasons;
+  - an MCP tool;
+  - team totals;
+  - the injury-factor backtest (M4).
+
 ## Nov. 25, 2026: NFL TV (on `main`)
 - Panel `tv` (`src/universe/16-tv.js`), fabric source `youtube-reel`, payload `media.reel`, the page policy's `script-src` gains `https://www.youtube.com` (DEC-022). Tests: fabric 73, page 320 checks, layout 147, all passing; eleven deliberate breakages of the new code all caught.
 - Checked in the browser on localhost: muted autoplay, skipping and remembering refused videos, links when none can play, tap to play on a phone-width screen, pause when scrolled out of view.

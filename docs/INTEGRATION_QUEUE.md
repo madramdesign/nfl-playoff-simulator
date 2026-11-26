@@ -10,6 +10,7 @@
 | MCP server (WS4) | `worktree-agent-ad1ce008d0e55eb4f` at `f1962b5` | MCP | Diff read: only owned files; no writes, fetches or code execution beyond loading the page's engine | `npm test` with 4 MCP tests; one live stdio session | Merged `ef668bc`; quarterback rule aligned in `aaef0b3` | |
 | M8 media center | `worktree-nfl-universe` (agent branch `worktree-agent-adaeb813e8038ab4d` at `d0ee0fe` merged) | Orchestrator, frontend, researcher | Diff read; browser check of real playback; independent review: 3 blocking and 11 non-blocking findings, all fixed (`e2e607e`) | `npm test`: engine, 37 fabric, 4 MCP, 174 interface checks; podcast-survives-refresh and live links checked in the browser | Squash-merged into `main` as `0523d28` (owner approved, Nov. 21) | Staged tree identical to the tested branch; `npm test` passed in the main checkout |
 | Integration branch into `main` | `worktree-nfl-universe` at `d72f306` | Owner approved (Nov. 21) | Staged tree identical to the tested branch | `npm test` (4 suites) passed in the main checkout before committing | Squash-merged as `8bd0cff` | Squashed so the ESPN-derived fixture from early in the session is not in `main`'s history (DEC-006) |
+| Player availability history (F56, DEC-026) | `f56-availability` (worktree `.claude/worktrees/f56-availability`) at `3bcc6d2` | Feature-research session | Self-reviewed; each new rule shown to fail against deliberately broken code; no independent review yet | `npm test` (82 fabric tests, 331 interface checks, 147 layout checks) on the merged result; real sources through a local server (201 of 201 listed players with a history, contract clean); browser at 1440 px and 375 px | Fast-forward merged into `worktree-nfl-universe` (Nov. 25); released to `main` Nov. 26 | Renumbered from DEC-025, which the cold-start change had taken |
 
 ### Releases to `main`, Nov. 23–25, 2026
 Each is one squash commit of the integration branch on top of the latest `main`, made on the owner's "Merge and push": the built page is taken from `main` and rebuilt with `build.py --reuse`, `npm test` passes on the result before the push, and `main` is then merged back so both branches hold the same files.
@@ -32,6 +33,7 @@ Each is one squash commit of the integration branch on top of the latest `main`,
 | `564ea6a` | FantasyPros: names compared without suffixes; free agents dropped | `npm test` |
 | `e29dcd6` | NFL TV (DEC-022) | `npm test`; browser on localhost |
 | `783c7b7` | NFL TV: live streams not yet started go last and are skipped | `npm test` (one rerun after a 25-second timer tripped under load); browser on Render after the push |
+| (this commit) | Player availability history (F56, DEC-026) | `npm test` on `main`'s data with the page rebuilt by `build.py --reuse` |
 
 ## Review checklist
 - [ ] Scope and acceptance criteria satisfied

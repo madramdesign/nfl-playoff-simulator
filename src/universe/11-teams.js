@@ -62,6 +62,23 @@ function starterNote(p) {
   return " · " + (p.starter ? "starter" : "backup") + (src ? " (" + src + ")" : "");
 }
 NFLU.starterNote = starterNote;
+// Availability history (F56, DEC-026): official designations only. Pure: the summary sentence for one player's
+// history, or "" when there is none. Counts games, never judges the player.
+var AV_WORDS = { O: "out", D: "doubtful", Q: "questionable", L: "on the practice report only", R: "on a reserve list", U: "on the PUP list", N: "on the non-football injury list", ".": "not listed", "-": "no game (bye)", "?": "not on a roster we have" };
+function availabilitySummary(h) {
+  if (!h || typeof h.weeks !== "string" || !(h.teamGames >= 0)) return "";
+  var s = "Listed out or on a reserve list in " + h.missed + " of the team's " + h.teamGames + " games" + (h.throughWeek ? " through week " + h.throughWeek : "") + " (official reports)";
+  var r = h.lastReport;
+  if (r && r.week) s += "; latest listing on the weekly report: week " + r.week + (r.bodyPart ? ", " + r.bodyPart : "") + (r.practice ? ", practice " + r.practice : "");
+  return s + ".";
+}
+NFLU.availabilitySummary = availabilitySummary;
+// One cell per week, week 1 first; the letter keeps it readable without colour.
+function availabilityStrip(h) {
+  if (!h || typeof h.weeks !== "string") return null;
+  return el("span", { class: "u-avail", role: "img", "aria-label": h.weeks.split("").map(function (c, k) { return "week " + (k + 1) + " " + (AV_WORDS[c] || "unknown"); }).join(", ") },
+    h.weeks.split("").map(function (c, k) { return el("i", { class: "u-av u-av-" + ("ODQLRUN".indexOf(c) >= 0 ? c : c === "." ? "ok" : c === "-" ? "bye" : "na"), title: "Week " + (k + 1) + ": " + (AV_WORDS[c] || "unknown"), text: c === "." ? "" : c }); }));
+}
 function section(title, kids, id) { return el("section", { class: "u-sec", id: id || null }, [el("h3", { text: title }), kids]); }
 // Pure: one team's entry from explainChange() in words. Rows: [label, change in points, detail]; a part under 0.05
 // points is shown as 0. Results and moved games are named with the team's own view.
@@ -127,7 +144,12 @@ function renderTeamCenter(i, body) {
   var injKids = [];
   if (inj) {
     injKids.push(el("p", { class: "u-note", text: "Burden index " + inj.burden.toFixed(2) + ": " + (inj.out || 0) + " out, " + (inj.doubtful || 0) + " doubtful, " + (inj.questionable || 0) + " questionable, " + (inj.ir || 0) + " on injured reserve. Descriptive only, not part of the forecast." }));
-    injKids.push(el("ul", { class: "u-list" }, (inj.players || []).map(function (p) { return el("li", {}, [el("b", { text: p.name }), " " + (p.pos || "") + " · " + p.status + (p.type ? " (" + p.type + ")" : "") + starterNote(p) + (p.source ? " · " + sourceLabel(p.source) : "")]); })));
+    injKids.push(el("ul", { class: "u-list" }, (inj.players || []).map(function (p) { return el("li", {}, [el("b", { text: p.name }), " " + (p.pos || "") + " · " + p.status + (p.type ? " (" + p.type + ")" : "") + starterNote(p) + (p.source ? " · " + sourceLabel(p.source) : ""),
+      p.history ? el("div", { class: "u-avrow" }, [availabilityStrip(p.history), el("span", { class: "u-note", text: availabilitySummary(p.history) + (p.idMatch === "name on the team's roster" ? " Matched to the roster by name." : "") })]) : null]); })));
+    if (inj.reserve && inj.reserve.length) injKids.push(el("details", { class: "u-reserve" }, [el("summary", { text: "On reserve lists: " + inj.reserve.length + (inj.rosterWeek ? " (roster week " + inj.rosterWeek + ")" : "") }),
+      el("ul", { class: "u-list" }, inj.reserve.map(function (r) { return el("li", {}, [el("b", { text: r.name }), " " + (r.pos || "") + " · " + ({ RES: "reserve list", PUP: "PUP list", RSN: "non-football injury list" }[r.status] || r.status) + (r.since ? " since week " + r.since : ""),
+        r.history ? el("div", { class: "u-avrow" }, [availabilityStrip(r.history), el("span", { class: "u-note", text: availabilitySummary(r.history) })]) : null]); }))]));
+    if ((inj.players || []).some(function (p) { return p.history; }) || (inj.reserve || []).length) injKids.push(el("p", { class: "u-note", text: "Week by week, from the league's official injury reports and roster lists (nflverse): O out, D doubtful, Q questionable, L practice report only, R reserve list, U PUP list, N non-football injury list, – bye, blank not listed. Official designations only: no diagnoses, and not part of the forecast." }));
     if (inj.depthAsOf && isFinite(Date.parse(inj.depthAsOf))) injKids.push(el("p", { class: "u-note", text: "Starter or backup: from the team's depth chart (nflverse), as of " + new Date(Date.parse(inj.depthAsOf)).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + "." }));
   } else injKids.push(el("p", { class: "u-note", text: st.payload ? "No injury report for this team in the current data. That is not the same as no injuries." : "No injury feed: no server and no embedded snapshot." }));
   body.appendChild(section("Injuries", injKids));

@@ -868,7 +868,7 @@ Risk: terms; format changes; identity errors.
 
 ## FEATURE-F56 — Player availability history (official injury designations)
 
-Status: Research (gated on the owner approving the health-data rules)
+Status: In progress, first slice on `main` (2026-11-26). Built: week-by-week history and reserve lists in the fabric and the team drawer. Rules approved as DEC-026. Not built yet: snap share after a return, past seasons, an MCP tool, team totals, and the M4 backtest.
 Priority: P1 · Size M
 Category: Intelligence
 Tag: EXISTING—IMPROVE (current-week injury report and depth charts are wired)

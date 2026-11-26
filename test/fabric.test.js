@@ -1446,6 +1446,99 @@ test("the pool never runs more than n at once and stops after an error; a stalle
   await assert.rejects(media.readHead("https://example.com/slow.rss", { timeoutMs: 60, fetchImpl: async () => stalled }), /timeout after 60 ms/);
   assert.ok(Date.now() - t < 1000);
 });
+// --- availability history (F56, DEC-026): official designations only, joined by nflverse id ---
+const AV = require(path.join(root, "lib/fabric/availability.js"));
+const AV_INJ = [
+  "season,game_type,team,week,gsis_id,position,full_name,report_primary_injury,report_status,practice_primary_injury,practice_status",
+  "2026,REG,NYG,9,00-0000002,CB,Fixture Corner,Hamstring,Out,Hamstring,Did Not Participate In Practice",
+  "2026,REG,NYG,10,00-0000002,CB,Fixture Corner,Hamstring,Questionable,Hamstring,Limited Participation in Practice",
+  "2026,REG,NYG,11,00-0000002,CB,Fixture Corner,Hamstring,Questionable,Hamstring,Limited Participation in Practice",
+  "2026,REG,NYG,10,00-0000001,QB,Fixture Passer,,,Ankle,Full Participation in Practice",
+  "2026,REG,NYG,11,00-0000001,QB,Fixture Passer,Ankle,Out,Ankle,Did Not Participate In Practice",
+  "2026,REG,NYG,11,,WR,No Id Receiver,Toe,Out,Toe,Did Not Participate In Practice",
+  "2026,REG,NYG,8,00-0000005,TE,Healthy End,,,Not injury related - personal matter,Did Not Participate In Practice",
+].join("\n");
+const AV_ROSTER = ["season,team,position,status,full_name,gsis_id,espn_id,sleeper_id,week"]
+  .concat([9, 10, 11].map((w) => "2026,NYG,QB,ACT,Fixture Passer,00-0000001,123,111," + w))
+  .concat([9, 10, 11].map((w) => "2026,NYG,CB,ACT,Fixture Corner,00-0000002,,," + w))
+  .concat(["2026,NYG,LB,ACT,Reserve Backer,00-0000003,,,8", "2026,NYG,LB,RES,Reserve Backer,00-0000003,,,9", "2026,NYG,LB,RES,Reserve Backer,00-0000003,,,11",
+    "2026,NYG,RB,PUP,Pup Back,00-0000004,,,11", "2026,NYG,TE,ACT,Healthy End,00-0000005,,,11"]).join("\n");
+test("availability: one letter per week from official designations, counted only in games played", () => {
+  const played = { NYG: AV.bit(1) + AV.bit(2) + AV.bit(4), BUF: AV.bit(1) + AV.bit(2) + AV.bit(3) + AV.bit(4) };   // NYG off in week 3
+  const hist = { g1: { 1: ["Q", "Limited", "Knee"], 2: ["", "Full", "Knee"], 4: ["O", "DNP", "Knee"] } };
+  const h = AV.history({ gsis: "g1", team: "NYG", upTo: 5, hist, reserve: { g1: { 5: "RES" } }, onRoster: { g1: AV.bit(1) + AV.bit(2) + AV.bit(4) }, played });
+  assert.strictEqual(h.weeks, "QL-OR");
+  assert.strictEqual(h.teamGames, 3); assert.strictEqual(h.missed, 1, "only the week-4 Out falls in a game the team played; week 5 is not played yet");
+  assert.strictEqual(h.throughWeek, 4);
+  assert.deepStrictEqual(h.lastReport, { week: 4, practice: "DNP", bodyPart: "Knee" });
+  assert.strictEqual(AV.history({ gsis: "g2", team: "BUF", upTo: 4, hist, reserve: {}, onRoster: { g2: AV.bit(4) }, played }).weeks, "???.", "weeks off every roster we have are unknown, not healthy");
+  assert.strictEqual(AV.history({ gsis: null, team: "NYG", upTo: 4, hist, played }), null, "no id, no history: never guessed from a name");
+  assert.strictEqual(AV.history({ gsis: "g1", team: "NYG", upTo: 0, hist, played }), null);
+  assert.ok(AV.LETTERS.includes("O") && !/[a-z]/.test(AV.LETTERS));
+  assert.deepStrictEqual(["Did Not Participate In Practice", "Limited Participation in Practice", "Full Participation in Practice", ""].map(AV.PRACTICE), ["DNP", "Limited", "Full", null]);
+});
+test("availability: a reserve stint runs through weeks with no roster row and stops at any other status", () => {
+  assert.strictEqual(AV.since({ 9: "RES", 11: "RES" }, AV.bit(8) + AV.bit(9) + AV.bit(11), 11), 9, "week 10 has no row (a bye): the stint began in week 9");
+  assert.strictEqual(AV.since({ 9: "RES", 11: "RES" }, AV.bit(9) + AV.bit(10) + AV.bit(11), 11), 11, "on the roster in week 10 with another status: a new stint");
+  assert.strictEqual(AV.since({ 9: "RES" }, AV.bit(9), 11), null, "not on a reserve list in the newest week");
+});
+test("normalizers keep every week's listings, reserve lists and weeks played", () => {
+  const inj = pub.normalizeInjuries(AV_INJ, 2026);
+  assert.deepStrictEqual(inj.hist["00-0000002"][9], ["O", "DNP", "Hamstring"]);
+  assert.deepStrictEqual(inj.hist["00-0000001"][10], ["", "Full", "Ankle"], "practice-only listing keeps its body part from the practice column");
+  assert.ok(!Object.keys(inj.hist).includes(""), "rows with no id are left out of the history");
+  assert.deepStrictEqual(inj.hist["00-0000005"][8], ["", "DNP", "not injury related"], "reasons that are not injuries keep no personal detail (DEC-026)");
+  const ro = pub.normalizeRosters(AV_ROSTER, 2026);
+  assert.deepStrictEqual(ro.reserve["00-0000003"], { 9: "RES", 11: "RES" });
+  assert.deepStrictEqual(ro.reserveNow.NYG.map((r) => [r.name, r.status, r.since]), [["Reserve Backer", "RES", 9], ["Pup Back", "PUP", 11]]);
+  assert.ok(AV.has(ro.onRoster["00-0000001"], 9) && !AV.has(ro.onRoster["00-0000001"], 8));
+  const g = pub.normalizeGames(GAMES_CSV, 2026, Date.parse("2026-11-21T16:00:00Z"));
+  assert.ok(AV.has(g.played.NYG, 10) && AV.has(g.played.DAL, 10) && !AV.has(g.played.NYG, 11) && AV.has(g.played.HOU, 11), "only finished regular-season games count");
+});
+test("fabric attaches availability history and reserve lists, and the public snapshot passes", async () => {
+  const base = fakeFetch();
+  const f = async (url) => (url.includes("injuries_") ? { ok: true, status: 200, text: async () => AV_INJ, json: async () => ({}) }
+    : url.includes("roster_weekly_") ? { ok: true, status: 200, text: async () => AV_ROSTER, json: async () => ({}) } : base(url));
+  const u = await createFabric({ scopes: ["public"], cacheDir: null, season: 2026, now: NOW, fetchImpl: f }).universe();
+  assert.deepStrictEqual(C.validatePublicSnapshot(u, T), []);
+  assert.deepStrictEqual(C.validateUniverse(u, T), []);
+  const nyg = u.injuries.NYG, qb = nyg.players.find((p) => p.name === "Fixture Passer"), noId = nyg.players.find((p) => p.name === "No Id Receiver");
+  assert.ok(qb.history && qb.history.weeks.endsWith("LO"), JSON.stringify(qb.history));
+  assert.strictEqual(qb.history.missed, 0, "week 11 has not been played in the fixture");
+  assert.ok(noId && !noId.history, "a player with no id gets no history");
+  assert.deepStrictEqual(nyg.reserve.map((r) => r.name), ["Reserve Backer", "Pup Back"]);
+  assert.ok(nyg.reserve.every((r) => r.source === "nflverse-rosters" && r.history && /^[ODQLRUN.?-]+$/.test(r.history.weeks)));
+  assert.ok(!nyg.reserve.some((r) => r.name === "Healthy End"), "active players are not on a reserve list");
+  assert.ok(nyg.reserve.every((r) => !nyg.players.some((p) => p.gsisId === r.gsisId)), "nobody is listed twice");
+});
+test("an injured player with no id joins the roster by full name only when exactly one player on the team has it", async () => {
+  const base = fakeFetch();
+  const roster = AV_ROSTER + "\n2026,NYG,DB,ACT,Twin Name,00-0000006,,,11\n2026,NYG,DB,ACT,Twin Name,00-0000007,,,11";
+  const espnInj = { injuries: [{ id: "19", injuries: [
+    { status: "Injured Reserve", athlete: { id: "999001", displayName: "Reserve Backer", position: { abbreviation: "OLB" } }, details: { type: "Knee" } },
+    { status: "Out", athlete: { id: "999002", displayName: "Twin Name", position: { abbreviation: "S" } }, details: { type: "Ankle" } }] }] };
+  const f = async (url) => (url.includes("injuries_") ? { ok: true, status: 200, text: async () => AV_INJ, json: async () => ({}) }
+    : url.includes("roster_weekly_") ? { ok: true, status: 200, text: async () => roster, json: async () => ({}) }
+    : new URL(url).pathname.endsWith("/injuries") ? { ok: true, status: 200, json: async () => espnInj, text: async () => JSON.stringify(espnInj) } : base(url));
+  const u = await createFabric({ scopes: ["public", "local"], cacheDir: null, season: 2026, now: NOW, fetchImpl: f }).universe();
+  const nyg = u.injuries.NYG, rb = nyg.players.filter((p) => p.name === "Reserve Backer"), twin = nyg.players.find((p) => p.name === "Twin Name");
+  assert.strictEqual(rb.length, 1); assert.strictEqual(rb[0].gsisId, "00-0000003"); assert.strictEqual(rb[0].idMatch, "name on the team's roster");
+  assert.ok(rb[0].history && rb[0].history.weeks.includes("R"));
+  assert.ok(!nyg.reserve.some((r) => r.name === "Reserve Backer"), "listed once, not again on the reserve list");
+  assert.ok(twin && !twin.gsisId && !twin.history, "two roster players share the name: no join, no history");
+});
+test("contract rejects malformed availability and local reserve sources", () => {
+  assert.deepStrictEqual(C.availabilityErrs({ weeks: "Q.-O", missed: 1, teamGames: 3, throughWeek: 4, lastReport: null }), []);
+  assert.ok(C.availabilityErrs({ weeks: "<script>", missed: 0, teamGames: 0 }).some((m) => /weeks/.test(m)));
+  assert.ok(C.availabilityErrs({ weeks: "O", missed: 2, teamGames: 1 }).some((m) => /missed/.test(m)), "more games missed than played");
+  assert.ok(C.availabilityErrs([]).length && C.availabilityErrs("x").length);
+  const u = JSON.parse(JSON.stringify(require(path.join(root, "test/fixtures/universe.public.json"))));
+  const a = Object.keys(u.injuries)[0];
+  u.injuries[a].reserve = [{ name: "X", status: "HURT", since: 0, source: "espn-injuries", history: { weeks: "O", missed: 0, teamGames: 0 } }];
+  const errs = C.validateUniverse(u, T), pubErrs = C.validatePublicSnapshot(u, T);
+  assert.ok(errs.some((m) => /reserve\[0\]\.status/.test(m)) && errs.some((m) => /reserve\[0\]\.since/.test(m)), errs.join("; "));
+  assert.ok(pubErrs.some((m) => /reserve\[0\]: from non-public source/.test(m)), pubErrs.join("; "));
+});
 test("synthetic fixtures satisfy the contracts", () => {
   assert.deepStrictEqual(C.validateUniverse(require(path.join(root, "test/fixtures/universe.sample.json")), T), []);
   assert.deepStrictEqual(C.validatePublicSnapshot(require(path.join(root, "test/fixtures/universe.public.json")), T), []);

@@ -413,6 +413,12 @@ a.u-tk:hover{text-decoration:underline}
 .u-list{margin:4px 0 0;padding-left:18px}
 .u-list li{margin:3px 0}
 .u-list.u-cols{columns:2}
+.u-avrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 0 4px}
+.u-avail{display:inline-flex;gap:2px}
+.u-av{display:inline-block;width:14px;height:14px;border-radius:2px;font:600 9px/14px system-ui,sans-serif;text-align:center;font-style:normal;background:color-mix(in srgb,var(--muted) 20%,transparent);color:var(--muted)}
+.u-av-O,.u-av-R,.u-av-U,.u-av-N{background:color-mix(in srgb,var(--u-bad) 55%,transparent);color:inherit}.u-av-D{background:color-mix(in srgb,var(--u-warn) 60%,transparent);color:inherit}.u-av-Q{background:color-mix(in srgb,var(--u-warn) 30%,transparent);color:inherit}
+.u-av-L{outline:1px solid var(--u-warn);background:transparent}.u-av-ok{background:color-mix(in srgb,var(--u-ok) 35%,transparent)}.u-av-bye,.u-av-na{background:transparent;outline:1px dashed var(--muted)}
+.u-reserve summary{cursor:pointer;margin:6px 0 2px}
 .u-prove li.is-strong{color:var(--ink);font-weight:600}
 .u-spark{display:block;width:100%;height:auto;max-width:420px}
 .u-sparkline{fill:none;stroke:var(--accent);stroke-width:2;stroke-linejoin:round}

@@ -381,6 +381,12 @@ eq(U.teamFantasy(FN, idx("BUF")).drops.map((x) => x.count), [300], "and its drop
 ok(U.normFantasy(null).present === false && U.normFantasy({}).adds.length === 0 && U.buildModel(live).fantasy.present === false, "no block: marked absent");
 eq([U.starterNote({ starter: true, starterSource: "depth chart" }), U.starterNote({ starter: false, starterSource: "depth chart" }), U.starterNote({ starter: true, starterSource: "last start" }), U.starterNote({ starter: null }), U.starterNote({ starter: true }), U.starterNote(null)],
   [" · starter (depth chart)", " · backup (depth chart)", " · starter (started last game)", "", " · starter", ""], "starter labels say where they come from");
+// ---- availability history (F56, DEC-026) ----
+eq(U.availabilitySummary({ weeks: "QL-OR", missed: 1, teamGames: 3, throughWeek: 4, lastReport: { week: 4, practice: "DNP", bodyPart: "Knee" } }),
+  "Listed out or on a reserve list in 1 of the team's 3 games through week 4 (official reports); latest listing on the weekly report: week 4, Knee, practice DNP.", "availability counts games and names its source");
+eq(U.availabilitySummary({ weeks: "..", missed: 0, teamGames: 2, throughWeek: null, lastReport: null }), "Listed out or on a reserve list in 0 of the team's 2 games (official reports).", "no report: counts only");
+ok(["", ""].every((x, k) => U.availabilitySummary([null, { weeks: 5 }][k]) === x), "no history, no sentence");
+ok(!/prone|risk|fragile|healthy/i.test(U.availabilitySummary({ weeks: "OOOO", missed: 4, teamGames: 4, throughWeek: 4, lastReport: null })), "no person-level labels (DEC-026)");
 
 // ---- NWS alerts (F29) ----
 const CA = U.cleanAlerts([{ event: "Wind Advisory", severity: "Moderate", headline: "Wind Advisory until 7 PM", onset: "2026-11-22T15:00:00Z", ends: "2026-11-23T00:00:00Z", url: "https://forecast.weather.gov/MapClick.php?lat=42.7&lon=-78.7" },
