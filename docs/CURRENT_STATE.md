@@ -31,6 +31,17 @@ Checked against the repository, GitHub's run history and the live sources on Nov
 
 **Owner decisions**: see "Decisions waiting on the owner" below.
 
+**From the data-universe research (NU-018, Nov. 25 evening; docs only)**
+10. Fixes found, not made (code or contract files): snowfall shown about 2.5 times too small (`lib/fabric/adapters/public.js` divides inches by 2.54 again); Buffalo's stadium coordinates are the old stadium's and `neutralSites` lacks the 2026 international venues (`shared/teams.json`, orchestrator); the FantasyPros call passes a `scoring` parameter the projections endpoint does not have (check what the stored points mean); pin the nflfastR model version before storing EPA or win probability (every season was recalculated on Nov. 25).
+11. F55 Gate A (contracts), answered by the research: OverTheCap's terms bar "any systematic retrieval ... to create or compile any database" without express written consent and allow personal use only; they offer an embed for single figures and licences on request. nflverse's contracts are scraped from OverTheCap's pages. So: ask OverTheCap for permission, use its embed, or keep contracts local (registry, "OverTheCap").
+12. Flagged, not urgent: NFL.com's terms (§8) allow links only to its home page without permission; `data/news.json` holds one NFL.com article link and NFL TV links the NFL Channel page (FEATURE_RESEARCH open question 6 already raised deep links).
+
+## Nov. 25, 2026 (evening): NFL data and API universe research (NU-018, docs only)
+- New folder `docs/research/nfl-data-universe/`: blueprint (`NFL_API_UNIVERSE.md`), catalog of 369 source records, a 334-row comparison matrix, architecture (pipeline, dependency graph, canonical tables, refresh intervals, security), recommended stacks and a cost model from $0 to $1,000+ a month, backup chains for 45 data categories, derived-metric recipes, gaps, and the research log; the ten track reports and two verification reports are in `tracks/`.
+- How: ten read-only research agents (one per domain), then two verification agents on the claims most at risk; a usage limit interrupted the first session, and the merge and verifications were finished in a second session the same evening. No code changed.
+- Main findings for this project: nflverse is a republisher (depth charts are ESPN's data since Aug. 3, 2025; Next Gen Stats scraped from the NFL's site; contracts scraped from OverTheCap; Sleeper and other ids from GPL DynastyProcess data); Sleeper's terms changed on Nov. 17, 2026; `nfeloqb` has no licence; the official NFL podcast feeds forbid text and data mining; FOX Sports' RSS is a lawful second national headline feed; The Odds API's `/scores` gives licensed live scores at $30 a month. The registry was updated to match.
+- Not verified: GitHub runners' access to FOX, Bluesky and GDELT; FTN's API price; Polymarket US terms; vendor latency (documentation only). Each is marked UNVERIFIED in the catalog.
+
 ## Nov. 25, 2026: NFL TV (on `main`)
 - Panel `tv` (`src/universe/16-tv.js`), fabric source `youtube-reel`, payload `media.reel`, the page policy's `script-src` gains `https://www.youtube.com` (DEC-022). Tests: fabric 73, page 320 checks, layout 147, all passing; eleven deliberate breakages of the new code all caught.
 - Checked in the browser on localhost: muted autoplay, skipping and remembering refused videos, links when none can play, tap to play on a phone-width screen, pause when scrolled out of view.
@@ -152,6 +163,10 @@ Checked against the repository, GitHub's run history and the live sources on Nov
 4. Sleeper "my league" (F18): whether to connect a league, read-only and local.
 5. Storing Web Push subscriptions (F10 stage 2, F39).
 6. Removing the three finished worktrees (see "What is left").
+7. nflverse datasets whose upstream owners restrict reuse (NU-018): whether the public snapshot keeps depth-chart starter labels (ESPN's data via nflverse) and the Sleeper-trend names resolved through weekly-roster ids (from GPL-3.0 DynastyProcess data). Options: keep with attribution, keep only derived labels, or resolve from other sources. Next Gen Stats, Pro Football Reference-sourced tables and OverTheCap contracts: local analysis only unless their owners allow more.
+8. Sleeper's General Terms of Nov. 17, 2026 (§11.1, §11.3) require written consent for automated access, while its API page still says "free to use for non-commercial purposes": keep the trending block, ask Sleeper for written confirmation, or drop it.
+9. `nfeloqb/qb_elos.csv`, read by every build, has no licence: ask nfelo, or switch to nfelo's licensed outputs or our own quarterback metric.
+10. The Odds API's $30-a-month plan for licensed live scores on the public site (`/scores`, about 30-second updates), if live scores there are wanted.
 - Settled since Nov. 23: The Odds API key (on the owner's Mac in `~/.zshenv` and as the GitHub secret `ODDS_API_KEY`, Nov. 25; DEC-019); where the server runs (Render, public sources only; DEC-018); where the refresh runs (claude.ai routine plus GitHub Actions; DEC-021); the FantasyPros key (GitHub secret, Nov. 25).
 
 ## Effects of the Nov. 21 merge (seen since)

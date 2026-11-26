@@ -6,7 +6,7 @@ The orchestrator is the single owner of task assignment, dependency tracking, re
 Claude Code creates subagent worktrees from `main`. Every implementation agent first runs `git merge worktree-nfl-universe` in its own worktree (DEC-011).
 
 ## Active agents and worktrees
-Nov. 25, 2026: no agents are running. Since Nov. 23 the orchestrator has worked on the integration branch one task at a time and released each to `main` as a squash commit on the owner's word ([INTEGRATION_QUEUE.md](INTEGRATION_QUEUE.md)). Three finished worktrees are still on disk (`agent-ad1ce008d0e55eb4f`, `agent-adaeb813e8038ab4d`, `panel-layout`); they are merged and can be removed with the owner's OK.
+Nov. 25, 2026 (evening): no agents are running. NU-018, the NFL data and API universe research, ran ten read-only researcher agents at once (tracks R1–R10) and then two read-only verification agents (V1, V2); none had a worktree or wrote in the repository. A usage limit stopped the first session; a second session finished the verifications and the merge the same evening. The orchestrator alone wrote `docs/research/nfl-data-universe/` and the living docs. Since Nov. 23 the orchestrator has worked on the integration branch one task at a time and released each to `main` as a squash commit on the owner's word ([INTEGRATION_QUEUE.md](INTEGRATION_QUEUE.md)). Three finished worktrees are still on disk (`agent-ad1ce008d0e55eb4f`, `agent-adaeb813e8038ab4d`, `panel-layout`); they are merged and can be removed with the owner's OK.
 
 | Agent | Task | Branch | Worktree path | Owned paths | Dependencies | Status |
 |---|---|---|---|---|---|---|
@@ -39,6 +39,7 @@ Nov. 25, 2026: no agents are running. Since Nov. 23 the orchestrator has worked 
 | NU-015 | Movable, resizable panels | P1 | Frontend | NU-007 | Layout checks; browser at desktop and phone widths | Done, reviewed twice, on `main` |
 | NU-016 | Backlog work Nov. 23–25 (F01, F04, F22, F23, F24, F29 alerts, F30, F31, data fetch on GitHub, week rollover, FantasyPros, NFL TV) | P0–P1 | Orchestrator | per item | per item, in `FEATURE_BACKLOG.md` | Done, on `main`; see `INTEGRATION_QUEUE.md` |
 | NU-017 | What is left on Nov. 25 | | Orchestrator | | | Listed at the top of `CURRENT_STATE.md` |
+| NU-018 | NFL data and API universe research (docs only): ten parallel read-only tracks — R1 official NFL and league, R2 commercial data providers, R3 play-by-play, advanced analytics, coaching, officiating, special teams, R4 tracking and computer vision, R5 weather, stadiums, geospatial, travel, R6 injuries, rosters, depth charts, transactions, contracts, R7 odds and prediction markets, R8 fantasy, R9 news, social, media, R10 historical, open source, academic, college and draft — then a verification pass | P1 | Orchestrator + researchers | none | Nine documents in `docs/research/nfl-data-universe/` with cited, dated evidence; unverified claims marked; registry and current state updated | Done (Nov. 25, docs only): 369 source records, 12 track and verification reports in `tracks/`; registry, `CURRENT_STATE.md` and owner decisions 7–10 updated |
 
 ## Questions from the paused frontend work (answered Nov. 21 when NU-007 restarted)
 | From | Question | Proposed answer |
