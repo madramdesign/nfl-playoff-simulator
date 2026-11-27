@@ -1,12 +1,12 @@
 {
  "credit": "Quarterback projections are based on data obtained from FantasyPros",
- "fetched": "2026-11-26T18:22:58+00:00",
+ "fetched": "2026-11-27T18:08:22+00:00",
  "season": 2026,
  "source": "FantasyPros API",
  "teams": {
   "ARI": {
    "name": "Carson Beck",
-   "points": 13.9
+   "points": 11.3
   },
   "ATL": {
    "name": "Michael Penix Jr.",
@@ -14,11 +14,11 @@
   },
   "BAL": {
    "name": "Jacoby Brissett",
-   "points": 13.5
+   "points": 13.6
   },
   "BUF": {
    "name": "Josh Allen",
-   "points": 19.8
+   "points": 19.9
   },
   "CAR": {
    "name": "Bryce Young",
@@ -26,19 +26,19 @@
   },
   "CHI": {
    "name": "Caleb Williams",
-   "points": 19.3
+   "points": 19.4
   },
   "CIN": {
    "name": "Joe Burrow",
-   "points": 23.6
+   "points": 23.4
   },
   "CLE": {
    "name": "Deshaun Watson",
-   "points": 18.4
+   "points": 18.1
   },
   "DAL": {
    "name": "Dak Prescott",
-   "points": 20.4
+   "points": 20.3
   },
   "DEN": {
    "name": "Bo Nix",
@@ -58,11 +58,11 @@
   },
   "IND": {
    "name": "Anthony Richardson Sr.",
-   "points": 15.2
+   "points": 15.1
   },
   "JAX": {
    "name": "Trevor Lawrence",
-   "points": 22.6
+   "points": 22.0
   },
   "KC": {
    "name": "Patrick Mahomes II",
@@ -74,15 +74,15 @@
   },
   "LAC": {
    "name": "Justin Herbert",
-   "points": 13.8
+   "points": 11.7
   },
   "LV": {
    "name": "Fernando Mendoza",
-   "points": 14.7
+   "points": 14.4
   },
   "MIA": {
    "name": "Kyle McCord",
-   "points": 13.6
+   "points": 13.4
   },
   "MIN": {
    "name": "Kirk Cousins",
@@ -90,11 +90,11 @@
   },
   "NE": {
    "name": "Tommy DeVito",
-   "points": 13.7
+   "points": 13.9
   },
   "NO": {
    "name": "Tyler Shough",
-   "points": 17.0
+   "points": 16.9
   },
   "NYG": {
    "name": "J.J. McCarthy",
@@ -106,19 +106,19 @@
   },
   "PHI": {
    "name": "Joe Milton III",
-   "points": 16.5
+   "points": 16.6
   },
   "PIT": {
    "name": "Mason Rudolph",
-   "points": 13.2
+   "points": 13.1
   },
   "SEA": {
    "name": "Sam Darnold",
-   "points": 14.4
+   "points": 14.2
   },
   "SF": {
    "name": "Brock Purdy",
-   "points": 17.6
+   "points": 17.5
   },
   "TB": {
    "name": "Baker Mayfield",
@@ -126,11 +126,11 @@
   },
   "TEN": {
    "name": "Cam Ward",
-   "points": 13.9
+   "points": 13.8
   },
   "WAS": {
    "name": "Jayden Daniels",
-   "points": 21.1
+   "points": 21.0
   }
  },
  "week": 12
